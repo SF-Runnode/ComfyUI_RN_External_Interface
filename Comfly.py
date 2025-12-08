@@ -135,7 +135,7 @@ class Comfly_api_set:
         return {
             "required": {
                 "api_base": (["RunNode", "ip", "hk", "us"], {"default": "RunNode"}),
-                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": ""}),
             },
             "optional": {
                 "custom_ip": ("STRING", {"default": "", "placeholder": "Enter IP when using 'ip' option (e.g. http://104.194.8.112:9088)"}),
@@ -6447,7 +6447,8 @@ class Comfly_sora2_openai:
             headers = {"Authorization": f"Bearer {self.api_key}"}
             
             pbar.update_absolute(20)
-
+            
+            # 请求体 暂不修改
             response = requests.post(
                 "https://ai.t8star.cn/v1/videos",
                 headers=headers,
@@ -6483,6 +6484,7 @@ class Comfly_sora2_openai:
                 attempts += 1
                 
                 try:
+                    # 请求体，暂不修改
                     status_response = requests.get(
                         f"https://ai.t8star.cn/v1/videos/{task_id}",
                         headers=self.get_headers(),
@@ -11617,7 +11619,7 @@ class OpenAISoraAPIPlus:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": "https://ai.t8star.cn/v1", "multiline": False}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
                 "model": ("STRING", {"default": "sora_video2", "multiline": False}),
                 # "api_key": ("STRING", {"default": "", "multiline": False}),
                 "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
@@ -11657,6 +11659,8 @@ class OpenAISoraAPIPlus:
         超时：
           - timeout=600 秒
         """
+        if not base_url.strip():  
+            base_url = "https://ai.t8star.cn/v1"
         if not api_key:
             return (None, "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
@@ -12119,7 +12123,7 @@ class OpenAISoraAPI:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": "https://ai.t8star.cn/v1", "multiline": False}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
                 "model": ("STRING", {"default": "sora_video2", "multiline": False}),
                 # "api_key": ("STRING", {"default": "", "multiline": False}),
                 "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
@@ -12160,6 +12164,8 @@ class OpenAISoraAPI:
         超时：
           - timeout=600 秒
         """
+        if not base_url.strip():  
+            base_url = "https://ai.t8star.cn/v1"
         if not api_key:
             return (None, "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
