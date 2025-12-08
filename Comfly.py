@@ -37,21 +37,96 @@ from comfy_api.util import VideoComponents
 from comfy_api.input_impl import VideoFromComponents
 from fractions import Fraction
 
-baseurl = "https://ai.t8star.cn"
+# baseurl = "https://ai.t8star.cn"
+
+
+
+# def get_config():
+#     try:
+#         config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Comflyapi.json')
+#         with open(config_path, 'r') as f:
+#             config = json.load(f)
+#         return config
+#     except:
+#         return {}
+
+# def save_config(config):
+#     config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Comflyapi.json')
+#     with open(config_path, 'w') as f:
+#         json.dump(config, f, indent=4)
 
 def get_config():
     try:
-        config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Comflyapi.json')
-        with open(config_path, 'r') as f:  
+        # 修改配置文件路径为新的配置文件
+        config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config",
+                                  'ComfyUI_RN_External_Interface-config.json')
+        
+        with open(config_path, 'r', encoding='utf-8') as f:  
             config = json.load(f)
-        return config
-    except:
+        
+        # 从llm部分获取当前provider的配置
+        llm_config = config.get('llm', {})
+        current_provider = llm_config.get('current_provider', 'deepseek')
+        providers = llm_config.get('providers', {})
+        
+        # 获取当前provider的配置
+        if current_provider in providers:
+            provider_config = providers[current_provider]
+            # 返回包含api_key的字典，保持与原函数兼容
+            return {
+                'api_key': provider_config.get('api_key', ''),
+                'model': provider_config.get('model', ''),
+                'base_url': provider_config.get('base_url', ''),
+                'temperature': provider_config.get('temperature', 0.7),
+                'max_tokens': provider_config.get('max_tokens', 1000),
+                'top_p': provider_config.get('top_p', 0.9)
+            }
+        else:
+            # 如果当前provider不存在，返回空字典
+            return {}
+            
+    except Exception as e:
+        print(f"Error loading config: {e}")
         return {}
 
 def save_config(config):
-    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Comflyapi.json')
-    with open(config_path, 'w') as f:
-        json.dump(config, f, indent=4)
+    try:
+        # 修改配置文件路径为新的配置文件
+        config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
+                                  'ComfyUI_RN_External_Interface-config.json')
+        
+        # 先读取现有的配置
+        with open(config_path, 'r', encoding='utf-8') as f:
+            existing_config = json.load(f)
+        
+        # 从llm部分获取当前provider
+        llm_config = existing_config.get('llm', {})
+        current_provider = llm_config.get('current_provider', 'deepseek')
+        providers = llm_config.get('providers', {})
+        
+        # 更新当前provider的api_key
+        if current_provider in providers:
+            # 只更新api_key，保持其他配置不变
+            if 'api_key' in config:
+                providers[current_provider]['api_key'] = config['api_key']
+            
+            # 可选：更新其他字段
+            for key in ['model', 'base_url', 'temperature', 'max_tokens', 'top_p']:
+                if key in config:
+                    providers[current_provider][key] = config[key]
+            
+            # 更新回配置
+            existing_config['llm']['providers'] = providers
+            
+            # 写回文件
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(existing_config, f, indent=2, ensure_ascii=False)
+                
+    except Exception as e:
+        print(f"Error saving config: {e}")
+
+
+baseurl = get_config().get('base_url', '')
 
 
 class Comfly_api_set:
@@ -60,7 +135,7 @@ class Comfly_api_set:
         return {
             "required": {
                 "api_base": (["RunNode", "ip", "hk", "us"], {"default": "RunNode"}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
             },
             "optional": {
                 "custom_ip": ("STRING", {"default": "", "placeholder": "Enter IP when using 'ip' option (e.g. http://104.194.8.112:9088)"}),
@@ -440,7 +515,8 @@ class Comfly_upload(ComflyBaseNode):
         return {
             "required": {
                 "image": ("IMAGE",),
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             },
         }
     
@@ -598,7 +674,8 @@ class Comfly_Mj(ComflyBaseNode):
             },
             "optional": {
                 "text_en": ("STRING", {"multiline": True, "default": ""}),
-                "api_key": ("STRING", {"default": ""}),  
+                # "api_key": ("STRING", {"default": ""}),  
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "ar": ("STRING", {"default": "1:1"}),
                 "model_version": (["v 7", "v 6.1", "v 6.0", "v 5.2", "v 5.1", "niji 6", "niji 5", "niji 4"], {"default": "v 6.1"}),
                 "no": ("STRING", {"default": "", "forceInput": True}),
@@ -874,7 +951,8 @@ class Comfly_Mju(ComflyBaseNode):
                 "U4": ("BOOLEAN", {"default": False})
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""})
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
 
@@ -1342,7 +1420,8 @@ class Comfly_Mjv(ComflyBaseNode):
                 "taskId": ("STRING", {"default": "", "forceInput": True}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "upsample_v6_2x_subtle": ("BOOLEAN", {"default": False}),
                 "upsample_v6_2x_creative": ("BOOLEAN", {"default": False}),
                 "costume_zoom": ("BOOLEAN", {"default": False}),
@@ -1651,7 +1730,8 @@ class Comfly_Mj_swap_face(ComflyBaseNode):
                 "target_image": ("IMAGE",),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
         }
@@ -1926,7 +2006,8 @@ class Comfly_mj_video(ComflyBaseNode):
                 "motion": (["Low", "high"], {"default": "Low"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "image": ("IMAGE",),
                 "notify_hook": ("STRING", {"default": ""}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
@@ -2213,7 +2294,8 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                 "index": ([0, 1, 2, 3], {"default": 0}),   
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -2422,7 +2504,8 @@ class Comfly_kling_text2video:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "camera": (["none", "horizontal", "vertical", "zoom", "vertical_shake", "horizontal_shake", 
                           "rotate", "master_down_zoom", "master_zoom_up", "master_right_rotate_zoom", 
                           "master_left_rotate_zoom"], {"default": "none"}),
@@ -2619,7 +2702,8 @@ class Comfly_kling_image2video:
             },
             "optional": {
                 "image_tail": ("IMAGE",),
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "camera": (["none", "horizontal", "vertical", "zoom", "vertical_shake", "horizontal_shake", 
                           "rotate", "master_down_zoom", "master_zoom_up", "master_right_rotate_zoom", 
                           "master_left_rotate_zoom"], {"default": "none"}),
@@ -2861,7 +2945,8 @@ class Comfly_kling_multi_image2video:
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
                 "image4": ("IMAGE",),
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "max_retries": ("INT", {"default": 10, "min": 1, "max": 30}),
                 "initial_timeout": ("INT", {"default": 600, "min": 30, "max": 900}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
@@ -3134,7 +3219,8 @@ class Comfly_video_extend:
                 "prompt": ("STRING", {"default": "", "multiline": True}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""})
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
 
@@ -3314,7 +3400,8 @@ class Comfly_lip_sync:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "video_url": ("STRING", {"default": ""}),
                 "audio_type": (["file", "url"], {"default": "file"}),
                 "audio_file": ("STRING", {"default": ""}),
@@ -3464,7 +3551,8 @@ class ComflyGeminiAPI:
                 "timeout": ("INT", {"default": 120, "min": 10, "max": 600, "step": 10}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "object_image": ("IMAGE",),  
                 "subject_image": ("IMAGE",),
                 "scene_image": ("IMAGE",),
@@ -3736,7 +3824,8 @@ class Comfly_Doubao_Seedream:
                 "guidance_scale": ("FLOAT", {"default": 2.5, "min": 1.0, "max": 10.0, "step": 0.1}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647}),
                 "watermark": ("BOOLEAN", {"default": True})
             }
@@ -3922,7 +4011,8 @@ class Comfly_Doubao_Seedream_4:
                 "aspect_ratio": (["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "3:2", "21:9", "9:21", "Custom"], {"default": "1:1"}),
                 "width": ("INT", {"default": 1024, "min": 64, "max": 8192, "step": 1}),
                 "height": ("INT", {"default": 1024, "min": 64, "max": 8192, "step": 1}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
@@ -4187,7 +4277,8 @@ class Comfly_Doubao_Seedream_4_5:
                 "aspect_ratio": (["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "3:2", "21:9", "9:21", "Custom"], {"default": "16:9"}),
                 "width": ("INT", {"default": 1024, "min": 64, "max": 8192, "step": 1}),
                 "height": ("INT", {"default": 1024, "min": 64, "max": 8192, "step": 1}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
@@ -4439,7 +4530,8 @@ class Comfly_Doubao_Seededit:
                 "guidance_scale": ("FLOAT", {"default": 5.5, "min": 1.0, "max": 10.0, "step": 0.1}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647}),
                 "watermark": ("BOOLEAN", {"default": True})
             }
@@ -4587,7 +4679,8 @@ class ComflyJimengApi:
                 "height": ("INT", {"default": 1328, "min": 512, "max": 2048, "step": 8}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "use_pre_llm": ("BOOLEAN", {"default": False}),
                 "add_logo": ("BOOLEAN", {"default": False}),
                 "logo_position": (["右下角", "左下角", "左上角", "右上角"], {"default": "右下角"}),
@@ -4938,7 +5031,8 @@ class ComflyJimengVideoApi:
                 "cfg_scale": ("FLOAT", {"default": 0.5, "min": 0.1, "max": 1.0, "step": 0.1}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "image": ("IMAGE",),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
@@ -5172,7 +5266,8 @@ class ComflySeededit:
                 "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647, "step": 1}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "add_logo": ("BOOLEAN", {"default": False}),
                 "logo_position": (["右下角", "左下角", "左上角", "右上角"], {"default": "右下角"}),
                 "logo_language": (["中文", "英文"], {"default": "中文"}),
@@ -5388,7 +5483,8 @@ class Comfly_gpt_image_1_edit:
             },
             "optional": {
                 "mask": ("MASK",),
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "model": ("STRING", {"default": "gpt-image-1"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
@@ -5745,7 +5841,8 @@ class Comfly_gpt_image_1:
                 "prompt": ("STRING", {"multiline": True}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "model": ("STRING", {"default": "gpt-image-1"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
@@ -5914,7 +6011,8 @@ class ComflyChatGPTApi:
                 "model": ("STRING", {"default": "gpt-4o-image", "multiline": False}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "files": ("FILES",), 
                 "image_url": ("STRING", {"multiline": False, "default": ""}),
                 "images": ("IMAGE", {"default": None}),  
@@ -6266,7 +6364,8 @@ class Comfly_sora2_openai:
                 "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seconds": (["10", "15", "25"], {"default": "15"}),
                 "size": (["1280x720", "720x1280", "1792x1024", "1024x1792"], {"default": "1280x720"}),
                 "image": ("IMAGE",),
@@ -6465,7 +6564,8 @@ class Comfly_sora2:
                 "aspect_ratio": (["16:9", "9:16"], {"default": "16:9"}),
                 "duration": (["10", "15", "25"], {"default": "15"}),
                 "hd": ("BOOLEAN", {"default": False}),
-                "apikey": ("STRING", {"default": ""})
+                # "apikey": ("STRING", {"default": ""})
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             },
             "optional": {
                 "image1": ("IMAGE",),
@@ -6694,7 +6794,8 @@ class Comfly_sora2_chat:
             "optional": {
                 "image": ("IMAGE",),
                 "hd": ("BOOLEAN", {"default": False}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
             }
         }
@@ -6924,7 +7025,8 @@ class Comfly_sora2_character:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -7062,7 +7164,8 @@ class Comfly_Flux_Kontext:
             "optional": {
                 "input_image": ("IMAGE",),
                 "model": (["flux-kontext-dev", "flux-kontext-pro", "flux-kontext-max"], {"default": "flux-kontext-pro"}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "aspect_ratio": (["Default", "21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"], 
                          {"default": "Default"}),
                 "guidance": ("FLOAT", {"default": 3.5, "min": 1.0, "max": 20.0, "step": 0.5}),
@@ -7279,7 +7382,8 @@ class Comfly_Flux_Kontext_Edit:
             "optional": {
                 "image": ("IMAGE",),
                 "model": (["flux-kontext-dev", "flux-kontext-pro", "flux-kontext-max"], {"default": "flux-kontext-pro"}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "aspect_ratio": (["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"], 
                          {"default": "1:1"}),
                 "num_of_images": ("INT", {"default": 1, "min": 1, "max": 4}),
@@ -7461,7 +7565,8 @@ class Comfly_Flux_Kontext_bfl:
                 "model": (["flux-kontext-pro", "flux-kontext-max"], {"default": "flux-kontext-pro"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "input_image": ("IMAGE",),
                 "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647}),
                 "aspect_ratio": (["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"], 
@@ -7650,7 +7755,8 @@ class Comfly_Flux_2_Pro:
                 "prompt": ("STRING", {"multiline": True}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "input_image": ("IMAGE",),
                 "input_image_2": ("IMAGE",),
                 "input_image_3": ("IMAGE",),
@@ -7864,7 +7970,8 @@ class Comfly_Flux_2_Flex:
                 "prompt": ("STRING", {"multiline": True}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "input_image": ("IMAGE",),
                 "input_image_2": ("IMAGE",),
                 "input_image_3": ("IMAGE",),
@@ -8088,7 +8195,8 @@ class Comfly_Googel_Veo3:
                 "aspect_ratio": (["16:9", "9:16"], {"default": "16:9"}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
@@ -8289,7 +8397,8 @@ class Comfly_nano_banana:
                 "image4": ("IMAGE",),
                 "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05}),
                 "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.05}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
                 "max_tokens": ("INT", {"default": 32768, "min": 1, "max": 32768})
             }
@@ -8498,7 +8607,8 @@ class Comfly_nano_banana_fal:
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
                 "image4": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""})
+                # "apikey": ("STRING", {"default": ""})
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
 
@@ -8772,7 +8882,8 @@ class Comfly_nano_banana2_edit:
                 "image12": ("IMAGE",),
                 "image13": ("IMAGE",),
                 "image14": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})  
             }
@@ -8988,7 +9099,8 @@ class Comfly_nano_banana_edit:
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
                 "image4": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})  
             }
@@ -9188,7 +9300,8 @@ class Comfly_nano_banana2_edit:
                 "image12": ("IMAGE",),
                 "image13": ("IMAGE",),
                 "image14": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})  
             }
@@ -9413,7 +9526,8 @@ class Comfly_qwen_image:
                 "num_images": ([1, 2, 3, 4], {"default": 1}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "num_inference_steps": ("INT", {"default": 30, "min": 2, "max": 50, "step": 1}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                 "guidance_scale": ("FLOAT", {"default": 2.5, "min": 0, "max": 20, "step": 0.5}),
@@ -9589,7 +9703,8 @@ class Comfly_qwen_image_edit:
                 "model": (["qwen-image-edit"], {"default": "qwen-image-edit"}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "num_inference_steps": ("INT", {"default": 30, "min": 2, "max": 50, "step": 1}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                 "guidance_scale": ("FLOAT", {"default": 4.0, "min": 0, "max": 20, "step": 0.5}),
@@ -9772,7 +9887,8 @@ class Comfly_Z_image_turbo:
             },
             "optional": {
                 "custom_size": ("STRING", {"default": "1024x1024", "placeholder": "Enter custom size (e.g. 1280x720)"}),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "guidance_scale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 20.0, "step": 0.04}),
                 "num_inference_steps": ("INT", {"default": 8, "min": 1, "max": 50, "step": 1}),
                 "output_quality": ("INT", {"default": 80, "min": 0, "max": 100, "step": 1}),
@@ -9955,7 +10071,8 @@ class Comfly_MiniMax_video:
                 "resolution": (["720P","768P", "1080P"], {"default": "768P"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "prompt_optimizer": ("BOOLEAN", {"default": True}),
                 "fast_pretreatment": ("BOOLEAN", {"default": False}),
                 "first_frame_image": ("IMAGE",),
@@ -10193,7 +10310,8 @@ class Comfly_suno_description:
                 "make_instrumental": ("BOOLEAN", {"default": False}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""})
+                # "apikey": ("STRING", {"default": ""})
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -10424,7 +10542,8 @@ class Comfly_suno_lyrics:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""})
+                # "apikey": ("STRING", {"default": ""})
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -10547,7 +10666,8 @@ class Comfly_suno_custom:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""})
+                # "apikey": ("STRING", {"default": ""})
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -10774,7 +10894,8 @@ class Comfly_suno_upload:
                 "audio": ("AUDIO",),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "upload_filename": ("STRING", {"default": "audio.mp3"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             }
@@ -10991,7 +11112,8 @@ class Comfly_suno_upload_extend:
                 "version": (["v3.0", "v3.5", "v4", "v4.5", "v4.5+", "v5"], {"default": "v5"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             }
         }
@@ -11219,7 +11341,8 @@ class Comfly_suno_cover:
                 "make_instrumental": ("BOOLEAN", {"default": False}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "negative_tags": ("STRING", {"default": ""}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             }
@@ -11496,7 +11619,8 @@ class OpenAISoraAPIPlus:
             "required": {
                 "base_url": ("STRING", {"default": "https://ai.t8star.cn/v1", "multiline": False}),
                 "model": ("STRING", {"default": "sora_video2", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                # "api_key": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容"}),
             },
             "optional": {
@@ -11997,7 +12121,8 @@ class OpenAISoraAPI:
             "required": {
                 "base_url": ("STRING", {"default": "https://ai.t8star.cn/v1", "multiline": False}),
                 "model": ("STRING", {"default": "sora_video2", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                # "api_key": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容"}),
                 #"hd": (["true", "false"], {"default": "false"}),
                 #"duration": (["10", "15"], {"default": "15"}),
@@ -12632,7 +12757,8 @@ class Comfly_vidu_img2video:
             },
             "optional": {
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "audio": ("BOOLEAN", {"default": False}),
                 "voice_language": (list(cls.VOICE_OPTIONS.keys()), {"default": "中文(普通话)"}),
                 "voice_id": (all_voices, {"default": "male-qn-jingying"}),
@@ -12849,7 +12975,8 @@ class Comfly_vidu_text2video:
                 "model": (["viduq2", "viduq1", "vidu1.5"], {"default": "viduq2"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "style": (["general", "anime"], {"default": "general"}),
                 "duration": ("INT", {"default": 5, "min": 1, "max": 10}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
@@ -13045,7 +13172,8 @@ class Comfly_vidu_ref2video:
                 "model": (["viduq2", "viduq1", "vidu2.0", "vidu1.5"], {"default": "viduq2"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
@@ -13309,7 +13437,8 @@ class Comfly_vidu_start_end2video:
             },
             "optional": {
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "is_rec": ("BOOLEAN", {"default": False}),
                 "duration": ("INT", {"default": 5, "min": 1, "max": 8}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
@@ -13533,7 +13662,8 @@ class Comfly_nano_banana2_edit_S2A:
                 "image12": ("IMAGE",),
                 "image13": ("IMAGE",),
                 "image14": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""}),
+                # "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "task_id": ("STRING", {"default": ""}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})  
