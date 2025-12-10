@@ -92,7 +92,7 @@ def get_config():
 def save_config(config):
     try:
         # 修改配置文件路径为新的配置文件
-        config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
+        config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config",
                                   'ComfyUI_RN_External_Interface-config.json')
         
         # 先读取现有的配置
