@@ -1,41 +1,49 @@
+# 基础系统/IO导入
 import os
 import io
 import math
 import random
 import tempfile
-import torch
-import torchaudio
-import requests
-#import nest_asyncio
-import time
-import numpy as np
-from PIL import Image
-from io import BytesIO
-import json
-import comfy.utils
-import re
-import aiohttp
-import asyncio
-import base64
-import uuid
-import folder_paths
-import mimetypes
-import cv2
 import shutil
+import uuid
+import re
+import time
+import json
+import base64
+import math
 import subprocess
 import threading
+import traceback
+from io import BytesIO
+from fractions import Fraction
+from typing import Dict, List, Tuple, Optional, Any  # 补充缺失的类型导入
+
+# 数值/图像处理导入
+import torch
+import torchaudio
+import numpy as np
+import cv2
+from PIL import Image
+
+# 网络/异步导入
+import requests
+import aiohttp
+import asyncio
 import concurrent.futures
-from .utils import pil2tensor, tensor2pil
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# ComfyUI核心导入
+import comfy.utils
+import folder_paths
+import mimetypes
 from comfy.utils import common_upscale
 from comfy.comfy_types import IO
-from typing import Optional, Any
-#from comfy_api_nodes.apinode_utils import download_url_to_video_output
-import asyncio
 from comfy_api.input import VideoInput
-from comfy_api.input_impl import VideoFromFile
+from comfy_api.input_impl import VideoFromFile, VideoFromComponents
 from comfy_api.util import VideoComponents
-from comfy_api.input_impl import VideoFromComponents
-from fractions import Fraction
+
+# 自定义工具导入
+from .utils import pil2tensor, tensor2pil
 
 # baseurl = "https://ai.t8star.cn"
 
@@ -11619,13 +11627,13 @@ class OpenAISoraAPIPlus:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": "", "multiline": False}),
                 "model": ("STRING", {"default": "sora_video2", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容"}),
             },
             "optional": {
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
                 # 可选图像输入：提供则走“图生视频（image-to-video）”，不提供则为“文生视频（text-to-video）”
                 "aspect_ratio": ("STRING", {"default": "16:9", "multiline": False, "options": ["16:9", "9:16"]}),
                 "hd": ("BOOLEAN", {"default": True}),
@@ -12123,9 +12131,7 @@ class OpenAISoraAPI:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": "", "multiline": False}),
                 "model": ("STRING", {"default": "sora_video2", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容"}),
                 #"hd": (["true", "false"], {"default": "false"}),
@@ -12133,6 +12139,8 @@ class OpenAISoraAPI:
                 #"aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
             },
             "optional": {
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
                 # 可选图像输入：提供则走“图生视频（image-to-video）”，不提供则为“文生视频（text-to-video）”
                 "image": ("IMAGE",),
             }
@@ -12601,6 +12609,448 @@ class OpenAISoraAPI:
         except Exception as e:
             print(f"[OpenAISoraAPI] 视频下载转换过程出错: {e}")
             return None
+
+
+class Comfly_sora2_batch_32:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "multiline": False}),
+            },
+            "optional": {
+                # 1-32 组图片+Prompt输入项
+                "image1": ("IMAGE",),
+                "prompt1": ("STRING", {"forceInput": True, "multiline": True}),
+                "image2": ("IMAGE",),
+                "prompt2": ("STRING", {"forceInput": True, "multiline": True}),
+                "image3": ("IMAGE",),
+                "prompt3": ("STRING", {"forceInput": True, "multiline": True}),
+                "image4": ("IMAGE",),
+                "prompt4": ("STRING", {"forceInput": True, "multiline": True}),
+                "image5": ("IMAGE",),
+                "prompt5": ("STRING", {"forceInput": True, "multiline": True}),
+                "image6": ("IMAGE",),
+                "prompt6": ("STRING", {"forceInput": True, "multiline": True}),
+                "image7": ("IMAGE",),
+                "prompt7": ("STRING", {"forceInput": True, "multiline": True}),
+                "image8": ("IMAGE",),
+                "prompt8": ("STRING", {"forceInput": True, "multiline": True}),
+                "image9": ("IMAGE",),
+                "prompt9": ("STRING", {"forceInput": True, "multiline": True}), 
+                "image10": ("IMAGE",),
+                "prompt10": ("STRING", {"forceInput": True, "multiline": True}),
+                "image11": ("IMAGE",),
+                "prompt11": ("STRING", {"forceInput": True, "multiline": True}),
+                "image12": ("IMAGE",),
+                "prompt12": ("STRING", {"forceInput": True, "multiline": True}),
+                "image13": ("IMAGE",),
+                "prompt13": ("STRING", {"forceInput": True, "multiline": True}),
+                "image14": ("IMAGE",),
+                "prompt14": ("STRING", {"forceInput": True, "multiline": True}),
+                "image15": ("IMAGE",),
+                "prompt15": ("STRING", {"forceInput": True, "multiline": True}),
+                "image16": ("IMAGE",),
+                "prompt16": ("STRING", {"forceInput": True, "multiline": True}),
+                "image17": ("IMAGE",),
+                "prompt17": ("STRING", {"forceInput": True, "multiline": True}),
+                "image18": ("IMAGE",),
+                "prompt18": ("STRING", {"forceInput": True, "multiline": True}),
+                "image19": ("IMAGE",),
+                "prompt19": ("STRING", {"forceInput": True, "multiline": True}),
+                "image20": ("IMAGE",),
+                "prompt20": ("STRING", {"forceInput": True, "multiline": True}),
+                "image21": ("IMAGE",),
+                "prompt21": ("STRING", {"forceInput": True, "multiline": True}),
+                "image22": ("IMAGE",),
+                "prompt22": ("STRING", {"forceInput": True, "multiline": True}),
+                "image23": ("IMAGE",),
+                "prompt23": ("STRING", {"forceInput": True, "multiline": True}),
+                "image24": ("IMAGE",),
+                "prompt24": ("STRING", {"forceInput": True, "multiline": True}),
+                "image25": ("IMAGE",),
+                "prompt25": ("STRING", {"forceInput": True, "multiline": True}),
+                "image26": ("IMAGE",),
+                "prompt26": ("STRING", {"forceInput": True, "multiline": True}),
+                "image27": ("IMAGE",),
+                "prompt27": ("STRING", {"forceInput": True, "multiline": True}),
+                "image28": ("IMAGE",),
+                "prompt28": ("STRING", {"forceInput": True, "multiline": True}),
+                "image29": ("IMAGE",),
+                "prompt29": ("STRING", {"forceInput": True, "multiline": True}),
+                "image30": ("IMAGE",),
+                "prompt30": ("STRING", {"forceInput": True, "multiline": True}),
+                "image31": ("IMAGE",),
+                "prompt31": ("STRING", {"forceInput": True, "multiline": True}),
+                "image32": ("IMAGE",),
+                "prompt32": ("STRING", {"forceInput": True, "multiline": True}),
+                
+                # 全局配置项
+                "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
+                "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
+                "hd": ("BOOLEAN", {"default": False}),
+                "max_concurrent": ("INT", {"default": 1, "min": 1, "max": 32}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            },
+        }
+
+    # 返回32个视频 + 1个日志字符串
+    RETURN_TYPES = (
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, 
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO,
+        "STRING"
+    )
+    RETURN_NAMES = (
+        "video1", "video2", "video3", "video4", "video5", 
+        "video6", "video7", "video8", "video9", "video10",
+        "video11", "video12", "video13", "video14", "video15",
+        "video16", "video17", "video18", "video19", "video20",
+        "video21", "video22", "video23", "video24", "video25",
+        "video26", "video27", "video28", "video29", "video30",
+        "video31", "video32",
+        "log"
+    )
+    FUNCTION = "generate_video"
+    CATEGORY = "RunNode/Openai"
+
+    def __init__(self):
+        # 从配置文件初始化API Key和base_url
+        self.config = get_config()
+        self.api_key = self.config.get('api_key', '')
+        self.base_url = self.config.get('base_url', 'https://ai.t8star.cn')
+        
+        self.task_progress: Dict[int, int] = {}  # 任务进度 {任务索引: 进度值}
+        self.global_pbar = None
+
+    def get_headers(self) -> Dict[str, str]:
+        """获取API请求头"""
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def image_to_base64(self, image_tensor) -> Optional[str]:
+        """将图片张量转换为base64字符串（带data URI前缀）"""
+        if image_tensor is None:
+            return None
+            
+        pil_image = tensor2pil(image_tensor)[0]
+        buffered = BytesIO()
+        pil_image.save(buffered, format="PNG")
+        base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        return f"data:image/png;base64,{base64_str}"
+
+    def validate_task_params(self, model: str, duration: int, hd: bool) -> Tuple[bool, str]:
+        """校验任务参数合法性"""
+        # 25秒和HD不能同时使用（适配原有逻辑）
+        if duration == 25 and hd:
+            return False, "25秒时长和HD模式不能同时启用"
+        
+        # sora-2模型限制
+        if model == "sora-2":
+            if duration > 15:
+                return False, "sora-2模型仅支持最大15秒时长（25秒需使用sora-2-pro）"
+            if hd:
+                return False, "sora-2模型不支持HD模式（需使用sora-2-pro）"
+        
+        # 时长范围额外校验
+        if duration < 1 or duration > 60:
+            return False, f"时长必须在1-60秒之间（当前值：{duration}）"
+        
+        return True, ""
+
+    def process_single_task(
+        self, 
+        task_idx: int, 
+        model: str, 
+        prompt: str, 
+        image, 
+        aspect_ratio: str, 
+        duration: int, 
+        hd: bool,
+        current_base_url: str
+    ) -> Dict[str, Any]:
+        """处理单个视频生成任务（增加current_base_url参数适配动态base_url）"""
+        task_result = {
+            "index": task_idx,
+            "status": "failed",
+            "video": "",
+            "video_url": "",
+            "error": "",
+            "response": "",
+            "task_id": ""
+        }
+
+        # 1. 参数校验
+        is_valid, err_msg = self.validate_task_params(model, duration, hd)
+        if not is_valid:
+            task_result["error"] = err_msg
+            self.task_progress[task_idx] = 100
+            return task_result
+
+        # 2. 空Prompt处理
+        if not prompt.strip():
+            task_result["error"] = "Prompt不能为空"
+            self.task_progress[task_idx] = 100
+            return task_result
+
+        try:
+            self.task_progress[task_idx] = 10  # 初始化进度
+
+            # 3. 构建请求体
+            payload = {
+                "prompt": prompt,
+                "model": model,
+                "aspect_ratio": aspect_ratio,
+                "duration": duration,
+                "hd": hd,
+                "private": True
+            }
+
+            # 添加参考图片
+            image_base64 = self.image_to_base64(image)
+            if image_base64:
+                payload["images"] = [image_base64]
+
+            self.task_progress[task_idx] = 20  # 构建请求完成
+
+            # 4. 提交生成请求（使用动态base_url）
+            response = requests.post(
+                f"{current_base_url}/v2/videos/generations",
+                headers=self.get_headers(),
+                json=payload,
+                timeout=TIMEOUT
+            )
+
+            if response.status_code != 200:
+                task_result["error"] = f"API请求失败：{response.status_code} - {response.text}"
+                self.task_progress[task_idx] = 100
+                return task_result
+
+            result = response.json()
+            if "task_id" not in result:
+                task_result["error"] = "API响应无任务ID"
+                self.task_progress[task_idx] = 100
+                return task_result
+
+            task_id = result["task_id"]
+            task_result["task_id"] = task_id
+            self.task_progress[task_idx] = 30  # 提交任务完成
+
+            # 5. 轮询任务状态（使用动态base_url）
+            max_attempts = int(TIMEOUT / 10)  # 每10秒轮询一次
+            attempts = 0
+            video_url = None
+
+            while attempts < max_attempts:
+                time.sleep(10)
+                attempts += 1
+
+                # 更新进度（保底）
+                self.task_progress[task_idx] = 30 + min(60, int((attempts / max_attempts) * 60))
+
+                try:
+                    status_resp = requests.get(
+                        f"{current_base_url}/v2/videos/generations/{task_id}",
+                        headers=self.get_headers(),
+                        timeout=TIMEOUT
+                    )
+
+                    if status_resp.status_code != 200:
+                        continue
+
+                    status_data = status_resp.json()
+                    task_result["response"] = json.dumps(status_data, ensure_ascii=False)
+
+                    # 解析进度
+                    progress_text = status_data.get("progress", "0%")
+                    if progress_text.endswith('%'):
+                        try:
+                            progress_val = int(progress_text[:-1])
+                            self.task_progress[task_idx] = 30 + int(progress_val * 0.6)
+                        except:
+                            pass
+
+                    # 解析状态
+                    status = status_data.get("status", "")
+                    if status == "SUCCESS":
+                        video_url = status_data.get("data", {}).get("output", "")
+                        if video_url:
+                            task_result["status"] = "success"
+                            task_result["video_url"] = video_url
+                            task_result["video"] = ComflyVideoAdapter(video_url)
+                            self.task_progress[task_idx] = 100
+                            return task_result
+                    elif status == "FAILURE":
+                        fail_reason = status_data.get("fail_reason", "未知错误")
+                        task_result["error"] = f"生成失败：{fail_reason}"
+                        self.task_progress[task_idx] = 100
+                        return task_result
+
+                except Exception as e:
+                    task_result["error"] = f"轮询状态异常：{str(e)}"
+                    continue
+
+            # 超时未完成
+            task_result["error"] = f"任务超时（{TIMEOUT}秒）未生成完成"
+            self.task_progress[task_idx] = 100
+            return task_result
+
+        except Exception as e:
+            task_result["error"] = f"任务执行异常：{str(e)}\n{traceback.format_exc()}"
+            self.task_progress[task_idx] = 100
+            return task_result
+
+    def update_global_progress(self):
+        """更新全局进度条"""
+        if not self.global_pbar or not self.task_progress:
+            return
+        
+        total_progress = sum(self.task_progress.values())
+        avg_progress = int(total_progress / len(self.task_progress))
+        self.global_pbar.update_absolute(avg_progress)
+
+    def generate_video(self, **kwargs):
+        """核心批量生成逻辑"""
+        # 1. 处理base_url优先级：手动覆盖 > 配置文件 > 默认值
+        base_url = kwargs.get("base_url", "").strip()
+        current_base_url = base_url if base_url else self.base_url
+        if not current_base_url:
+            current_base_url = "https://ai.t8star.cn"  # 最终兜底
+
+        # 2. 初始化API Key
+        api_key = kwargs.get("api_key", "").strip()
+        if api_key:
+            self.api_key = api_key
+            # 调用用户的save_config更新配置文件
+            save_config({'api_key': api_key})
+            # 重新加载配置确保最新
+            self.config = get_config()
+                
+        if not self.api_key:
+            log = json.dumps({
+                "error": "API Key未配置",
+                "tips": "请在节点中输入api_key或配置文件中设置"
+            }, ensure_ascii=False, indent=2)
+            empty_videos = [""] * 32
+            return (*empty_videos, log)
+
+        # 3. 提取全局配置
+        model = kwargs.get("model")
+        aspect_ratio = kwargs.get("aspect_ratio")
+        duration = kwargs.get("duration")
+        hd = kwargs.get("hd")
+        max_concurrent = kwargs.get("max_concurrent", 1)
+        global_prompt = kwargs.get("global_prompt", "").strip()
+
+        # 4. 收集任务列表（按max_concurrent限制，最多32个）
+        tasks = []
+        for idx in range(1, 33):
+            if idx > max_concurrent:
+                break  # 仅处理max_concurrent指定的任务数
+
+            # 图片和Prompt获取
+            image = kwargs.get(f"image{idx}")
+            if global_prompt:
+                prompt = global_prompt  # 使用全局Prompt
+            else:
+                prompt = kwargs.get(f"prompt{idx}", "").strip()
+
+            tasks.append({
+                "idx": idx,
+                "image": image,
+                "prompt": prompt
+            })
+
+        # 5. 初始化进度跟踪
+        self.task_progress = {t["idx"]: 0 for t in tasks}
+        self.global_pbar = comfy.utils.ProgressBar(100)
+
+        # 6. 并发执行任务
+        task_results = {}
+        with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+            # 提交任务
+            future_to_idx = {}
+            for task in tasks:
+                future = executor.submit(
+                    self.process_single_task,
+                    task_idx=task["idx"],
+                    model=model,
+                    prompt=task["prompt"],
+                    image=task["image"],
+                    aspect_ratio=aspect_ratio,
+                    duration=duration,
+                    hd=hd,
+                    current_base_url=current_base_url  # 传递动态base_url
+                )
+                future_to_idx[future] = task["idx"]
+                time.sleep(0.1)  # 避免API限流
+
+            # 收集结果并更新进度
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    result = future.result()
+                    task_results[idx] = result
+                except Exception as e:
+                    task_results[idx] = {
+                        "index": idx,
+                        "status": "failed",
+                        "video": "",
+                        "video_url": "",
+                        "error": f"任务执行异常：{str(e)}",
+                        "response": "",
+                        "task_id": ""
+                    }
+                self.update_global_progress()
+
+        # 7. 整理输出结果（32个视频）
+        output_videos = []
+        for idx in range(1, 33):
+            result = task_results.get(idx, {})
+            output_videos.append(result.get("video", ""))
+
+        # 8. 整理日志（按顺序合并所有任务信息）
+        log_data = {
+            "global_config": {
+                "model": model,
+                "aspect_ratio": aspect_ratio,
+                "duration": duration,
+                "hd": hd,
+                "max_concurrent": max_concurrent,
+                "global_prompt_used": bool(global_prompt),
+                "base_url": current_base_url,
+                "api_key_configured": bool(self.api_key)
+            },
+            "tasks": []
+        }
+
+        for idx in range(1, 33):
+            result = task_results.get(idx, {})
+            log_data["tasks"].append({
+                "task_index": idx,
+                "status": result.get("status", "idle"),
+                "video_url": result.get("video_url", ""),
+                "task_id": result.get("task_id", ""),
+                "error": result.get("error", ""),
+                "prompt": tasks[idx-1]["prompt"] if (idx-1) < len(tasks) else ""
+            })
+
+        # 格式化日志为易读的JSON字符串
+        log = json.dumps(log_data, ensure_ascii=False, indent=2)
+
+        # 9. 完成进度条
+        self.global_pbar.update_absolute(100)
+
+        # 返回32个视频 + 日志
+        return (*output_videos, log)
 
 ############################# Vidu ###########################
 
@@ -14266,6 +14716,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_sora2": Comfly_sora2, 
     "RunNode_sora2_chat": Comfly_sora2_chat, 
     "RunNode_sora2_character": Comfly_sora2_character, 
+    "RunNode_sora2_batch_32": Comfly_sora2_batch_32,
     "RunNodeJimengApi": ComflyJimengApi, 
     "RunNode_gpt_image_1_edit": Comfly_gpt_image_1_edit,
     "RunNode_gpt_image_1": Comfly_gpt_image_1,
@@ -14301,6 +14752,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_nano_banana2_edit": Comfly_nano_banana2_edit,
     "RunNode_nano_banana2_edit_S2A": Comfly_nano_banana2_edit_S2A,
     "RunNode_Z_image_turbo": Comfly_Z_image_turbo
+
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -14325,6 +14777,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_sora2": "RunNode_sora2", 
     "RunNode_sora2_chat": "RunNode_sora2_chat", 
     "RunNode_sora2_character": "RunNode Sora2 Character",  
+    "RunNode_sora2_batch_32": "RunNode_sora2_batch_32",
     "RunNodeJimengApi": "RunNode Jimeng API", 
     "RunNode_gpt_image_1_edit": "RunNode_gpt_image_1_edit",
     "RunNode_gpt_image_1": "RunNode_gpt_image_1", 
