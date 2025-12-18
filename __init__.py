@@ -1,4 +1,5 @@
-from .comfly_config import Comfly_api_set
+from .comfly_config import *
+from .Tools import *
 from .nodes.nodes_midjourney import *
 from .nodes.nodes_bytedance import *
 from .nodes.nodes_google import *
@@ -10,10 +11,12 @@ from .nodes.nodes_qwen import *
 from .nodes.nodes_MiniMax import *
 from .nodes.nodes_kling import *
 
+
 WEB_DIRECTORY = "./web"
 
 NODE_CLASS_MAPPINGS = {
     "RunNode_api_set": Comfly_api_set,
+    "RunNode_ollama_connectivity": RN_OllamaConnectivityV2,
     "OpenAI_Sora_API_Plus": OpenAISoraAPIPlus,
     "OpenAI_Sora_API": OpenAISoraAPI,
     "RunNode_Mj": Comfly_Mj,
@@ -79,6 +82,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_api_set": "RunNode API Settings",
+    "RunNode_ollama_connectivity": "RunNode Ollama ConnectivityV2",
     "OpenAI_Sora_API_Plus": "RunNode Sora API Plus节点",
     "OpenAI_Sora_API": "RunNode Sora API节点",
     "RunNode_Mj": "RunNode Mj",

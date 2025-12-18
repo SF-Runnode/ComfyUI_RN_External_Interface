@@ -57,44 +57,8 @@ def save_config(config):
     except Exception:
         pass
 
+
 baseurl = get_config().get('base_url', '')
-
-class Comfly_api_set:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "api_base": (["RunNode", "ip", "hk", "us"], {"default": "RunNode"}),
-                "apikey": ("STRING", {"default": ""}),
-            },
-            "optional": {
-                "custom_ip": ("STRING", {"default": "", "placeholder": "Enter IP when using 'ip' option (e.g. http://104.194.8.112:9088)"}),
-            }
-        }
-
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("apikey",)
-    FUNCTION = "set_api_base"
-    CATEGORY = "RunNode"
-
-    def set_api_base(self, api_base, apikey="", custom_ip=""):
-        global baseurl
-        base_url_mapping = {
-            "RunNode": "https://ai.t8star.cn",
-            "ip": custom_ip,
-            "hk": "https://hk-api.gptbest.vip",
-            "us": "https://api.gptbest.vip"
-        }
-        if api_base == "ip" and not custom_ip.strip():
-            raise ValueError("When selecting 'ip' option, you must provide a custom IP address in the 'custom_ip' field")
-        if api_base in base_url_mapping:
-            baseurl = base_url_mapping[api_base]
-        if apikey.strip():
-            cfg = get_config()
-            cfg['api_key'] = apikey
-            save_config(cfg)
-        print(f"API Base URL set to: {baseurl}")
-        return (apikey,)
 
 
 class ComflyVideoAdapter:
@@ -219,5 +183,3 @@ def create_audio_object(audio_url):
         "sample_rate": 44100
     }
 
-
-baseurl = get_config().get('base_url', '')
