@@ -33,7 +33,7 @@ class Comfly_gpt_image_1_edit:
                 "mask": ("MASK",),
                 "api_key": ("STRING", {"default": ""}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": ("STRING", {"default": "gpt-image-1"}),
+                "model": (["gpt-image-1"], {"default": "gpt-image-1"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
@@ -391,7 +391,7 @@ class Comfly_gpt_image_1:
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": ("STRING", {"default": "gpt-image-1"}),
+                "model": (["gpt-image-1"], {"default": "gpt-image-1"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
@@ -556,7 +556,7 @@ class ComflyChatGPTApi:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": ("STRING", {"default": "gpt-4o-image", "multiline": False}),
+                "model": (["gpt-4o-image"], {"default": "gpt-4o-image"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
@@ -1724,7 +1724,7 @@ class OpenAISoraAPIPlus:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model": ("STRING", {"default": "sora_video2", "multiline": False}),
+                "model": (["sora_video2"], {"default": "sora_video2"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容"}),
             },

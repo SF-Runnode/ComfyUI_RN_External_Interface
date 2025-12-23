@@ -8,7 +8,7 @@ class Comfly_Doubao_Seedream:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": ("STRING", {"default": "doubao-seedream-3-0-t2i-250415"}),
+                "model": (["doubao-seedream-3-0-t2i-250415"], {"default": "doubao-seedream-3-0-t2i-250415"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "size": (["1024x1024", "864x1152", "1152x864", "1280x720", "720x1280", "832x1248", 
                          "1248x832", "1512x648", "Custom"], {"default": "1024x1024"}),
@@ -195,7 +195,7 @@ class Comfly_Doubao_Seedream_4:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": ("STRING", {"default": "doubao-seedream-4-0-250828"}),
+                "model": (["doubao-seedream-4-0-250828"], {"default": "doubao-seedream-4-0-250828"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "resolution": (["1K", "2K", "4K"], {"default": "1K"}),
             },
@@ -462,7 +462,7 @@ class Comfly_Doubao_Seedream_4_5:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": ("STRING", {"default": "doubao-seedream-4-5-251128"}),
+                "model": (["doubao-seedream-4-5-251128"], {"default": "doubao-seedream-4-5-251128"}),
                 "response_format": (["url", "b64_json"], {"default": "b64_json"}),
                 "resolution": (["2K", "4K"], {"default": "2K"}),
             },
@@ -717,7 +717,7 @@ class Comfly_Doubao_Seededit:
             "required": {
                 "image": ("IMAGE",),
                 "prompt": ("STRING", {"multiline": True}),
-                "model": ("STRING", {"default": "doubao-seededit-3-0-i2i-250628"}),
+                "model": (["doubao-seededit-3-0-i2i-250628"], {"default": "doubao-seededit-3-0-i2i-250628"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "size": ("STRING", {"default": "adaptive"}),
                 "guidance_scale": ("FLOAT", {"default": 5.5, "min": 1.0, "max": 10.0, "step": 0.1}),

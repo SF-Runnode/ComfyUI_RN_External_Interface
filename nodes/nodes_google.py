@@ -8,7 +8,7 @@ class ComflyGeminiAPI:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": ("STRING", {"default": "gemini-2.0-flash-exp-image", "placeholder": "Enter model name"}),
+                "model": (["gemini-2.0-flash-exp-image"], {"default": "gemini-2.0-flash-exp-image"}),
                 "resolution": (
                     [
                         "512x512", 
