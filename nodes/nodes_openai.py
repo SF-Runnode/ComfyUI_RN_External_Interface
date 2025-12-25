@@ -3150,30 +3150,31 @@ class Comfly_sora2_batch_32:
         return (*output_videos, log)
 
 
-class Comfly_sora2_batch_front:
+class Comfly_sora2_group:
     @classmethod
     def INPUT_TYPES(cls):
-        optional_inputs = {}
-        for i in range(1, 33):
-            optional_inputs[f"image{i}"] = ("IMAGE",)
-            optional_inputs[f"prompt{i}"] = ("STRING", {"forceInput": True, "multiline": True})
-        optional_inputs.update({
-            "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
-            "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
-            "hd": ("BOOLEAN", {"default": False}),
-            "global_prompt": ("STRING", {"default": "", "multiline": True}),
-            "base_url": ("STRING", {"default": "", "multiline": False}),
-            "api_key": ("STRING", {"default": "", "multiline": False}),
-        })
         return {
             "required": {
-                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "multiline": False}),
+                "prompt": ("STRING", {"multiline": True}),
             },
-            "optional": optional_inputs,
+            "optional": {
+                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
+                "aspect_ratio": (["16:9", "9:16"], {"default": "16:9"}),
+                "duration": ("INT", {"default": 15, "min": 1, "max": 60}),
+                "hd": ("BOOLEAN", {"default": False}),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "private": ("BOOLEAN", {"default": True}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False})
+            }
         }
     RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("plan",)
-    FUNCTION = "build_plan"
+    RETURN_NAMES = ("prompt",)
+    FUNCTION = "build_group"
     CATEGORY = "RunNode/OpenAI"
     def __init__(self):
         self.config = get_config()
@@ -3183,63 +3184,42 @@ class Comfly_sora2_batch_front:
         if image_tensor is None:
             return None
         pil_image = tensor2pil(image_tensor)[0]
-        buffered = BytesIO()
-        pil_image.save(buffered, format="PNG")
-        base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
-        return f"data:image/png;base64,{base64_str}"
-    def build_plan(self, **kwargs):
-        base_url = kwargs.get("base_url", "").strip()
-        current_base_url = base_url if base_url else self.base_url or "https://ai.t8star.cn"
-        api_key = kwargs.get("api_key", "").strip()
-        if api_key:
-            self.api_key = api_key
-            save_config({'api_key': api_key})
-            self.config = get_config()
-        model = kwargs.get("model")
-        aspect_ratio = kwargs.get("aspect_ratio")
-        duration = kwargs.get("duration")
-        hd = kwargs.get("hd")
-        global_prompt = kwargs.get("global_prompt", "").strip()
-        tasks = []
-        for idx in range(1, 33):
-            img = kwargs.get(f"image{idx}")
-            prompt = global_prompt if global_prompt else kwargs.get(f"prompt{idx}", "").strip()
-            image_b64 = self.image_to_base64(img)
-            tasks.append({
-                "idx": idx,
-                "prompt": prompt,
-                "image_base64": image_b64 or ""
-            })
-        plan = {
-            "global_config": {
-                "model": model,
-                "aspect_ratio": aspect_ratio,
-                "duration": duration,
-                "hd": hd,
-                "base_url": current_base_url,
-                "api_key_configured": bool(self.api_key)
-            },
-            "tasks": tasks
+        buf = BytesIO()
+        pil_image.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        return f"data:image/png;base64,{b64}"
+    def build_group(self, **kwargs):
+        prompt = kwargs.get("prompt", "")
+        model = kwargs.get("model", "sora-2")
+        aspect_ratio = kwargs.get("aspect_ratio", "16:9")
+        duration = int(kwargs.get("duration", 15))
+        hd = bool(kwargs.get("hd", False))
+        private = bool(kwargs.get("private", True))
+        seed = int(kwargs.get("seed", 0))
+        base_url = kwargs.get("base_url", "").strip() or self.base_url
+        api_key = kwargs.get("api_key", "").strip() or self.api_key
+        images = []
+        for i in range(1, 5):
+            img = kwargs.get(f"image{i}")
+            b64 = self.image_to_base64(img)
+            if b64:
+                images.append(b64)
+        group = {
+            "prompt": prompt,
+            "model": model,
+            "aspect_ratio": aspect_ratio,
+            "duration": duration,
+            "hd": hd,
+            "private": private,
+            "seed": seed,
+            "images": images,
+            "base_url": base_url,
+            "api_key": api_key
         }
-        return (json.dumps(plan, ensure_ascii=False, indent=2),)
+        return (json.dumps(group, ensure_ascii=False),)
 
 
-class _ComflySora2BatchPlanBase:
-    MAX_OUTPUTS = 32
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "plan": ("STRING", {"multiline": True}),
-            },
-            "optional": {
-                "max_concurrent": ("INT", {"default": cls.MAX_OUTPUTS, "min": 1, "max": cls.MAX_OUTPUTS}),
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
-            },
-        }
-    FUNCTION = "generate_video_from_plan"
-    CATEGORY = "RunNode/OpenAI"
+class _ComflySora2BatchRunner:
     def __init__(self):
         self.config = get_config()
         self.api_key = self.config.get('api_key', '')
@@ -3247,12 +3227,12 @@ class _ComflySora2BatchPlanBase:
         self.task_progress = {}
         self.global_pbar = None
         self.timeout = 900
-    def get_headers(self):
+    def _headers(self, api_key):
         return {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
+            "Authorization": f"Bearer {api_key}"
         }
-    def validate_task_params(self, model, duration, hd):
+    def _validate(self, model, duration, hd):
         if duration == 25 and hd:
             return False, "25秒时长和HD模式不能同时启用"
         if model == "sora-2":
@@ -3263,9 +3243,9 @@ class _ComflySora2BatchPlanBase:
         if duration < 1 or duration > 60:
             return False, f"时长必须在1-60秒之间（当前值：{duration}）"
         return True, ""
-    def process_single_task(self, task_idx, model, prompt, image_base64, aspect_ratio, duration, hd, current_base_url):
-        task_result = {
-            "index": task_idx,
+    def _process(self, idx, payload, base_url, api_key):
+        res = {
+            "index": idx,
             "status": "failed",
             "video": "",
             "video_url": "",
@@ -3273,157 +3253,154 @@ class _ComflySora2BatchPlanBase:
             "response": "",
             "task_id": ""
         }
-        is_valid, err_msg = self.validate_task_params(model, duration, hd)
-        if not is_valid:
-            task_result["error"] = err_msg
-            self.task_progress[task_idx] = 100
-            return task_result
-        if not prompt.strip():
-            task_result["error"] = "Prompt不能为空"
-            self.task_progress[task_idx] = 100
-            return task_result
+        ok, msg = self._validate(payload.get("model", "sora-2"), int(payload.get("duration", 15)), bool(payload.get("hd", False)))
+        if not ok:
+            res["error"] = msg
+            self.task_progress[idx] = 100
+            return res
+        if not str(payload.get("prompt", "")).strip():
+            res["error"] = "Prompt不能为空"
+            self.task_progress[idx] = 100
+            return res
         try:
-            self.task_progress[task_idx] = 10
-            payload = {
-                "prompt": prompt,
-                "model": model,
-                "aspect_ratio": aspect_ratio,
-                "duration": duration,
-                "hd": hd,
-                "private": True
+            self.task_progress[idx] = 10
+            body = {
+                "prompt": payload.get("prompt", ""),
+                "model": payload.get("model", "sora-2"),
+                "aspect_ratio": payload.get("aspect_ratio", "16:9"),
+                "duration": int(payload.get("duration", 15)),
+                "hd": bool(payload.get("hd", False)),
+                "private": bool(payload.get("private", True))
             }
-            if image_base64:
-                payload["images"] = [image_base64]
-            self.task_progress[task_idx] = 20
-            response = requests.post(
-                f"{current_base_url}/v2/videos/generations",
-                headers=self.get_headers(),
-                json=payload,
+            images = payload.get("images", [])
+            if images:
+                body["images"] = images
+            self.task_progress[idx] = 20
+            resp = requests.post(
+                f"{base_url}/v2/videos/generations",
+                headers=self._headers(api_key),
+                json=body,
                 timeout=self.timeout
             )
-            if response.status_code != 200:
-                task_result["error"] = f"API请求失败：{response.status_code} - {response.text}"
-                self.task_progress[task_idx] = 100
-                return task_result
-            result = response.json()
-            if "task_id" not in result:
-                task_result["error"] = "API响应无任务ID"
-                self.task_progress[task_idx] = 100
-                return task_result
-            task_id = result["task_id"]
-            task_result["task_id"] = task_id
-            self.task_progress[task_idx] = 30
+            if resp.status_code != 200:
+                res["error"] = f"API请求失败：{resp.status_code} - {resp.text}"
+                self.task_progress[idx] = 100
+                return res
+            data = resp.json()
+            task_id = data.get("task_id", "")
+            if not task_id:
+                res["error"] = "API响应无任务ID"
+                self.task_progress[idx] = 100
+                return res
+            res["task_id"] = task_id
+            self.task_progress[idx] = 30
             max_attempts = int(self.timeout / 10)
             attempts = 0
             while attempts < max_attempts:
                 time.sleep(10)
                 attempts += 1
-                self.task_progress[task_idx] = 30 + min(60, int((attempts / max_attempts) * 60))
+                self.task_progress[idx] = 30 + min(60, int((attempts / max_attempts) * 60))
                 try:
-                    status_resp = requests.get(
-                        f"{current_base_url}/v2/videos/generations/{task_id}",
-                        headers=self.get_headers(),
+                    s = requests.get(
+                        f"{base_url}/v2/videos/generations/{task_id}",
+                        headers=self._headers(api_key),
                         timeout=self.timeout
                     )
-                    if status_resp.status_code != 200:
+                    if s.status_code != 200:
                         continue
-                    status_data = status_resp.json()
-                    task_result["response"] = json.dumps(status_data, ensure_ascii=False)
-                    progress_text = status_data.get("progress", "0%")
-                    if isinstance(progress_text, str) and progress_text.endswith('%'):
+                    sd = s.json()
+                    res["response"] = json.dumps(sd, ensure_ascii=False)
+                    ptxt = sd.get("progress", "0%")
+                    if isinstance(ptxt, str) and ptxt.endswith('%'):
                         try:
-                            progress_val = int(progress_text[:-1])
-                            self.task_progress[task_idx] = 30 + int(progress_val * 0.6)
+                            pv = int(ptxt[:-1])
+                            self.task_progress[idx] = 30 + int(pv * 0.6)
                         except Exception:
                             pass
-                    status = status_data.get("status", "")
-                    if status == "SUCCESS":
-                        video_url = status_data.get("data", {}).get("output", "")
-                        if video_url:
-                            task_result["status"] = "success"
-                            task_result["video_url"] = video_url
-                            task_result["video"] = ComflyVideoAdapter(video_url)
-                            self.task_progress[task_idx] = 100
-                            return task_result
-                    elif status == "FAILURE":
-                        fail_reason = status_data.get("fail_reason", "未知错误")
-                        task_result["error"] = f"生成失败：{fail_reason}"
-                        self.task_progress[task_idx] = 100
-                        return task_result
+                    st = sd.get("status", "")
+                    if st == "SUCCESS":
+                        url = sd.get("data", {}).get("output", "")
+                        if url:
+                            res["status"] = "success"
+                            res["video_url"] = url
+                            res["video"] = ComflyVideoAdapter(url)
+                            self.task_progress[idx] = 100
+                            return res
+                    elif st == "FAILURE":
+                        fr = sd.get("fail_reason", "未知错误")
+                        res["error"] = f"生成失败：{fr}"
+                        self.task_progress[idx] = 100
+                        return res
                 except Exception as e:
-                    task_result["error"] = f"轮询状态异常：{str(e)}"
+                    res["error"] = f"轮询状态异常：{str(e)}"
                     continue
-            task_result["error"] = f"任务超时（{self.timeout}秒）未生成完成"
-            self.task_progress[task_idx] = 100
-            return task_result
+            res["error"] = f"任务超时（{self.timeout}秒）未生成完成"
+            self.task_progress[idx] = 100
+            return res
         except Exception as e:
-            task_result["error"] = f"任务执行异常：{str(e)}\n{traceback.format_exc()}"
-            self.task_progress[task_idx] = 100
-            return task_result
-    def update_global_progress(self):
+            res["error"] = f"任务执行异常：{str(e)}\n{traceback.format_exc()}"
+            self.task_progress[idx] = 100
+            return res
+    def _update_bar(self):
         if not self.global_pbar or not self.task_progress:
             return
-        total_progress = sum(self.task_progress.values())
-        avg_progress = int(total_progress / len(self.task_progress))
-        self.global_pbar.update_absolute(avg_progress)
-    def generate_video_from_plan(self, plan, max_concurrent=None, base_url="", api_key=""):
-        try:
-            parsed = json.loads(plan) if isinstance(plan, str) else {}
-        except Exception as e:
-            empty_videos = [""] * self.MAX_OUTPUTS
-            log = json.dumps({"error": f"计划解析失败：{str(e)}"}, ensure_ascii=False, indent=2)
-            return (*empty_videos, log)
-        cfg = parsed.get("global_config", {})
-        model = cfg.get("model")
-        aspect_ratio = cfg.get("aspect_ratio")
-        duration = cfg.get("duration")
-        hd = cfg.get("hd")
-        plan_base_url = cfg.get("base_url", "")
-        current_base_url = (base_url.strip() or plan_base_url or self.base_url or "https://ai.t8star.cn")
-        if api_key.strip():
-            self.api_key = api_key.strip()
-            save_config({'api_key': self.api_key})
-            self.config = get_config()
+        total = sum(self.task_progress.values())
+        avg = int(total / len(self.task_progress))
+        self.global_pbar.update_absolute(avg)
+
+    def run(self, groups, max_workers, global_cfg):
+        base_url = global_cfg.get("base_url", "").strip() or self.base_url or "https://ai.t8star.cn"
+        api_key = global_cfg.get("api_key", "").strip() or self.api_key
+        if api_key:
+            save_config({'api_key': api_key})
+            self.api_key = api_key
         if not self.api_key:
+            empty = [""] * max_workers
             log = json.dumps({"error": "API Key未配置"}, ensure_ascii=False, indent=2)
-            empty_videos = [""] * self.MAX_OUTPUTS
-            return (*empty_videos, log)
-        tasks_src = parsed.get("tasks", []) or []
-        limit = max_concurrent or self.MAX_OUTPUTS
-        limit = max(1, min(self.MAX_OUTPUTS, int(limit)))
+            return (*empty, log)
         tasks = []
-        for t in tasks_src[:limit]:
+        for i, g in enumerate(groups, start=1):
+            try:
+                d = json.loads(g) if isinstance(g, str) else {}
+            except Exception:
+                d = {}
+            prompt = d.get("prompt", "") or global_cfg.get("global_prompt", "")
+            model = d.get("model", "sora-2")
+            aspect_ratio = d.get("aspect_ratio") or global_cfg.get("aspect_ratio") or "16:9"
+            duration = int(d.get("duration") or global_cfg.get("duration") or 15)
+            hd = bool(d.get("hd" if "hd" in d else None)) if "hd" in d else bool(global_cfg.get("hd", False))
+            images = d.get("images", [])
+            g_base_url = d.get("base_url", "").strip() or base_url
+            g_api_key = d.get("api_key", "").strip() or api_key
             tasks.append({
-                "idx": int(t.get("idx", 0)) or len(tasks) + 1,
-                "prompt": t.get("prompt", "") or "",
-                "image_base64": t.get("image_base64", "") or ""
+                "idx": i,
+                "payload": {
+                    "prompt": prompt,
+                    "model": model,
+                    "aspect_ratio": aspect_ratio,
+                    "duration": duration,
+                    "hd": hd,
+                    "private": bool(d.get("private", True)),
+                    "images": images
+                },
+                "base_url": g_base_url,
+                "api_key": g_api_key
             })
         self.task_progress = {t["idx"]: 0 for t in tasks}
         self.global_pbar = comfy.utils.ProgressBar(100)
-        task_results = {}
-        with ThreadPoolExecutor(max_workers=limit) as executor:
-            future_to_idx = {}
+        results = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futmap = {}
             for t in tasks:
-                future = executor.submit(
-                    self.process_single_task,
-                    task_idx=t["idx"],
-                    model=model,
-                    prompt=t["prompt"],
-                    image_base64=t["image_base64"],
-                    aspect_ratio=aspect_ratio,
-                    duration=duration,
-                    hd=hd,
-                    current_base_url=current_base_url
-                )
-                future_to_idx[future] = t["idx"]
+                f = ex.submit(self._process, t["idx"], t["payload"], t["base_url"], t["api_key"])
+                futmap[f] = t["idx"]
                 time.sleep(0.1)
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
+            for f in as_completed(futmap):
+                idx = futmap[f]
                 try:
-                    result = future.result()
-                    task_results[idx] = result
+                    results[idx] = f.result()
                 except Exception as e:
-                    task_results[idx] = {
+                    results[idx] = {
                         "index": idx,
                         "status": "failed",
                         "video": "",
@@ -3432,104 +3409,207 @@ class _ComflySora2BatchPlanBase:
                         "response": "",
                         "task_id": ""
                     }
-                self.update_global_progress()
+                self._update_bar()
         output_videos = []
-        for i in range(1, self.MAX_OUTPUTS + 1):
-            result = task_results.get(i, {})
-            output_videos.append(result.get("video", ""))
+        for i in range(1, max_workers + 1):
+            output_videos.append(results.get(i, {}).get("video", ""))
         log_data = {
             "global_config": {
-                "model": model,
-                "aspect_ratio": aspect_ratio,
-                "duration": duration,
-                "hd": hd,
-                "max_concurrent": limit,
-                "base_url": current_base_url,
+                "aspect_ratio": global_cfg.get("aspect_ratio"),
+                "duration": global_cfg.get("duration"),
+                "hd": global_cfg.get("hd"),
+                "max_concurrent": max_workers,
+                "base_url": base_url,
                 "api_key_configured": bool(self.api_key)
             },
             "tasks": []
         }
-        for i in range(1, self.MAX_OUTPUTS + 1):
-            result = task_results.get(i, {})
-            src_prompt = ""
-            if i - 1 < len(tasks):
-                src_prompt = tasks[i - 1]["prompt"]
+        for i in range(1, max_workers + 1):
+            r = results.get(i, {})
             log_data["tasks"].append({
                 "task_index": i,
-                "status": result.get("status", "idle"),
-                "video_url": result.get("video_url", ""),
-                "task_id": result.get("task_id", ""),
-                "error": result.get("error", ""),
-                "prompt": src_prompt
+                "status": r.get("status", "idle"),
+                "video_url": r.get("video_url", ""),
+                "task_id": r.get("task_id", ""),
+                "error": r.get("error", ""),
+                "prompt": tasks[i-1]["payload"]["prompt"] if (i-1) < len(tasks) else ""
             })
         log = json.dumps(log_data, ensure_ascii=False, indent=2)
         self.global_pbar.update_absolute(100)
         return (*output_videos, log)
 
 
-class Comfly_sora2_batch_plan_32(_ComflySora2BatchPlanBase):
-    MAX_OUTPUTS = 32
+class Comfly_sora2_run_4:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
+                "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
+                "hd": ("BOOLEAN", {"default": False}),
+                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
+            }
+        }
+    RETURN_TYPES = (IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, "STRING")
+    RETURN_NAMES = ("video1", "video2", "video3", "video4", "log")
+    FUNCTION = "run"
+    CATEGORY = "RunNode/OpenAI"
+    def __init__(self):
+        self.runner = _ComflySora2BatchRunner()
+    def run(self, promt_1, promt_2, promt_3, promt_4, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 4))
+        max_workers = max(1, min(4, max_workers))
+        groups = [promt_1, promt_2, promt_3, promt_4]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_sora2_run_8:
+    @classmethod
+    def INPUT_TYPES(cls):
+        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
+        return {
+            "required": req,
+            "optional": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
+                "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
+                "hd": ("BOOLEAN", {"default": False}),
+                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
     RETURN_TYPES = (
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
         "STRING"
     )
     RETURN_NAMES = (
-        "video1", "video2", "video3", "video4", "video5",
-        "video6", "video7", "video8", "video9", "video10",
-        "video11", "video12", "video13", "video14", "video15",
-        "video16", "video17", "video18", "video19", "video20",
-        "video21", "video22", "video23", "video24", "video25",
-        "video26", "video27", "video28", "video29", "video30",
-        "video31", "video32",
+        "video1", "video2", "video3", "video4", "video5", "video6", "video7", "video8",
         "log"
     )
+    FUNCTION = "run"
+    CATEGORY = "RunNode/OpenAI"
+    def __init__(self):
+        self.runner = _ComflySora2BatchRunner()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 8))
+        max_workers = max(1, min(8, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 9)]
+        return self.runner.run(groups, max_workers, cfg)
 
 
-class Comfly_sora2_batch_plan_16(_ComflySora2BatchPlanBase):
-    MAX_OUTPUTS = 16
+class Comfly_sora2_run_16:
+    @classmethod
+    def INPUT_TYPES(cls):
+        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
+        return {
+            "required": req,
+            "optional": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
+                "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
+                "hd": ("BOOLEAN", {"default": False}),
+                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
     RETURN_TYPES = (
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
         "STRING"
     )
     RETURN_NAMES = (
-        "video1", "video2", "video3", "video4", "video5",
-        "video6", "video7", "video8", "video9", "video10",
-        "video11", "video12", "video13", "video14", "video15",
-        "video16",
+        "video1", "video2", "video3", "video4", "video5", "video6", "video7", "video8",
+        "video9", "video10", "video11", "video12", "video13", "video14", "video15", "video16",
         "log"
     )
+    FUNCTION = "run"
+    CATEGORY = "RunNode/OpenAI"
+    def __init__(self):
+        self.runner = _ComflySora2BatchRunner()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 16))
+        max_workers = max(1, min(16, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 17)]
+        return self.runner.run(groups, max_workers, cfg)
 
 
-class Comfly_sora2_batch_plan_8(_ComflySora2BatchPlanBase):
-    MAX_OUTPUTS = 8
+class Comfly_sora2_run_32:
+    @classmethod
+    def INPUT_TYPES(cls):
+        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
+        return {
+            "required": req,
+            "optional": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
+                "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
+                "hd": ("BOOLEAN", {"default": False}),
+                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "base_url": ("STRING", {"default": "", "multiline": False}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
     RETURN_TYPES = (
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
+        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
         "STRING"
     )
     RETURN_NAMES = (
-        "video1", "video2", "video3", "video4", "video5",
-        "video6", "video7", "video8",
+        "video1", "video2", "video3", "video4", "video5", "video6", "video7", "video8",
+        "video9", "video10", "video11", "video12", "video13", "video14", "video15", "video16",
+        "video17", "video18", "video19", "video20", "video21", "video22", "video23", "video24",
+        "video25", "video26", "video27", "video28", "video29", "video30", "video31", "video32",
         "log"
     )
+    FUNCTION = "run"
+    CATEGORY = "RunNode/OpenAI"
+    def __init__(self):
+        self.runner = _ComflySora2BatchRunner()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 32))
+        max_workers = max(1, min(32, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 33)]
+        return self.runner.run(groups, max_workers, cfg)
 
 
-class Comfly_sora2_batch_plan_4(_ComflySora2BatchPlanBase):
-    MAX_OUTPUTS = 4
-    RETURN_TYPES = (
-        IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO,
-        "STRING"
-    )
-    RETURN_NAMES = (
-        "video1", "video2", "video3", "video4",
-        "log"
-    )
+# class Comfly_sora2_batch_plan:
+#     @classmethod
+#     def INPUT_TYPES(cls):
+#         return {
+#             "required": {
+#                 "prompt": ("STRING", {"multiline": True}),
+#                 "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
+#                 "aspect_ratio": (["16:9", "9:16"], {"default": "16:9"}),
+#                 "duration": (["10", "15", "25"], {"default": "15"}),
+#                 "hd": ("BOOLEAN", {"default": False}),
+#             },
+#             "optional": {
+#                 "image1": ("IMAGE",),
+#                 "image2": ("IMAGE",),
+#                 "image3": ("IMAGE",),
+#                 "image4": ("IMAGE",),
+#                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+#                 "private": ("BOOLEAN", {"default": True})
+#             }
+#         }
+    
+#     RETURN_TYPES = ()
+#     RETURN_NAMES = ()
+#     FUNCTION = ""
+#     CATEGORY = "RunNode/OpenAI"

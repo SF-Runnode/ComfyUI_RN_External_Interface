@@ -1,0 +1,63 @@
+{
+  "last_node_id": 3,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "RunNode_upload",
+      "pos": [200, 100],
+      "size": [400, 120],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        { "name": "image", "type": "IMAGE", "link": 1 },
+        { "name": "api_key", "type": "STRING", "link": null }
+      ],
+      "outputs": [
+        { "name": "url", "type": "STRING", "slot_index": 0, "links": [2] }
+      ],
+      "properties": { "Node name for S&R": "RunNode_upload" },
+      "widgets_values": [""]
+    },
+    {
+      "id": 2,
+      "type": "EmptyImage",
+      "pos": [-50, 90],
+      "size": [210, 80],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "slot_index": 0, "links": [1] }
+      ],
+      "properties": { "Node name for S&R": "EmptyImage", "cnr_id": "comfy-core", "ver": "0.3.26" },
+      "widgets_values": [512, 512, 1]
+    },
+    {
+      "id": 3,
+      "type": "ShowText|pysssss",
+      "pos": [630, 110],
+      "size": [315, 58],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        { "name": "text", "type": "STRING", "link": 2 }
+      ],
+      "outputs": [],
+      "properties": { "Node name for S&R": "ShowText|pysssss", "cnr_id": "comfyui-custom-scripts" },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [1, 2, 0, 1, 0, "IMAGE"],
+    [2, 1, 0, 3, 0, "STRING"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": { "frontendVersion": "1.28.7" },
+  "version": 0.4
+}
+

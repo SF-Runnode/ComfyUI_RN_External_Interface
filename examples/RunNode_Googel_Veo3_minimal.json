@@ -1,0 +1,39 @@
+{
+  "last_node_id": 2,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "RunNode_Googel_Veo3",
+      "pos": [200, 100],
+      "size": [560, 240],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "video", "type": "VIDEO", "slot_index": 0, "links": [] },
+        { "name": "video_url", "type": "STRING", "slot_index": 1, "links": [] },
+        { "name": "response", "type": "STRING", "slot_index": 2, "links": [] }
+      ],
+      "properties": { "Node name for S&R": "RunNode_Googel_Veo3" },
+      "widgets_values": [
+        "City street at night, neon signs, slow camera pan",
+        "veo3",
+        false,
+        "16:9",
+        "",
+        null,
+        null,
+        0,
+        false
+      ]
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": { "frontendVersion": "1.28.7" },
+  "version": 0.4
+}
+
