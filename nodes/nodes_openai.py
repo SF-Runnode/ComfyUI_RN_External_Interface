@@ -3445,11 +3445,11 @@ class Comfly_sora2_run_4:
         return {
             "required": {
                 "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
                 "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
                 "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
                 "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
-            },
-            "optional": {
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
                 "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
@@ -3475,10 +3475,13 @@ class Comfly_sora2_run_4:
 class Comfly_sora2_run_8:
     @classmethod
     def INPUT_TYPES(cls):
-        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(1, 9)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
         return {
-            "required": req,
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
             "optional": {
+                **promt_,
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
                 "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
@@ -3510,10 +3513,13 @@ class Comfly_sora2_run_8:
 class Comfly_sora2_run_16:
     @classmethod
     def INPUT_TYPES(cls):
-        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(1, 17)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
         return {
-            "required": req,
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
             "optional": {
+                **promt_,
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
                 "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
@@ -3547,10 +3553,13 @@ class Comfly_sora2_run_16:
 class Comfly_sora2_run_32:
     @classmethod
     def INPUT_TYPES(cls):
-        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(1, 33)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
         return {
-            "required": req,
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
             "optional": {
+                **promt_,
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
                 "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
@@ -3584,29 +3593,3 @@ class Comfly_sora2_run_32:
         groups = [cfg.get(f"promt_{i}", "") for i in range(1, 33)]
         return self.runner.run(groups, max_workers, cfg)
 
-
-# class Comfly_sora2_batch_plan:
-#     @classmethod
-#     def INPUT_TYPES(cls):
-#         return {
-#             "required": {
-#                 "prompt": ("STRING", {"multiline": True}),
-#                 "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
-#                 "aspect_ratio": (["16:9", "9:16"], {"default": "16:9"}),
-#                 "duration": (["10", "15", "25"], {"default": "15"}),
-#                 "hd": ("BOOLEAN", {"default": False}),
-#             },
-#             "optional": {
-#                 "image1": ("IMAGE",),
-#                 "image2": ("IMAGE",),
-#                 "image3": ("IMAGE",),
-#                 "image4": ("IMAGE",),
-#                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-#                 "private": ("BOOLEAN", {"default": True})
-#             }
-#         }
-    
-#     RETURN_TYPES = ()
-#     RETURN_NAMES = ()
-#     FUNCTION = ""
-#     CATEGORY = "RunNode/OpenAI"
