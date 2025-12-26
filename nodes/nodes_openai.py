@@ -3445,6 +3445,9 @@ class Comfly_sora2_run_4:
         return {
             "required": {
                 "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
             },
             "optional": {
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
@@ -3454,9 +3457,6 @@ class Comfly_sora2_run_4:
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
                 "base_url": ("STRING", {"default": "", "multiline": False}),
                 "api_key": ("STRING", {"default": "", "multiline": False}),
-                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
             }
         }
     RETURN_TYPES = (IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, "STRING")
@@ -3475,11 +3475,10 @@ class Comfly_sora2_run_4:
 class Comfly_sora2_run_8:
     @classmethod
     def INPUT_TYPES(cls):
-        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
+        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(1, 9)}
         return {
             "required": req,
             "optional": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
                 "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
@@ -3511,11 +3510,10 @@ class Comfly_sora2_run_8:
 class Comfly_sora2_run_16:
     @classmethod
     def INPUT_TYPES(cls):
-        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
+        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(1, 17)}
         return {
             "required": req,
             "optional": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
                 "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
@@ -3549,11 +3547,10 @@ class Comfly_sora2_run_16:
 class Comfly_sora2_run_32:
     @classmethod
     def INPUT_TYPES(cls):
-        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
+        req = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(1, 33)}
         return {
             "required": req,
             "optional": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
                 "aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
                 "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
