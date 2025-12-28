@@ -602,24 +602,24 @@ class Comfly_Flux_2_Pro:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "描述图像内容的提示词"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "BFL API 密钥，留空则使用全局配置"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "input_image": ("IMAGE",),
-                "input_image_2": ("IMAGE",),
-                "input_image_3": ("IMAGE",),
-                "input_image_4": ("IMAGE",),
-                "input_image_5": ("IMAGE",),
-                "input_image_6": ("IMAGE",),
-                "input_image_7": ("IMAGE",),
-                "input_image_8": ("IMAGE",),
-                "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647}),
-                "width": ("INT", {"default": 1024, "min": 64, "max": 2048, "step": 8}),
-                "height": ("INT", {"default": 1024, "min": 64, "max": 2048, "step": 8}),
-                "safety_tolerance": ("INT", {"default": 2, "min": 0, "max": 5}),
-                "output_format": (["jpeg", "png"], {"default": "png"}),
+                "input_image": ("IMAGE", {"tooltip": "输入图像 1"}),
+                "input_image_2": ("IMAGE", {"tooltip": "输入图像 2"}),
+                "input_image_3": ("IMAGE", {"tooltip": "输入图像 3"}),
+                "input_image_4": ("IMAGE", {"tooltip": "输入图像 4"}),
+                "input_image_5": ("IMAGE", {"tooltip": "输入图像 5"}),
+                "input_image_6": ("IMAGE", {"tooltip": "输入图像 6"}),
+                "input_image_7": ("IMAGE", {"tooltip": "输入图像 7"}),
+                "input_image_8": ("IMAGE", {"tooltip": "输入图像 8"}),
+                "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647, "tooltip": "随机种子，-1 表示随机"}),
+                "width": ("INT", {"default": 1024, "min": 64, "max": 2048, "step": 8, "tooltip": "图像宽度"}),
+                "height": ("INT", {"default": 1024, "min": 64, "max": 2048, "step": 8, "tooltip": "图像高度"}),
+                "safety_tolerance": ("INT", {"default": 2, "min": 0, "max": 5, "tooltip": "安全容忍度 (0-5)"}),
+                "output_format": (["jpeg", "png"], {"default": "png", "tooltip": "输出图片格式"}),
             }
         }
     

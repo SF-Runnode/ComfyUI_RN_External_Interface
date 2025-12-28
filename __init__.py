@@ -78,7 +78,8 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_nano_banana_edit": Comfly_nano_banana_edit,
     "RunNode_nano_banana2_edit": Comfly_nano_banana2_edit,
     "RunNode_nano_banana2_edit_S2A": Comfly_nano_banana2_edit_S2A,
-    "RunNode_Z_image_turbo": Comfly_Z_image_turbo
+    "RunNode_Z_image_turbo": Comfly_Z_image_turbo,
+    "RunNode_wan2_6_API": Comfly_wan2_6_API,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -145,7 +146,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_nano_banana_edit": "RunNode nano_banana_edit",
     "RunNode_nano_banana2_edit": "RunNode nano_banana2_edit",
     "RunNode_nano_banana2_edit_S2A": "RunNode nano_banana2_edit_S2A",
-    "RunNode_Z_image_turbo": "RunNode Z Image Turbo"
+    "RunNode_Z_image_turbo": "RunNode Z Image Turbo",
+    "RunNode_wan2_6_API": "RunNode wan2.6 API",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

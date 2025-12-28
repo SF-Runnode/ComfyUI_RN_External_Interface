@@ -1,0 +1,8 @@
+requests
+aiohttp
+aiohttp_cors
+opencv-python
+ollama
+pydantic
+Pillow
+numpy

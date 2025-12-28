@@ -7,20 +7,20 @@ class Comfly_MiniMax_video:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["MiniMax-Hailuo-02", "T2V-01", "T2V-01-Director", "I2V-01-Director", "I2V-01-live", "I2V-01", "S2V-01"], {"default": "MiniMax-Hailuo-02"}),
-                "duration": (["6", "10"], {"default": "6"}),
-                "resolution": (["720P","768P", "1080P"], {"default": "768P"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "描述视频内容的提示词"}),
+                "model": (["MiniMax-Hailuo-02", "T2V-01", "T2V-01-Director", "I2V-01-Director", "I2V-01-live", "I2V-01", "S2V-01"], {"default": "MiniMax-Hailuo-02", "tooltip": "使用的模型版本"}),
+                "duration": (["6", "10"], {"default": "6", "tooltip": "生成视频的时长（秒）"}),
+                "resolution": (["720P","768P", "1080P"], {"default": "768P", "tooltip": "视频分辨率"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "MiniMax API 密钥，留空则使用全局配置"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "prompt_optimizer": ("BOOLEAN", {"default": True}),
-                "fast_pretreatment": ("BOOLEAN", {"default": False}),
-                "first_frame_image": ("IMAGE",),
-                "last_frame_image": ("IMAGE",),
-                "subject_reference": ("IMAGE",),  
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "prompt_optimizer": ("BOOLEAN", {"default": True, "tooltip": "是否启用提示词优化"}),
+                "fast_pretreatment": ("BOOLEAN", {"default": False, "tooltip": "是否启用快速预处理"}),
+                "first_frame_image": ("IMAGE", {"tooltip": "首帧参考图像"}),
+                "last_frame_image": ("IMAGE", {"tooltip": "尾帧参考图像"}),
+                "subject_reference": ("IMAGE", {"tooltip": "主体参考图像"}),  
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子"}),
             }
         }
     

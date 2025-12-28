@@ -548,3 +548,312 @@ class Comfly_Z_image_turbo:
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, "", error_message)
+
+
+
+class Comfly_wan2_6_API:
+    def __init__(self):
+        self.timeout = 300
+        self.api_key = get_config().get('api_key', '')
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True, "default": "一幅都市奇幻艺术的场景。一个充满动感的涂鸦艺术角色。一个由喷漆所画成的少年,正从一面混凝土墙上活过来。他一边用极快的语速演唱一首英文rap,一边摆着一个经典的、充满活力的说唱歌手姿势。场景设定在夜晚一个充满都市感的铁路桥下。灯光来自一盏孤零零的街灯,营造出电影般的氛围,充满高能量和惊人的细节。视频的音频部分完全由他的rap构成,没有其他对话或杂音。"}),
+                "api_key": ("STRING", {"default": ""}),
+                "resolution": (["1080P", "720P"], {"default": "1080P"}),
+                "duration": ([5, 10, 15], {"default": 5}),
+            },
+            "optional": {
+                "image": ("IMAGE",),
+                "audio_url": ("STRING", {"default": ""}),
+                "prompt_extend": ("BOOLEAN", {"default": True}),
+                "shot_type": (["single", "multi"], {"default": "multi"}),
+                "audio_enabled": ("BOOLEAN", {"default": True}),
+            }
+        }
+
+    RETURN_TYPES = (IO.VIDEO, "STRING", "STRING")
+    RETURN_NAMES = ("video", "video_url", "task_id")
+    FUNCTION = "generate_video"
+    CATEGORY = "zhenzhen/wanx"
+
+    def convert_image_to_base64(self, image_tensor):
+        """Convert image tensor to base64 data URL - exactly as wan.py"""
+        try:
+            # Convert tensor to PIL Image
+            if isinstance(image_tensor, torch.Tensor):
+                # Handle batch dimension
+                if len(image_tensor.shape) == 4:
+                    image_tensor = image_tensor[0]
+                
+                # Convert from [C, H, W] to [H, W, C] if needed
+                if image_tensor.shape[0] == 3:
+                    image_tensor = image_tensor.permute(1, 2, 0)
+                
+                # Convert to numpy and ensure correct range
+                image_np = image_tensor.cpu().numpy()
+                if image_np.max() <= 1.0:
+                    image_np = (image_np * 255).astype('uint8')
+                
+                image = Image.fromarray(image_np)
+            else:
+                image = image_tensor
+
+            # Get original image info
+            original_size = image.size
+            print(f"[Zhenzhen_WanVideo INFO] Original image size: {original_size[0]}x{original_size[1]}")
+            
+            # Optimize image size to reduce Base64 length
+            max_dimension = 1536
+            
+            if max(original_size) > max_dimension:
+                # Calculate new size while maintaining aspect ratio
+                ratio = max_dimension / max(original_size)
+                new_size = (int(original_size[0] * ratio), int(original_size[1] * ratio))
+                image = image.resize(new_size, Image.Resampling.LANCZOS)
+                print(f"[Zhenzhen_WanVideo INFO] Resized image to: {new_size[0]}x{new_size[1]}")
+
+            # Try JPEG format with quality optimization
+            formats_to_try = [
+                ('JPEG', 'image/jpeg', {'quality': 75, 'optimize': True}),
+                ('JPEG', 'image/jpeg', {'quality': 60, 'optimize': True}),
+                ('PNG', 'image/png', {'optimize': True})
+            ]
+            
+            best_result = None
+            smallest_size = float('inf')
+            
+            for format_name, mime_type, save_kwargs in formats_to_try:
+                try:
+                    img_byte_arr = BytesIO()
+                    
+                    # Handle JPEG format (doesn't support transparency)
+                    if format_name == 'JPEG' and image.mode in ('RGBA', 'LA'):
+                        # Convert RGBA to RGB with white background
+                        jpeg_image = Image.new('RGB', image.size, 'white')
+                        if image.mode == 'RGBA':
+                            jpeg_image.paste(image, mask=image.split()[-1])
+                        else:
+                            jpeg_image.paste(image)
+                        jpeg_image.save(img_byte_arr, format=format_name, **save_kwargs)
+                    else:
+                        image.save(img_byte_arr, format=format_name, **save_kwargs)
+                    
+                    img_byte_arr.seek(0)
+                    image_bytes = img_byte_arr.read()
+                    
+                    # Check if this format gives smaller result
+                    if len(image_bytes) < smallest_size:
+                        smallest_size = len(image_bytes)
+                        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                        best_result = f"data:{mime_type};base64,{image_base64}"
+                        
+                        # Calculate base64 size in MB
+                        base64_size_mb = len(image_base64) / (1024 * 1024)
+                        print(f"[Zhenzhen_WanVideo INFO] {format_name} format: {base64_size_mb:.2f}MB base64")
+                        
+                        # If JPEG is small enough, use it
+                        if format_name == 'JPEG' and base64_size_mb < 2.0:
+                            break
+                            
+                except Exception as format_error:
+                    print(f"[Zhenzhen_WanVideo WARNING] Failed to save as {format_name}: {format_error}")
+                    continue
+            
+            if best_result:
+                final_size_mb = len(best_result.split(',')[1]) / (1024 * 1024)
+                print(f"[Zhenzhen_WanVideo INFO] Final base64 size: {final_size_mb:.2f}MB")
+                
+                if final_size_mb > 3.0:
+                    print(f"[Zhenzhen_WanVideo WARNING] Base64 data is large ({final_size_mb:.2f}MB), may cause API issues")
+                
+                return best_result
+            else:
+                raise Exception("Failed to encode image in any supported format")
+                
+        except Exception as e:
+            print(f"[Zhenzhen_WanVideo ERROR] Image base64 conversion error: {str(e)}")
+            return None
+
+    def generate_video(self, prompt, api_key, resolution, duration, image=None, audio_url="", prompt_extend=True, shot_type="multi", audio_enabled=True):
+        if api_key.strip():
+            self.api_key = api_key
+            config = get_config()
+            config['api_key'] = api_key
+            save_config(config)
+            
+        if not self.api_key:
+            error_msg = "API key not found. Please provide an API key."
+            print(error_msg)
+            return (EmptyVideoAdapter(), error_msg, "")
+        
+        try:
+            # Validate prompt
+            if not prompt or prompt.strip() == "":
+                raise ValueError("Prompt cannot be empty")
+            
+            if len(prompt) > 1500:
+                raise ValueError(f"Prompt too long ({len(prompt)} chars). Max 1500 characters")
+            
+            # Convert image to base64 (exactly as wan.py)
+            image_url = None
+            if image is not None:
+                image_url = self.convert_image_to_base64(image)
+                if not image_url:
+                    raise ValueError("Failed to convert image to base64")
+                print(f"[Zhenzhen_Wan26_I2V INFO] Image converted to base64 successfully")
+            
+            # Prepare request body (exactly matching wan.py structure)
+            request_body = {
+                "model": "wan2.6-i2v",
+                "input": {
+                    "prompt": prompt
+                },
+                "parameters": {
+                    "prompt_extend": prompt_extend,
+                    "resolution": resolution,
+                    "duration": duration
+                }
+            }
+            
+            # Add image URL (inside input object)
+            if image_url:
+                request_body["input"]["img_url"] = image_url
+            
+            # Add shot_type
+            if shot_type:
+                request_body["parameters"]["shot_type"] = shot_type
+            
+            # Add audio
+            if audio_url and audio_url.strip():
+                request_body["input"]["audio_url"] = audio_url
+                request_body["parameters"]["audio"] = True
+            else:
+                request_body["parameters"]["audio"] = audio_enabled
+            
+            # Submit task (exactly as wan.py)
+            url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
+            
+            headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json',
+                'X-DashScope-Async': 'enable'
+            }
+            
+            # Log with truncated base64
+            log_body = copy.deepcopy(request_body)
+            if "input" in log_body and "img_url" in log_body["input"]:
+                img_url = log_body["input"]["img_url"]
+                if img_url and img_url.startswith("data:image/"):
+                    base64_part = img_url.split(",", 1)
+                    if len(base64_part) > 1:
+                        truncated = base64_part[0] + "," + base64_part[1][:50] + f"...[{len(base64_part[1])} chars]"
+                        log_body["input"]["img_url"] = truncated
+            
+            print(f"[Zhenzhen_WanVideo INFO] Request body: {json.dumps(log_body, indent=2, ensure_ascii=False)}")
+            print(f"[Zhenzhen_WanVideo INFO] Sending request to: {url}")
+            
+            response = requests.post(url, headers=headers, json=request_body, timeout=60)
+            
+            if response.status_code == 200:
+                result = response.json()
+                task_id = result.get('output', {}).get('task_id')
+                if task_id:
+                    print(f"[Zhenzhen_WanVideo INFO] Task created. Task ID: {task_id}")
+                    
+                    # Poll for result
+                    video_url = self.poll_task_status(task_id)
+                    
+                    if video_url:
+                        print(f"[Zhenzhen_WanVideo INFO] Downloading video from: {video_url}")
+                        video_adapter = ComflyVideoAdapter(video_url)
+                        return (video_adapter, video_url, task_id)
+                    else:
+                        error_msg = "Failed to generate video"
+                        print(error_msg)
+                        return (EmptyVideoAdapter(), error_msg, task_id)
+                else:
+                    print(f"[Zhenzhen_WanVideo ERROR] No task ID: {result}")
+                    return (EmptyVideoAdapter(), "No task ID in response", "")
+            else:
+                # Error handling
+                status_code = response.status_code
+                error_message = "Unknown error"
+                
+                try:
+                    if response.text:
+                        response_json = response.json()
+                        if isinstance(response_json, dict):
+                            if 'message' in response_json:
+                                error_message = str(response_json['message'])
+                            elif 'error' in response_json:
+                                error_obj = response_json['error']
+                                if isinstance(error_obj, dict) and 'message' in error_obj:
+                                    error_message = str(error_obj['message'])
+                                else:
+                                    error_message = str(error_obj)
+                            
+                            if len(error_message) > 200:
+                                error_message = error_message[:200] + "..."
+                except:
+                    error_message = response.text[:200] if response.text else "No details"
+                
+                print(f"[Zhenzhen_WanVideo ERROR] API error ({status_code}): {error_message}")
+                return (EmptyVideoAdapter(), f"API error: {status_code} - {error_message}", "")
+                
+        except Exception as e:
+            print(f"[Zhenzhen_WanVideo ERROR] Video generation error: {str(e)}")
+            return (EmptyVideoAdapter(), str(e), "")
+
+    def poll_task_status(self, task_id):
+        """Poll task status (exactly as wan.py)"""
+        query_url = f"https://dashscope.aliyuncs.com/api/v1/tasks/{task_id}"
+        headers = {'Authorization': f'Bearer {self.api_key}'}
+        
+        max_poll_time = 300
+        poll_interval = 10
+        start_time = time.time()
+        
+        while time.time() - start_time < max_poll_time:
+            try:
+                print(f"[Zhenzhen_WanVideo INFO] Querying task: {query_url}")
+                response = requests.get(query_url, headers=headers, timeout=30)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    task_status = result.get('output', {}).get('task_status')
+                    
+                    if task_status == 'SUCCEEDED':
+                        video_url = result.get('output', {}).get('video_url')
+                        if video_url:
+                            print(f"[Zhenzhen_WanVideo INFO] Video ready: {video_url}")
+                            return video_url
+                        else:
+                            print(f"[Zhenzhen_WanVideo ERROR] No video URL: {result}")
+                            return None
+                    elif task_status == 'FAILED':
+                        error_msg = result.get('output', {}).get('message', 'Unknown error')
+                        print(f"[Zhenzhen_WanVideo ERROR] Task failed: {error_msg}")
+                        return None
+                    elif task_status in ['PENDING', 'RUNNING']:
+                        elapsed = time.time() - start_time
+                        remaining = max_poll_time - elapsed
+                        print(f"[Zhenzhen_WanVideo INFO] Status: {task_status} ({elapsed:.1f}s elapsed, {remaining:.1f}s remaining)")
+                        time.sleep(poll_interval)
+                        continue
+                    else:
+                        print(f"[Zhenzhen_WanVideo WARNING] Unknown status: {task_status}")
+                        time.sleep(poll_interval)
+                        continue
+                else:
+                    print(f"[Zhenzhen_WanVideo ERROR] Query failed: {response.status_code}")
+                    return None
+                    
+            except Exception as e:
+                print(f"[Zhenzhen_WanVideo ERROR] Query error: {str(e)}")
+                return None
+        
+        print("[Zhenzhen_WanVideo ERROR] Polling timeout")
+        return None

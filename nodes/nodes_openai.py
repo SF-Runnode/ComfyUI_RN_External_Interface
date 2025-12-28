@@ -26,26 +26,26 @@ class Comfly_gpt_image_1_edit:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "image": ("IMAGE",),
-                "prompt": ("STRING", {"multiline": True}),
+                "image": ("IMAGE", {"tooltip": "输入的图像"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "描述如何编辑图像的提示词"}),
             },
             "optional": {
-                "mask": ("MASK",),
-                "api_key": ("STRING", {"default": ""}),
+                "mask": ("MASK", {"tooltip": "可选的遮罩，用于限制编辑区域"}),
+                "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API 密钥，留空则使用全局配置"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": (["gpt-image-1"], {"default": "gpt-image-1"}),
-                "n": ("INT", {"default": 1, "min": 1, "max": 10}),
-                "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
-                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
-                "clear_chats": ("BOOLEAN", {"default": True}),
-                "background": (["auto", "transparent", "opaque"], {"default": "auto"}),
-                "output_compression": ("INT", {"default": 100, "min": 0, "max": 100}),
-                "output_format": (["png", "jpeg", "webp"], {"default": "png"}),
-                "max_retries": ("INT", {"default": 5, "min": 1, "max": 10}),
-                "initial_timeout": ("INT", {"default": 900, "min": 60, "max": 1200}),
-                "input_fidelity": (["low", "high"], {"default": "low"}),
-                "partial_images": ([0, 1, 2, 3], {"default": 0}),
+                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1", "tooltip": "使用的模型版本"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成的图像数量"}),
+                "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量"}),
+                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto", "tooltip": "输出图像尺寸，'auto'表示保持原尺寸"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "tooltip": "随机种子"}),
+                "clear_chats": ("BOOLEAN", {"default": True, "tooltip": "是否清除之前的对话历史"}),
+                "background": (["auto", "transparent", "opaque"], {"default": "auto", "tooltip": "背景处理方式"}),
+                "output_compression": ("INT", {"default": 100, "min": 0, "max": 100, "tooltip": "输出压缩率 (0-100)"}),
+                "output_format": (["png", "jpeg", "webp"], {"default": "png", "tooltip": "输出图片格式"}),
+                "max_retries": ("INT", {"default": 5, "min": 1, "max": 10, "tooltip": "最大重试次数"}),
+                "initial_timeout": ("INT", {"default": 900, "min": 60, "max": 1200, "tooltip": "初始超时时间(秒)"}),
+                "input_fidelity": (["low", "high"], {"default": "low", "tooltip": "输入保真度"}),
+                "partial_images": ([0, 1, 2, 3], {"default": 0, "tooltip": "部分图像选项"}),
             }
         }
 
