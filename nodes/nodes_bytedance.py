@@ -61,6 +61,8 @@ class Comfly_Doubao_Seedream:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -298,6 +300,8 @@ class Comfly_Doubao_Seedream_4:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -552,6 +556,8 @@ class Comfly_Doubao_Seedream_4_5:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -752,6 +758,8 @@ class Comfly_Doubao_Seededit:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -956,6 +964,8 @@ class ComflyJimengApi:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         try:
             if not self.api_key:
@@ -1283,6 +1293,8 @@ class ComflyJimengVideoApi:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"code": "error", "message": "API key not found in Comflyapi.json"}
@@ -1506,6 +1518,8 @@ class ComflySeededit:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         try:
             if not self.api_key:

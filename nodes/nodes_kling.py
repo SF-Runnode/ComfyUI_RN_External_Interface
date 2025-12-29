@@ -108,6 +108,8 @@ class Comfly_kling_text2video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
@@ -277,6 +279,8 @@ class Comfly_kling_image2video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
@@ -614,6 +618,8 @@ class Comfly_kling_multi_image2video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
@@ -752,6 +758,8 @@ class Comfly_video_extend:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
@@ -941,6 +949,8 @@ class Comfly_lip_sync:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}

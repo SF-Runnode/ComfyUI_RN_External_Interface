@@ -53,6 +53,8 @@ class Comfly_qwen_image:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         try:
             if not self.api_key:
@@ -233,6 +235,8 @@ class Comfly_qwen_image_edit:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         try:
             if not self.api_key:
@@ -412,6 +416,8 @@ class Comfly_Z_image_turbo:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -683,6 +689,8 @@ class Comfly_wan2_6_API:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_msg = "API key not found. Please provide an API key."

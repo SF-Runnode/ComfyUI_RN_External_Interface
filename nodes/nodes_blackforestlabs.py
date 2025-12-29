@@ -78,6 +78,8 @@ class Comfly_Flux_Kontext:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -263,6 +265,8 @@ class Comfly_Flux_Kontext_Edit:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -460,6 +464,8 @@ class Comfly_Flux_Kontext_bfl:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
 
         if input_image is not None:
             default_tensor = input_image  
@@ -659,6 +665,8 @@ class Comfly_Flux_2_Pro:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
 
         blank_image = Image.new('RGB', (width, height), color='white')
         default_tensor = pil2tensor(blank_image)
@@ -877,6 +885,8 @@ class Comfly_Flux_2_Flex:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
 
         blank_image = Image.new('RGB', (width, height), color='white')
         default_tensor = pil2tensor(blank_image)

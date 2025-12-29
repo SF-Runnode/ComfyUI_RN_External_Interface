@@ -40,6 +40,8 @@ class Comfly_suno_description:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -272,6 +274,8 @@ class Comfly_suno_lyrics:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -397,6 +401,8 @@ class Comfly_suno_custom:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -625,6 +631,8 @@ class Comfly_suno_upload:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -842,6 +850,8 @@ class Comfly_suno_upload_extend:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -1074,6 +1084,8 @@ class Comfly_suno_cover:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"

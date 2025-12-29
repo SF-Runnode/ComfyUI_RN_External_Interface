@@ -105,6 +105,8 @@ class ComflyGeminiAPI:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
 
         self.timeout = timeout
         
@@ -339,6 +341,8 @@ class Comfly_Googel_Veo3:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"code": "error", "message": "API key not found in Comflyapi.json"}
@@ -579,6 +583,8 @@ class Comfly_nano_banana:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
 
         default_image = None
         for img in [image1, image2, image3, image4]:
@@ -781,6 +787,8 @@ class Comfly_nano_banana_fal:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
 
         default_image = None
         for img in [image1, image2, image3, image4]:
@@ -1012,6 +1020,8 @@ class Comfly_nano_banana_edit:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -1213,6 +1223,8 @@ class Comfly_nano_banana2_edit:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -1440,6 +1452,8 @@ class Comfly_nano_banana2_edit_S2A:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"

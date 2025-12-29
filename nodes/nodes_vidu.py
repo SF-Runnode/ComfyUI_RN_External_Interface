@@ -215,6 +215,8 @@ class Comfly_vidu_img2video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -419,6 +421,8 @@ class Comfly_vidu_text2video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -645,6 +649,8 @@ class Comfly_vidu_ref2video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -891,6 +897,8 @@ class Comfly_vidu_start_end2video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}

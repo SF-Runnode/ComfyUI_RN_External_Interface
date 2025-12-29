@@ -292,6 +292,8 @@ class Comfly_upload(ComflyBaseNode):
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         try:
             pil_image = tensor2pil(image)[0]
@@ -414,6 +416,8 @@ class Comfly_Mj(ComflyBaseNode):
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         self.image = image
         self.speed = speed
@@ -666,6 +670,8 @@ class Comfly_Mju(ComflyBaseNode):
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
         
         try:
             try:
@@ -1143,6 +1149,8 @@ class Comfly_Mjv(ComflyBaseNode):
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
         
         try:
             try:
@@ -1487,6 +1495,8 @@ class Comfly_Mj_swap_face(ComflyBaseNode):
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             return (source_image, "API key not provided or not found in config")
@@ -1811,6 +1821,8 @@ class Comfly_mj_video(ComflyBaseNode):
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = json.dumps({
@@ -2019,6 +2031,8 @@ class Comfly_mj_video_extend(ComflyBaseNode):
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not provided. Please set your API key."

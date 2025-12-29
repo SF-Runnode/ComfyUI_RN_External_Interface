@@ -59,6 +59,8 @@ class Comfly_MiniMax_video:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}

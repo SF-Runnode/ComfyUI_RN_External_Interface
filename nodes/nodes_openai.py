@@ -145,6 +145,8 @@ class Comfly_gpt_image_1_edit:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
  
         original_image = image
         original_batch_size = image.shape[0]
@@ -426,6 +428,8 @@ class Comfly_gpt_image_1:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         try:
             if not self.api_key:
@@ -735,6 +739,8 @@ class ComflyChatGPTApi:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
 
         try:
             self.image_download_timeout = image_download_timeout
@@ -954,6 +960,8 @@ class Comfly_sora2_openai:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -1161,6 +1169,8 @@ class Comfly_sora2:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -1384,6 +1394,8 @@ class Comfly_sora2_chat:
             # config = get_config()
             # config['api_key'] = apikey
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -1602,6 +1614,8 @@ class Comfly_sora2_character:
             # config = get_config()
             # config['api_key'] = api_key
             # save_config(config)
+        else:
+            self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
