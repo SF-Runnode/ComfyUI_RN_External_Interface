@@ -50,9 +50,9 @@ class Comfly_qwen_image:
                        enable_safety_checker=True, negative_prompt="", output_format="png"):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         try:
             if not self.api_key:
@@ -230,9 +230,9 @@ class Comfly_qwen_image_edit:
                   num_images=1, acceleration="none"):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         try:
             if not self.api_key:
@@ -409,9 +409,9 @@ class Comfly_Z_image_turbo:
                       output_quality=80, seed=0):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -680,9 +680,9 @@ class Comfly_wan2_6_API:
     def generate_video(self, prompt, api_key, resolution, duration, image=None, audio_url="", prompt_extend=True, shot_type="multi", audio_enabled=True):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_msg = "API key not found. Please provide an API key."

@@ -58,9 +58,9 @@ class Comfly_Doubao_Seedream:
                        seed=-1, watermark=True):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -295,9 +295,9 @@ class Comfly_Doubao_Seedream_4:
                   watermark=True, stream=False):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -549,9 +549,9 @@ class Comfly_Doubao_Seedream_4_5:
                   watermark=True, stream=False):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -749,9 +749,9 @@ class Comfly_Doubao_Seededit:
                 guidance_scale=5.5, apikey="", seed=-1, watermark=True):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -953,9 +953,9 @@ class ComflyJimengApi:
                       logo_text="", logo_opacity=0.3, api_key="", image=None, image_url=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         try:
             if not self.api_key:
@@ -1280,9 +1280,9 @@ class ComflyJimengVideoApi:
     def generate_video(self, prompt, duration, aspect_ratio, cfg_scale, api_key="", image=None, seed=0):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_response = {"code": "error", "message": "API key not found in Comflyapi.json"}
@@ -1503,9 +1503,9 @@ class ComflySeededit:
                    logo_language="中文", logo_text="", api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         try:
             if not self.api_key:

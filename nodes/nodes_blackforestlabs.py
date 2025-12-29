@@ -75,9 +75,9 @@ class Comfly_Flux_Kontext:
                   seed=-1, clear_image=True):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -260,9 +260,9 @@ class Comfly_Flux_Kontext_Edit:
                   seed=-1):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -457,9 +457,9 @@ class Comfly_Flux_Kontext_bfl:
                       prompt_upsampling=False, safety_tolerance=2, api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
 
         if input_image is not None:
             default_tensor = input_image  
@@ -656,9 +656,9 @@ class Comfly_Flux_2_Pro:
         
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
 
         blank_image = Image.new('RGB', (width, height), color='white')
         default_tensor = pil2tensor(blank_image)
@@ -874,9 +874,9 @@ class Comfly_Flux_2_Flex:
         
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
 
         blank_image = Image.new('RGB', (width, height), color='white')
         default_tensor = pil2tensor(blank_image)

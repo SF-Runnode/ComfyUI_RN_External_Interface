@@ -289,9 +289,9 @@ class Comfly_upload(ComflyBaseNode):
     def upload_image(self, image, api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         try:
             pil_image = tensor2pil(image)[0]
@@ -411,9 +411,9 @@ class Comfly_Mj(ComflyBaseNode):
     def process_input(self, speed, text, text_en="", image=None, model_version=None, ar=None, no=None, c=None, s=None, iw=None, r=None, sw=None, cw=None, sv=None, video=False, tile=False, seed=0, cref="none", oref="none", sref="none", positive="", api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         self.image = image
         self.speed = speed
@@ -663,9 +663,9 @@ class Comfly_Mju(ComflyBaseNode):
     def run(self, taskId, U1=False, U2=False, U3=False, U4=False, api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
         
         try:
             try:
@@ -1140,9 +1140,9 @@ class Comfly_Mjv(ComflyBaseNode):
     def run(self, taskId, upsample_v6_2x_subtle=False, upsample_v6_2x_creative=False, costume_zoom=False, zoom=1.0, pan_left=False, pan_right=False, pan_up=False, pan_down=False, api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
         
         try:
             try:
@@ -1484,9 +1484,9 @@ class Comfly_Mj_swap_face(ComflyBaseNode):
     def swap_face(self, source_image, target_image, api_key="", seed=0):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             return (source_image, "API key not provided or not found in config")
@@ -1808,9 +1808,9 @@ class Comfly_mj_video(ComflyBaseNode):
     def generate_video(self, prompt, motion="Low", api_key="", image=None, notify_hook="", seed=0):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_response = json.dumps({
@@ -2016,9 +2016,9 @@ class Comfly_mj_video_extend(ComflyBaseNode):
     def extend_video(self, task_id, index=0, api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not provided. Please set your API key."

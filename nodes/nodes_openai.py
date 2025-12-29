@@ -142,9 +142,9 @@ class Comfly_gpt_image_1_edit:
               max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
  
         original_image = image
         original_batch_size = image.shape[0]
@@ -423,9 +423,9 @@ class Comfly_gpt_image_1:
         
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         try:
             if not self.api_key:
@@ -732,9 +732,9 @@ class ComflyChatGPTApi:
             
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
 
         try:
             self.image_download_timeout = image_download_timeout
@@ -951,9 +951,9 @@ class Comfly_sora2_openai:
     def process(self, prompt, model, apikey="", seconds="15", size="1280x720", image=None, seed=0, private=True):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -1158,9 +1158,9 @@ class Comfly_sora2:
                 image1=None, image2=None, image3=None, image4=None, seed=0, private=True):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -1381,9 +1381,9 @@ class Comfly_sora2_chat:
                       image=None, hd=False, apikey="", seed=0):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -1599,9 +1599,9 @@ class Comfly_sora2_character:
     def create_character(self, video_url, timestamps="1,3", seed=0, api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -3027,7 +3027,7 @@ class Comfly_sora2_batch_32:
         if api_key:
             self.api_key = api_key
             # 调用用户的save_config更新配置文件
-            save_config({'api_key': api_key})
+            # save_config({'api_key': api_key})
             # 重新加载配置确保最新
             self.config = get_config()
                 
@@ -3352,7 +3352,7 @@ class _ComflySora2BatchRunner:
         base_url = global_cfg.get("base_url", "").strip() or self.base_url or "https://ai.t8star.cn"
         api_key = global_cfg.get("api_key", "").strip() or self.api_key
         if api_key:
-            save_config({'api_key': api_key})
+            # save_config({'api_key': api_key})
             self.api_key = api_key
         if not self.api_key:
             empty = [""] * max_workers

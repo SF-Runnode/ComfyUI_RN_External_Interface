@@ -37,9 +37,9 @@ class Comfly_suno_description:
     def generate_music(self, title, description_prompt, version="v4.5", seed=0, make_instrumental=False, apikey=""):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -269,9 +269,9 @@ class Comfly_suno_lyrics:
     def generate_lyrics(self, prompt, seed=0, apikey=""):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -394,9 +394,9 @@ class Comfly_suno_custom:
     def generate_music(self, title, version="v4.5", prompt="", tags="", seed=0, apikey=""):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -622,9 +622,9 @@ class Comfly_suno_upload:
     def upload_audio(self, audio, api_key="", upload_filename="audio.mp3", seed=0):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -839,9 +839,9 @@ class Comfly_suno_upload_extend:
     def extend_audio(self, clip_id, prompt, tags="", title="", continue_at=28, version="v5", api_key="", seed=0):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -1071,9 +1071,9 @@ class Comfly_suno_cover:
                     make_instrumental=False, api_key="", negative_tags="", seed=0):
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"

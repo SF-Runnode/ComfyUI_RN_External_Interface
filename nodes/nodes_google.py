@@ -102,9 +102,9 @@ class ComflyGeminiAPI:
 
         if api_key.strip():
             self.api_key = api_key
-            config = get_config()
-            config['api_key'] = api_key
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = api_key
+            # save_config(config)
 
         self.timeout = timeout
         
@@ -336,9 +336,9 @@ class Comfly_Googel_Veo3:
                       image1=None, image2=None, image3=None, seed=0, enable_upsample=False):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_response = {"code": "error", "message": "API key not found in Comflyapi.json"}
@@ -576,9 +576,9 @@ class Comfly_nano_banana:
                 temperature=1.0, top_p=0.95, apikey="", seed=0, max_tokens=32768):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
 
         default_image = None
         for img in [image1, image2, image3, image4]:
@@ -778,9 +778,9 @@ class Comfly_nano_banana_fal:
                 image1=None, image2=None, image3=None, image4=None, apikey=""):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
 
         default_image = None
         for img in [image1, image2, image3, image4]:
@@ -1009,9 +1009,9 @@ class Comfly_nano_banana_edit:
                       apikey="", response_format="url", seed=0):  
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -1210,9 +1210,9 @@ class Comfly_nano_banana2_edit:
                       apikey="", response_format="url", seed=0):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
@@ -1437,9 +1437,9 @@ class Comfly_nano_banana2_edit_S2A:
                       apikey="", task_id="", response_format="url", seed=0):
         if apikey.strip():
             self.api_key = apikey
-            config = get_config()
-            config['api_key'] = apikey
-            save_config(config)
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
