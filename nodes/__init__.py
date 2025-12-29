@@ -10,6 +10,7 @@ import re
 import time
 import json
 import base64
+import copy
 import math
 import subprocess
 import threading
@@ -43,4 +44,4 @@ from comfy_api.input_impl import VideoFromFile, VideoFromComponents
 from comfy_api.util import VideoComponents
 
 # 自定义工具导入
-from ..utils import pil2tensor, tensor2pil# package marker
+from ..utils import *

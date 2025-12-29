@@ -561,11 +561,11 @@ class Comfly_wan2_6_API:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "default": "一幅都市奇幻艺术的场景。一个充满动感的涂鸦艺术角色。一个由喷漆所画成的少年,正从一面混凝土墙上活过来。他一边用极快的语速演唱一首英文rap,一边摆着一个经典的、充满活力的说唱歌手姿势。场景设定在夜晚一个充满都市感的铁路桥下。灯光来自一盏孤零零的街灯,营造出电影般的氛围,充满高能量和惊人的细节。视频的音频部分完全由他的rap构成,没有其他对话或杂音。"}),
-                "api_key": ("STRING", {"default": ""}),
                 "resolution": (["1080P", "720P"], {"default": "1080P"}),
                 "duration": ([5, 10, 15], {"default": 5}),
             },
             "optional": {
+                "api_key": ("STRING", {"default": ""}),
                 "image": ("IMAGE",),
                 "audio_url": ("STRING", {"default": ""}),
                 "prompt_extend": ("BOOLEAN", {"default": True}),
@@ -734,7 +734,10 @@ class Comfly_wan2_6_API:
                 request_body["parameters"]["audio"] = audio_enabled
             
             # Submit task (exactly as wan.py)
-            url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
+            cfg = get_config()
+            base_url = cfg.get('base_url', '').strip() or "https://dashscope.aliyuncs.com"
+            url_primary = f"{base_url}/api/v1/services/aigc/video-generation/video-synthesis"
+            url_fallback = "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
             
             headers = {
                 'Authorization': f'Bearer {self.api_key}',
@@ -753,11 +756,24 @@ class Comfly_wan2_6_API:
                         log_body["input"]["img_url"] = truncated
             
             print(f"[Zhenzhen_WanVideo INFO] Request body: {json.dumps(log_body, indent=2, ensure_ascii=False)}")
-            print(f"[Zhenzhen_WanVideo INFO] Sending request to: {url}")
+            print(f"[Zhenzhen_WanVideo INFO] Sending request to: {url_primary}")
             
-            response = requests.post(url, headers=headers, json=request_body, timeout=60)
+            response = None
+            try:
+                response = requests.post(url_primary, headers=headers, json=request_body, timeout=60)
+            except Exception as e:
+                print(f"[Zhenzhen_WanVideo WARNING] Primary request error: {str(e)}")
+                response = None
             
-            if response.status_code == 200:
+            if (response is None or response.status_code != 200) and (base_url.rstrip('/') != "https://dashscope.aliyuncs.com"):
+                print(f"[Zhenzhen_WanVideo INFO] Fallback to DashScope: {url_fallback}")
+                try:
+                    response = requests.post(url_fallback, headers=headers, json=request_body, timeout=60)
+                except Exception as e:
+                    print(f"[Zhenzhen_WanVideo ERROR] Fallback request error: {str(e)}")
+                    response = None
+            
+            if response is not None and response.status_code == 200:
                 result = response.json()
                 task_id = result.get('output', {}).get('task_id')
                 if task_id:
@@ -779,11 +795,11 @@ class Comfly_wan2_6_API:
                     return (EmptyVideoAdapter(), "No task ID in response", "")
             else:
                 # Error handling
-                status_code = response.status_code
+                status_code = response.status_code if response is not None else -1
                 error_message = "Unknown error"
                 
                 try:
-                    if response.text:
+                    if response is not None and response.text:
                         response_json = response.json()
                         if isinstance(response_json, dict):
                             if 'message' in response_json:
@@ -798,7 +814,7 @@ class Comfly_wan2_6_API:
                             if len(error_message) > 200:
                                 error_message = error_message[:200] + "..."
                 except:
-                    error_message = response.text[:200] if response.text else "No details"
+                    error_message = response.text[:200] if (response is not None and response.text) else "No details"
                 
                 print(f"[Zhenzhen_WanVideo ERROR] API error ({status_code}): {error_message}")
                 return (EmptyVideoAdapter(), f"API error: {status_code} - {error_message}", "")
@@ -809,7 +825,10 @@ class Comfly_wan2_6_API:
 
     def poll_task_status(self, task_id):
         """Poll task status (exactly as wan.py)"""
-        query_url = f"https://dashscope.aliyuncs.com/api/v1/tasks/{task_id}"
+        cfg = get_config()
+        base_url = cfg.get('base_url', '').strip() or "https://dashscope.aliyuncs.com"
+        query_url_primary = f"{base_url}/api/v1/tasks/{task_id}"
+        query_url_fallback = f"https://dashscope.aliyuncs.com/api/v1/tasks/{task_id}"
         headers = {'Authorization': f'Bearer {self.api_key}'}
         
         max_poll_time = 300
@@ -818,10 +837,23 @@ class Comfly_wan2_6_API:
         
         while time.time() - start_time < max_poll_time:
             try:
-                print(f"[Zhenzhen_WanVideo INFO] Querying task: {query_url}")
-                response = requests.get(query_url, headers=headers, timeout=30)
+                print(f"[Zhenzhen_WanVideo INFO] Querying task: {query_url_primary}")
+                response = None
+                try:
+                    response = requests.get(query_url_primary, headers=headers, timeout=30)
+                except Exception as e:
+                    print(f"[Zhenzhen_WanVideo WARNING] Primary query error: {str(e)}")
+                    response = None
                 
-                if response.status_code == 200:
+                if (response is None or response.status_code != 200) and (base_url.rstrip('/') != "https://dashscope.aliyuncs.com"):
+                    print(f"[Zhenzhen_WanVideo INFO] Fallback querying task: {query_url_fallback}")
+                    try:
+                        response = requests.get(query_url_fallback, headers=headers, timeout=30)
+                    except Exception as e:
+                        print(f"[Zhenzhen_WanVideo ERROR] Fallback query error: {str(e)}")
+                        response = None
+                
+                if response is not None and response.status_code == 200:
                     result = response.json()
                     task_status = result.get('output', {}).get('task_status')
                     
@@ -848,7 +880,8 @@ class Comfly_wan2_6_API:
                         time.sleep(poll_interval)
                         continue
                 else:
-                    print(f"[Zhenzhen_WanVideo ERROR] Query failed: {response.status_code}")
+                    status = response.status_code if response is not None else -1
+                    print(f"[Zhenzhen_WanVideo ERROR] Query failed: {status}")
                     return None
                     
             except Exception as e:

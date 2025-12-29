@@ -90,7 +90,7 @@ def _filter_enabled_options(options: dict[str, Any] | None) -> dict[str, Any] | 
     return out or None
 
 
-@PromptServer.instance.routes.post("/ollama/get_models")
+@PromptServer.instance.routes.post("/runnode_ollama/get_models")
 async def get_models_endpoint(request):
     data = await request.json()
     url = data.get("url")
