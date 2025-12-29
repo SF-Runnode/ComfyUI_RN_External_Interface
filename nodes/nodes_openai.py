@@ -33,7 +33,7 @@ class Comfly_gpt_image_1_edit:
                 "mask": ("MASK", {"tooltip": "可选的遮罩，用于限制编辑区域"}),
                 "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API 密钥，留空则使用全局配置"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1", "tooltip": "使用的模型版本"}),
+                "model": (["gpt-image-1"], {"default": "gpt-image-1", "tooltip": "使用的模型版本"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成的图像数量"}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto", "tooltip": "输出图像尺寸，'auto'表示保持原尺寸"}),
@@ -391,7 +391,7 @@ class Comfly_gpt_image_1:
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": (["gpt-image-1"], {"default": "gpt-image-1"}),
+                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),

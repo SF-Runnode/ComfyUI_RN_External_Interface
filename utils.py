@@ -33,43 +33,32 @@ def tensor2pil(image: torch.Tensor) -> List[Image.Image]:
     numpy_image = np.clip(255.0 * image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
     return [Image.fromarray(numpy_image)]
 
-class ComflyVideoAdapter:
-    def __init__(self, video_path_or_url):
-        if isinstance(video_path_or_url, str) and video_path_or_url.startswith('http'):
-            self.is_url = True
-            self.video_url = video_path_or_url
-            self.video_path = None
-        else:
-            self.is_url = False
-            self.video_path = video_path_or_url or ""
-            self.video_url = None
+ 
+
+
+class EmptyVideoAdapter:
+    """Empty video adapter for error cases"""
+    def __init__(self):
+        self.is_empty = True
+        
     def get_dimensions(self):
-        if self.is_url:
-            return 1280, 720
-        try:
-            cap = cv2.VideoCapture(self.video_path)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            cap.release()
-            return width, height
-        except Exception:
-            return 1280, 720
+        return 1, 1  # Minimal dimensions
+    
     def save_to(self, output_path, format="auto", codec="auto", metadata=None):
-        if self.is_url:
-            try:
-                response = requests.get(self.video_url, stream=True)
-                response.raise_for_status()
-                with open(output_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                return True
-            except Exception:
-                return False
+        # Create a minimal black video file
         try:
-            shutil.copyfile(self.video_path, output_path)
+            import numpy as np
+            # Create a 1x1 black frame
+            frame = np.zeros((1, 1, 3), dtype=np.uint8)
+            # Write a minimal video using opencv
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, 1.0, (1, 1))
+            out.write(frame)
+            out.release()
             return True
-        except Exception:
+        except:
             return False
+
 
 def create_audio_object(audio_url):
     if not audio_url:
@@ -94,7 +83,8 @@ def create_audio_object(audio_url):
                 "waveform": waveform,
                 "sample_rate": sample_rate
             }
-        except Exception:
+        except Exception as e:
+            print(f"Error loading audio with torchaudio: {str(e)}")
             try:
                 if hasattr(folder_paths, "get_ffmpeg_path"):
                     ffmpeg_path = folder_paths.get_ffmpeg_path()
@@ -114,15 +104,65 @@ def create_audio_object(audio_url):
                         "waveform": waveform,
                         "sample_rate": sample_rate
                     }
-            except Exception:
+                else:
+                    raise Exception("ffmpeg not found, can't process audio")
+            except Exception as ffmpeg_error:
+                print(f"Error with ffmpeg conversion: {str(ffmpeg_error)}")
                 return {
                     "waveform": torch.zeros((1, 1, 44100)),
                     "sample_rate": 44100,
                     "url": audio_url
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error downloading or processing audio: {str(e)}")
     return {
         "waveform": torch.zeros((1, 1, 44100)),
         "sample_rate": 44100
     }
+
+
+class ComflyVideoAdapter:
+    def __init__(self, video_path_or_url):
+        if video_path_or_url.startswith('http'):
+            self.is_url = True
+            self.video_url = video_path_or_url
+            self.video_path = None
+        else:
+            self.is_url = False
+            self.video_path = video_path_or_url
+            self.video_url = None
+        
+    def get_dimensions(self):
+        if self.is_url:
+            return 1280, 720
+        else:
+            try: 
+                cap = cv2.VideoCapture(self.video_path)
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                cap.release()
+                return width, height
+            except Exception as e:
+                print(f"Error getting video dimensions: {str(e)}")
+                return 1280, 720
+            
+    def save_to(self, output_path, format="auto", codec="auto", metadata=None):
+        if self.is_url:
+            try:
+                response = requests.get(self.video_url, stream=True)
+                response.raise_for_status()
+                
+                with open(output_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                return True
+            except Exception as e:
+                print(f"Error downloading video from URL: {str(e)}")
+                return False
+        else:
+            try:
+                shutil.copyfile(self.video_path, output_path)
+                return True
+            except Exception as e:
+                 print(f"Error saving video: {str(e)}")
+                 return False
