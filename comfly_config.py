@@ -15,19 +15,57 @@ def get_config():
             matching_files = [f for f in glob.glob(pattern) if "rn_external_interface" in f.lower()]
             if matching_files:
                 config_path = matching_files[0]
-        with open(config_path, 'r', encoding='utf-8') as f:
-            cfg = json.load(f)
+        cfg = {}
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+        except Exception:
+            cfg = {}
         llm = cfg.get('llm', {})
         current_provider = llm.get('current_provider', '')
         providers = llm.get('providers', {})
         provider_cfg = providers.get(current_provider, {})
+
+        def _env(names):
+            for n in names:
+                v = os.environ.get(n)
+                if v is not None and str(v).strip() != "":
+                    return v
+            return None
+
+        api_key = _env(["COMFYUI_RN_API_KEY", "COMFLY_API_KEY", "RUNNODE_API_KEY", "RN_API_KEY"]) or provider_cfg.get('api_key', '')
+        base_url = _env(["COMFYUI_RN_BASE_URL", "COMFLY_BASE_URL", "RUNNODE_BASE_URL", "RN_BASE_URL"]) or provider_cfg.get('base_url', '')
+        model = _env(["COMFYUI_RN_MODEL", "COMFLY_MODEL", "RUNNODE_MODEL", "RN_MODEL"]) or provider_cfg.get('model', '')
+
+        def _env_float(names, default):
+            v = _env(names)
+            if v is None:
+                return default
+            try:
+                return float(v)
+            except Exception:
+                return default
+
+        def _env_int(names, default):
+            v = _env(names)
+            if v is None:
+                return default
+            try:
+                return int(v)
+            except Exception:
+                return default
+
+        temperature = _env_float(["COMFYUI_RN_TEMPERATURE", "COMFLY_TEMPERATURE"], provider_cfg.get('temperature', 0.7))
+        max_tokens = _env_int(["COMFYUI_RN_MAX_TOKENS", "COMFLY_MAX_TOKENS"], provider_cfg.get('max_tokens', 1000))
+        top_p = _env_float(["COMFYUI_RN_TOP_P", "COMFLY_TOP_P"], provider_cfg.get('top_p', 0.9))
+
         return {
-            'api_key': provider_cfg.get('api_key', ''),
-            'model': provider_cfg.get('model', ''),
-            'base_url': provider_cfg.get('base_url', ''),
-            'temperature': provider_cfg.get('temperature', 0.7),
-            'max_tokens': provider_cfg.get('max_tokens', 1000),
-            'top_p': provider_cfg.get('top_p', 0.9)
+            'api_key': api_key,
+            'model': model,
+            'base_url': base_url,
+            'temperature': temperature,
+            'max_tokens': max_tokens,
+            'top_p': top_p,
         }
     except Exception:
         return {}
