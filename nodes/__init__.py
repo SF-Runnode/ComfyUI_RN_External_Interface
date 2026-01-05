@@ -36,6 +36,8 @@ from aiohttp import web
 import asyncio
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import urllib.request
+import urllib.error
 
 # ComfyUI核心导入
 import comfy.utils

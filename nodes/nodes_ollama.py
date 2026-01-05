@@ -78,10 +78,10 @@ class OllamaConnectivityV2:
             "required": {
                 "url": ("STRING", {
                     "multiline": False,
-                    "default": "http://127.0.0.1:11434",
-                    "tooltip": "The URL of the Ollama server. Default value points to a local instance with ollama's default port configuration."
+                    "default": "",
+                    "tooltip": "服务地址：本地 Ollama 用 http://127.0.0.1:11434；第三方服务无需填写“/v1”，系统会自动处理。"
                 }),
-                "model": ((), {"tooltip": "Select a model for inference. This is a list of available models on the Ollama server. If you don't see any, make sure the Ollama server is running on the url and there are models installed."}),
+                "model": ("STRING", {"multiline": False, "default": "", "tooltip": "Model name. Supports manual input. Use installed model names for local Ollama or third-party provider naming."}),
                 "keep_alive": ("INT", {"default": 5, "min": -1, "max": 120, "step": 1, "tooltip": "Configures how long ollama keeps the model loaded in memory after inference. -1 = keep alive indefinitely, 0 = unload model immediately after inference"}),
                 "keep_alive_unit": (["minutes", "hours"],),
             },
@@ -97,6 +97,10 @@ class OllamaConnectivityV2:
     DESCRIPTION = "Provides connection to an Ollama server. Use the refresh button to load the model list in case of connection error or after installing a new model."
 
     def ollama_connectivity(self, url, model, keep_alive, keep_alive_unit, api_key=""):
+        if not url or str(url).strip() == "":
+            url = get_config().get('base_url', "http://127.0.0.1:11434")
+        if not api_key or str(api_key).strip() == "":
+            api_key = get_config().get('api_key', "")
         data = {
             "url": url,
             "model": model,
@@ -236,7 +240,7 @@ class OllamaChat:
             raise ValueError("'connectivity' must be present in meta.")
 
         url = meta["connectivity"]["url"]
-        model = meta["connectivity"]["model"]
+        model = meta["connectivity"]["model"] or get_config().get("model", "")
         api_key = meta["connectivity"].get("api_key", "")
 
         debug_print = (
@@ -319,40 +323,89 @@ class OllamaChat:
         messages_for_api = [m.copy() for m in session.messages]
         if images_b64 is not None:
             messages_for_api[-1]["images"] = images_b64
-
+        ollama_response_text = None
+        ollama_response_thinking = None
         if api_key:
-            req = urllib.request.Request(
-                url + "/api/chat",
-                data=json.dumps({
-                    "model": model,
-                    "messages": messages_for_api,
-                    "options": request_options,
-                    "keep_alive": request_keep_alive,
-                    "format": ollama_format,
-                    "stream": False,
-                }).encode("utf-8")
-            )
-            req.add_header("Content-Type", "application/json")
-            req.add_header("Authorization", f"Bearer {api_key}")
-            with urllib.request.urlopen(req) as resp:
-                response = json.loads(resp.read().decode("utf-8"))
+            try:
+                openai_messages = []
+                for msg in messages_for_api:
+                    if "images" in msg and msg["images"]:
+                        vision_content = []
+                        if msg.get("content"):
+                            vision_content.append({"type": "text", "text": msg["content"]})
+                        for img_b64 in msg["images"]:
+                            vision_content.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
+                        openai_messages.append({"role": msg["role"], "content": vision_content})
+                    else:
+                        openai_messages.append({"role": msg["role"], "content": msg.get("content", "")})
+                request_body = {"model": model, "messages": openai_messages, "stream": False}
+                if request_options:
+                    if "temperature" in request_options:
+                        request_body["temperature"] = request_options["temperature"]
+                    if "max_tokens" in request_options:
+                        request_body["max_tokens"] = request_options["max_tokens"]
+                    elif "num_predict" in request_options:
+                        request_body["max_tokens"] = request_options["num_predict"]
+                base = url.rstrip("/")
+                endpoint = (base + "/chat/completions") if (base.endswith("/v1") or "/v1/" in base) else (base + "/v1/chat/completions")
+                req = urllib.request.Request(
+                    endpoint,
+                    data=json.dumps(request_body).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+                )
+                with urllib.request.urlopen(req) as resp:
+                    response_data = json.loads(resp.read().decode("utf-8"))
+                ollama_response_text = response_data["choices"][0]["message"]["content"]
+                ollama_response_thinking = None
+            except Exception:
+                try:
+                    req = urllib.request.Request(
+                        url.rstrip("/") + "/api/chat",
+                        data=json.dumps({
+                            "model": model,
+                            "messages": messages_for_api,
+                            "options": request_options,
+                            "keep_alive": request_keep_alive,
+                            "format": ollama_format,
+                            "stream": False,
+                        }).encode("utf-8"),
+                        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+                    )
+                    with urllib.request.urlopen(req) as resp:
+                        response_json = json.loads(resp.read().decode("utf-8"))
+                    ollama_response_text = response_json.get("message", {}).get("content")
+                    ollama_response_thinking = None
+                except Exception:
+                    raise RuntimeError("Third-party API call failed and Ollama '/api/chat' with Bearer also failed. Please verify base URL and API key are correct.")
         else:
-            client = Client(host=url)
-            response = client.chat(
-                model=model,
-                messages=messages_for_api,
-                options=request_options,
-                keep_alive=request_keep_alive,
-                format=ollama_format,
-            )
+            try:
+                client = Client(host=url)
+                response_native = client.chat(
+                    model=model,
+                    messages=messages_for_api,
+                    options=request_options,
+                    keep_alive=request_keep_alive,
+                    format=ollama_format,
+                )
+                ollama_response_text = response_native.message.content if hasattr(response_native, "message") else None
+                ollama_response_thinking = response_native.message.thinking if hasattr(response_native, "message") and think else None
+            except Exception:
+                fallback_url = get_config().get('base_url', "http://127.0.0.1:11434")
+                client = Client(host=fallback_url)
+                response_native = client.chat(
+                    model=model,
+                    messages=messages_for_api,
+                    options=request_options,
+                    keep_alive=request_keep_alive,
+                    format=ollama_format,
+                )
+                ollama_response_text = response_native.message.content if hasattr(response_native, "message") else None
+                ollama_response_thinking = response_native.message.thinking if hasattr(response_native, "message") and think else None
 
         if debug_print:
             print("\n--- ollama chat response:")
-            pprint(response)
+            pprint({"text": (ollama_response_text or "")[:200], "thinking": ollama_response_thinking})
             print("---------------------------------------------------------")
-
-        ollama_response_text = response.message.content if hasattr(response, 'message') else response.get('message', {}).get('content')
-        ollama_response_thinking = response.message.thinking if hasattr(response, 'message') and think else None
 
         session.messages.append(
             {
