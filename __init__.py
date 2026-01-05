@@ -10,6 +10,7 @@ from .nodes.nodes_vidu import *
 from .nodes.nodes_qwen import *
 from .nodes.nodes_MiniMax import *
 from .nodes.nodes_kling import *
+from .nodes.nodes_ollama import *
 
 
 WEB_DIRECTORY = "./web"

@@ -17,7 +17,7 @@ import threading
 import traceback
 from io import BytesIO
 from fractions import Fraction
-from typing import Dict, List, Tuple, Optional, Any  # 补充缺失的类型导入
+from typing import Dict, List, Tuple, Optional, Any, Literal
 
 # 数值/图像处理导入
 import torch
@@ -25,10 +25,14 @@ import torchaudio
 import numpy as np
 import cv2
 from PIL import Image
+from dataclasses import dataclass, field
+from pydantic.json_schema import JsonSchemaValue
+from pprint import pprint
 
 # 网络/异步导入
 import requests
 import aiohttp
+from aiohttp import web
 import asyncio
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,3 +49,5 @@ from comfy_api.util import VideoComponents
 
 # 自定义工具导入
 from ..utils import *
+from server import PromptServer
+from ollama import Client
