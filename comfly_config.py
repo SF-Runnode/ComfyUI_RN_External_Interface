@@ -33,9 +33,9 @@ def get_config():
                     return v
             return None
 
-        api_key = _env(["COMFYUI_RN_API_KEY", "COMFLY_API_KEY", "RUNNODE_API_KEY", "RN_API_KEY"]) or provider_cfg.get('api_key', '')
-        base_url = _env(["COMFYUI_RN_BASE_URL", "COMFLY_BASE_URL", "RUNNODE_BASE_URL", "RN_BASE_URL"]) or provider_cfg.get('base_url', '')
-        model = _env(["COMFYUI_RN_MODEL", "COMFLY_MODEL", "RUNNODE_MODEL", "RN_MODEL"]) or provider_cfg.get('model', '')
+        api_key = _env(["COMFLY_API_KEY", "COMFYUI_RN_API_KEY", "RUNNODE_API_KEY", "RN_API_KEY"]) or provider_cfg.get('api_key', '')
+        base_url = _env(["COMFLY_BASE_URL", "COMFYUI_RN_BASE_URL", "RUNNODE_BASE_URL", "RN_BASE_URL"]) or provider_cfg.get('base_url', '')
+        model = _env(["COMFLY_MODEL", "COMFYUI_RN_MODEL", "RUNNODE_MODEL", "RN_MODEL"]) or provider_cfg.get('model', '')
 
         def _env_float(names, default):
             v = _env(names)
@@ -55,9 +55,9 @@ def get_config():
             except Exception:
                 return default
 
-        temperature = _env_float(["COMFYUI_RN_TEMPERATURE", "COMFLY_TEMPERATURE"], provider_cfg.get('temperature', 0.7))
-        max_tokens = _env_int(["COMFYUI_RN_MAX_TOKENS", "COMFLY_MAX_TOKENS"], provider_cfg.get('max_tokens', 1000))
-        top_p = _env_float(["COMFYUI_RN_TOP_P", "COMFLY_TOP_P"], provider_cfg.get('top_p', 0.9))
+        temperature = _env_float(["COMFLY_TEMPERATURE", "COMFYUI_RN_TEMPERATURE"], provider_cfg.get('temperature', 0.7))
+        max_tokens = _env_int(["COMFLY_MAX_TOKENS", "COMFYUI_RN_MAX_TOKENS"], provider_cfg.get('max_tokens', 1000))
+        top_p = _env_float(["COMFLY_TOP_P", "COMFYUI_RN_TOP_P"], provider_cfg.get('top_p', 0.9))
 
         return {
             'api_key': api_key,

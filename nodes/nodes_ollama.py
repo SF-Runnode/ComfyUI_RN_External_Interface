@@ -98,9 +98,11 @@ class OllamaConnectivityV2:
 
     def ollama_connectivity(self, url, model, keep_alive, keep_alive_unit, api_key=""):
         if not url or str(url).strip() == "":
-            url = get_config().get('base_url', "http://127.0.0.1:11434")
+            url = os.environ.get('COMFYUI_RN_BASE_URL') or get_config().get('base_url', "http://127.0.0.1:11434")
         if not api_key or str(api_key).strip() == "":
-            api_key = get_config().get('api_key', "")
+            api_key = os.environ.get('COMFYUI_RN_API_KEY') or get_config().get('api_key', "")
+        if not model or str(model).strip() == "":
+            model = os.environ.get('COMFYUI_RN_MODEL') or get_config().get('model', "")
         data = {
             "url": url,
             "model": model,
@@ -239,9 +241,9 @@ class OllamaChat:
         if "connectivity" not in meta or meta["connectivity"] is None:
             raise ValueError("'connectivity' must be present in meta.")
 
-        url = meta["connectivity"]["url"]
-        model = meta["connectivity"]["model"] or get_config().get("model", "")
-        api_key = meta["connectivity"].get("api_key", "")
+        url = meta["connectivity"]["url"] or os.environ.get("COMFYUI_RN_BASE_URL") or get_config().get("base_url", "http://127.0.0.1:11434")
+        model = meta["connectivity"]["model"] or os.environ.get("COMFYUI_RN_MODEL") or get_config().get("model", "")
+        api_key = meta["connectivity"].get("api_key", "") or os.environ.get("COMFYUI_RN_API_KEY") or get_config().get("api_key", "")
 
         debug_print = (
             True if meta["options"] is not None and meta["options"].get("debug", False) else False
