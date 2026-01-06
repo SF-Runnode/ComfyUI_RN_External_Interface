@@ -35,6 +35,9 @@ class Comfly_suno_description:
         }
     
     def generate_music(self, title, description_prompt, version="v4.5", seed=0, make_instrumental=False, apikey=""):
+        request_id = generate_request_id("music_gen", "suno")
+        log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="description")
+        rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -45,7 +48,7 @@ class Comfly_suno_description:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
         
@@ -84,7 +87,7 @@ class Comfly_suno_description:
            
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
                 
@@ -92,7 +95,7 @@ class Comfly_suno_description:
            
             if "id" not in result:
                 error_message = "No task ID in response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
                 
@@ -100,16 +103,16 @@ class Comfly_suno_description:
             
             if "clips" not in result or len(result["clips"]) < 2:
                 error_message = "Expected at least 2 clips in the response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
                 
             clip_ids = [clip["id"] for clip in result["clips"]]
-            if len(clip_ids) < 2:
-                error_message = "Expected at least 2 clip IDs"
-                print(error_message)
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
+                if len(clip_ids) < 2:
+                    error_message = "Expected at least 2 clip IDs"
+                    rn_pbar.error(error_message)
+                    empty_audio = create_audio_object("")
+                    return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
                 
             pbar.update_absolute(30)
             max_attempts = 30
@@ -155,11 +158,11 @@ class Comfly_suno_description:
                         break
                         
                 except Exception as e:
-                    print(f"[Description Debug] Error checking clip status: {str(e)}")
+                    rn_pbar.error(f"Error checking clip status: {str(e)}")
             
             if len(final_clips) < 2:
                 error_message = f"Only received {len(final_clips)} complete clips after {max_attempts} attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
                 
                 if not final_clips:
                     empty_audio = create_audio_object("")
@@ -183,10 +186,9 @@ class Comfly_suno_description:
                         audio_url = match.group(0)
                 
                 if audio_url:
-                    print(f"Found audio URL: {audio_url}")
                     audio_urls.append(audio_url)
                 else:
-                    print(f"No audio URL found in clip")
+                    rn_pbar.error("No audio URL found in clip")
                     audio_urls.append("")
                     
                 clip_id_value = clip.get("id", "")
@@ -205,6 +207,7 @@ class Comfly_suno_description:
                 audio_objects.append(create_audio_object(""))
             
             pbar.update_absolute(100)
+            rn_pbar.done(char_count=len(json.dumps(response_info)))
             
             response_info = {
                 "status": "success",
@@ -232,7 +235,7 @@ class Comfly_suno_description:
                 
         except Exception as e:
             error_message = f"Error generating music: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
             empty_audio = create_audio_object("")

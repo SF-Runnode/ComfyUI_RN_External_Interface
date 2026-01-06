@@ -80,7 +80,7 @@ class Comfly_Doubao_Seedream:
                 is_valid, result = self.validate_custom_size(Custom_size)
                 if not is_valid:
                     error_message = result
-                    print(error_message)
+                    rn_pbar.error(error_message)
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
@@ -109,7 +109,7 @@ class Comfly_Doubao_Seedream:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -120,7 +120,7 @@ class Comfly_Doubao_Seedream:
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -132,7 +132,7 @@ class Comfly_Doubao_Seedream:
                 image_url = result["data"][0].get("url")
                 if not image_url:
                     error_message = "No image URL in response"
-                    print(error_message)
+                    rn_pbar.error(error_message)
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
@@ -143,7 +143,7 @@ class Comfly_Doubao_Seedream:
                     image_data = BytesIO(img_response.content)
                 except Exception as e:
                     error_message = f"Error downloading image: {str(e)}"
-                    print(error_message)
+                    rn_pbar.error(error_message)
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
@@ -151,7 +151,7 @@ class Comfly_Doubao_Seedream:
                 b64_data = result["data"][0].get("b64_json")
                 if not b64_data:
                     error_message = "No base64 data in response"
-                    print(error_message)
+                    rn_pbar.error(error_message)
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
@@ -174,18 +174,19 @@ class Comfly_Doubao_Seedream:
                 }
                 
                 pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(json.dumps(response_info, indent=2)))
                 return (tensor_image, json.dumps(response_info, indent=2))
                 
             except Exception as e:
                 error_message = f"Error processing image: {str(e)}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
                 
         except Exception as e:
             error_message = f"Error generating image: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message)

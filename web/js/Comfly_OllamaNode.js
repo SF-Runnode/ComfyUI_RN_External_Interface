@@ -38,6 +38,34 @@ app.registerExtension({
         const updateModels = async () => {
           refreshButtonWidget.name = "⏳ 获取中...";
           const url = urlWidget ? urlWidget.value : "";
+          const apiKey = apiKeyWidget ? (apiKeyWidget.value || "").trim() : "";
+          const modelVal = modelWidget ? (modelWidget.value || "").trim() : "";
+
+          if (apiKey) {
+            const urlVal = (url || "").trim();
+            const missing = [];
+            if (!urlVal) missing.push("服务地址");
+            if (!apiKey) missing.push("API密钥");
+            if (!modelVal) missing.push("模型名称");
+            if (missing.length > 0) {
+              app.extensionManager.toast.add({
+                severity: "error",
+                summary: "API配置不完整",
+                detail: `缺少：${missing.join("、")}`,
+                life: 5000,
+              });
+            } else {
+              app.extensionManager.toast.add({
+                severity: "info",
+                summary: "API配置完整",
+                detail: "已检测到第三方提供商配置",
+                life: 3000,
+              });
+            }
+            refreshButtonWidget.name = "🔄 刷新模型";
+            this.setDirtyCanvas(true);
+            return;
+          }
 
           let models = [];
           try {

@@ -137,9 +137,12 @@ class Comfly_gpt_image_1_edit:
                 time.sleep(wait_time)
     
     def edit_image(self, image, prompt, model="gpt-image-1", n=1, quality="auto", 
-              seed=0, mask=None, api_key="", size="auto", clear_chats=True,
-              background="auto", output_compression=100, output_format="png",
-              max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0):
+             seed=0, mask=None, api_key="", size="auto", clear_chats=True,
+             background="auto", output_compression=100, output_format="png",
+             max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0):
+        request_id = generate_request_id("img_edit", "openai")
+        log_prepare("图像编辑", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像编辑", source="RunNode/OpenAI-")
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -170,7 +173,7 @@ class Comfly_gpt_image_1_edit:
         try:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (original_image, error_message, self.format_conversation_history())
           
             pbar = comfy.utils.ProgressBar(100)
@@ -276,11 +279,11 @@ class Comfly_gpt_image_1_edit:
 
             except TimeoutError as e:
                 error_message = f"API timeout error: {str(e)}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (original_image, error_message, self.format_conversation_history())
             except Exception as e:
                 error_message = f"API request error: {str(e)}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (original_image, error_message, self.format_conversation_history())
 
             pbar.update_absolute(50)
@@ -288,7 +291,7 @@ class Comfly_gpt_image_1_edit:
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (original_image, error_message, self.format_conversation_history())
 
             edited_images = []
@@ -369,17 +372,18 @@ class Comfly_gpt_image_1_edit:
                 Comfly_gpt_image_1_edit._last_edited_image = combined_tensor
                 
                 pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_info))
                 return (combined_tensor, response_info, self.format_conversation_history())
             else:
                 error_message = "No edited images in response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (original_image, error_message, self.format_conversation_history())
             
         except Exception as e:
             error_message = f"Error in image editing: {str(e)}"
             import traceback
             print(traceback.format_exc())  
-            print(error_message)
+            rn_pbar.error(error_message)
             return (original_image, error_message, self.format_conversation_history())
         
 
@@ -423,6 +427,10 @@ class Comfly_gpt_image_1:
                 size="auto", background="auto", output_format="png", 
                 moderation="auto", seed=0, api_key=""):
         
+        request_id = generate_request_id("img_gen", "openai")
+        log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像生成", source="RunNode/OpenAI-")
+        
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -434,7 +442,7 @@ class Comfly_gpt_image_1:
         try:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -463,7 +471,7 @@ class Comfly_gpt_image_1:
             pbar.update_absolute(50)
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -534,10 +542,11 @@ class Comfly_gpt_image_1:
                 combined_tensor = torch.cat(generated_images, dim=0)
                 
                 pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_info))
                 return (combined_tensor, response_info)
             else:
                 error_message = "No images were successfully processed"
-                print(error_message)
+                rn_pbar.error(error_message)
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -545,7 +554,7 @@ class Comfly_gpt_image_1:
                 
         except Exception as e:
             error_message = f"Error in image generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message)
@@ -723,10 +732,13 @@ class ComflyChatGPTApi:
     def process(self, prompt, model, clear_chats=True, files=None, image_url="", images=None, temperature=0.7, 
            max_tokens=4096, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, seed=-1,
            image_download_timeout=100, api_key=""):
+        request_id = generate_request_id("chat", "openai")
+        log_prepare("图文对话", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图文对话", source="RunNode/OpenAI-")
 
         if model.lower() == "gpt-image-1":
             error_message = "不支持此模型，请使用 gpt-4o-image，gpt-4o-image-vip，sora_image，sora_image-vip 这4个模型。"
-            print(error_message)
+            rn_pbar.error(error_message)
 
             if images is not None:
                 return (images, error_message, "", self.format_conversation_history())
@@ -750,13 +762,14 @@ class ComflyChatGPTApi:
                 
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
-                print(error_message)
+                rn_pbar.error(error_message)
                
                 blank_img = Image.new('RGB', (512, 512), color='white')
                 return (pil2tensor(blank_img), error_message, "", self.format_conversation_history()) 
             
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
+            rn_pbar.set_generating(0)
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
            
             if seed < 0:
@@ -873,34 +886,36 @@ class ComflyChatGPTApi:
                     img_tensors = []
                     successful_downloads = 0
                     for i, url in enumerate(image_urls):
-                        print(f"Attempting to download image {i+1}/{len(image_urls)} from: {url}")
-                
+                        
+                        
                         pbar.update_absolute(min(80, 40 + (i+1) * 40 // len(image_urls)))
                         img_tensor = self.download_image(url, self.image_download_timeout)
                         if img_tensor is not None:
                             img_tensors.append(img_tensor)
                             successful_downloads += 1
-                    print(f"Successfully downloaded {successful_downloads} out of {len(image_urls)} images")
                     if img_tensors:
                 
                         combined_tensor = torch.cat(img_tensors, dim=0)
                         pbar.update_absolute(100)
+                        rn_pbar.done(char_count=len(response_text))
                         return (combined_tensor, technical_response, image_urls_string, chat_history)
                 except Exception as e:
-                    print(f"Error processing image URLs: {str(e)}")
+                    rn_pbar.error(f"Error processing image URLs: {str(e)}")
         
             if images is not None:
                 pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_text))
                 return (images, technical_response, image_urls_string, chat_history)  
             else:
                 blank_img = Image.new('RGB', (512, 512), color='white')
                 blank_tensor = pil2tensor(blank_img)
                 pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_text))
                 return (blank_tensor, technical_response, image_urls_string, chat_history)  
                 
         except Exception as e:
             error_message = f"Error calling ChatGPT API: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
         
             if images is not None:
                 return (images, error_message, "", self.format_conversation_history())  
@@ -955,6 +970,9 @@ class Comfly_sora2_openai:
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
     def process(self, prompt, model, apikey="", seconds="15", size="1280x720", image=None, seed=0, private=True):
+        request_id = generate_request_id("video_gen", "openai")
+        log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -965,16 +983,17 @@ class Comfly_sora2_openai:
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            rn_pbar.error("API key not provided or not found in config")
             return ("", json.dumps(error_response), "", "0")
 
         if model == "sora-2":
             if seconds == "25":  
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
             if size in ["1792x1024", "1024x1792"]:
                 error_message = "The sora-2 model does not support 1080P resolution. Please use sora-2-pro for 1080P videos."
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
       
         pbar = comfy.utils.ProgressBar(100)
@@ -1016,18 +1035,18 @@ class Comfly_sora2_openai:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
                 
             result = response.json()
             
             if "id" not in result:
                 error_message = "No task ID in API response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
             
             task_id = result["id"]
-            print(f"Task ID: {task_id}")
+            
             
             pbar.update_absolute(30)
 
@@ -1076,15 +1095,15 @@ class Comfly_sora2_openai:
                     elif status == "failed":
                         fail_reason = status_data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
                         return ("", json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
                         
                 except Exception as e:
-                    print(f"Error checking task status: {str(e)}")
+                    rn_pbar.error(f"Error checking task status: {str(e)}")
             
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
             
             video_adapter = ComflyVideoAdapter(video_url)
@@ -1103,11 +1122,12 @@ class Comfly_sora2_openai:
                 "seed": actual_seed
             }
             
+            rn_pbar.done(char_count=len(json.dumps(response_data)))
             return (video_adapter, json.dumps(response_data), video_url, actual_seed)
             
         except Exception as e:
             error_message = f"Error in video generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
             return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
@@ -3102,7 +3122,9 @@ class Comfly_sora2_batch_32:
                     current_base_url=current_base_url  # 传递动态base_url
                 )
                 future_to_idx[future] = task["idx"]
-                time.sleep(0.1)  # 避免API限流
+                # 仅当Prompt不为空时才进行流控等待
+                if task["prompt"]:
+                    time.sleep(0.1)  # 避免API限流
 
             # 收集结果并更新进度
             for future in as_completed(future_to_idx):
@@ -3408,7 +3430,9 @@ class _ComflySora2BatchRunner:
             for t in tasks:
                 f = ex.submit(self._process, t["idx"], t["payload"], t["base_url"], t["api_key"])
                 futmap[f] = t["idx"]
-                time.sleep(0.1)
+                # 仅当Prompt不为空时才进行流控等待（空Prompt不会发起请求）
+                if t["payload"]["prompt"]:
+                    time.sleep(0.1)
             for f in as_completed(futmap):
                 idx = futmap[f]
                 try:

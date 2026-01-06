@@ -2,6 +2,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from .comfly_config import get_config, save_config, baseurl
+from .utils import generate_request_id, log_prepare, log_complete, log_error, ProgressBar
 import requests
 import os
 
@@ -26,6 +27,8 @@ class Comfly_api_set:
     CATEGORY = "RunNode"
 
     def set_api_base(self, api_base, apikey="", custom_ip=""):
+        request_id = generate_request_id("api_cfg", "runnode")
+        log_prepare("API设置", request_id, "RunNode-", "Config")
         global baseurl
         base_url_mapping = {
             "RunNode": "https://ai.t8star.cn",
@@ -41,7 +44,7 @@ class Comfly_api_set:
             cfg = get_config()
             cfg['api_key'] = apikey
             save_config(cfg)
-        print(f"API Base URL set to: {baseurl}")
+        log_complete("API设置", request_id, "Config", char_count=len(baseurl), elapsed_ms=0, source="RunNode-")
         return (apikey,)
 
 class Comfly_LLm_API:
@@ -134,6 +137,9 @@ class Comfly_LLm_API:
             return None
 
     def run_llmapi(self, api_baseurl, api_key, model, role, prompt, temperature, seed, ref_image=None, video=None):
+        request_id = generate_request_id("llm_chat", "runnode")
+        log_prepare("LLM对话", request_id, "RunNode/LLM-", "LLM", model_name=model)
+        rn_pbar = ProgressBar(request_id, "LLM", streaming=True, task_type="LLM对话", source="RunNode/LLM-")
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -198,11 +204,15 @@ class Comfly_LLm_API:
             url = f"{base.rstrip('/')}/chat/completions"
             resp = requests.post(url, headers=headers, json=payload, timeout=300)
             if resp.status_code != 200:
+                rn_pbar.error(f"Error: {resp.status_code} {resp.text}")
                 return (f"Error: {resp.status_code} {resp.text}",)
             data = resp.json()
             if data and "choices" in data and data["choices"]:
                 content = data["choices"][0].get("message", {}).get("content", "")
+                rn_pbar.done(char_count=len(content or ""))
                 return (content or "",)
+            rn_pbar.error("Error: empty response")
             return ("Error: empty response",)
         except Exception as e:
+            rn_pbar.error(f"Error calling API: {str(e)}")
             return (f"Error calling API: {str(e)}",)

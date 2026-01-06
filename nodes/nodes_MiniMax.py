@@ -54,6 +54,9 @@ class Comfly_MiniMax_video:
     def generate_video(self, prompt, model="MiniMax-Hailuo-02", duration="6", resolution="768P", 
                prompt_optimizer=True, fast_pretreatment=False, first_frame_image=None, last_frame_image=None,
                subject_reference=None, api_key="", seed=0):
+        request_id = generate_request_id("video_gen", "minimax")
+        log_prepare("视频生成", request_id, "RunNode/MiniMax-", "MiniMax", model_name=model)
+        rn_pbar = ProgressBar(request_id, "MiniMax", streaming=True, task_type="视频生成", source="RunNode/MiniMax-")
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -85,18 +88,18 @@ class Comfly_MiniMax_video:
                 payload["fast_pretreatment"] = fast_pretreatment
 
                 if fast_pretreatment and last_frame_image is not None:
-                    print("Note: fast_pretreatment is disabled when last_frame_image is provided")
+                    rn_pbar.error("fast_pretreatment is disabled when last_frame_image is provided")
                     payload["fast_pretreatment"] = False
 
             if model in ["T2V-01", "T2V-01-Director"]:
                 if first_frame_image is not None or last_frame_image is not None:
-                    print(f"Warning: Model {model} only supports text-to-video. Image inputs will be ignored.")
+                    rn_pbar.error(f"Model {model} only supports text-to-video. Image inputs will be ignored.")
                 
             elif model in ["I2V-01-Director", "I2V-01-live", "I2V-01"]:
                 if first_frame_image is None:
-                    print(f"Warning: Model {model} requires first_frame_image for image-to-video generation.")
+                    rn_pbar.error(f"Model {model} requires first_frame_image for image-to-video generation.")
                 if last_frame_image is not None:
-                    print(f"Warning: Model {model} doesn't support last_frame_image. It will be ignored.")
+                    rn_pbar.error(f"Model {model} doesn't support last_frame_image. It will be ignored.")
 
             if first_frame_image is not None and model != "T2V-01" and model != "T2V-01-Director":
                 image_base64 = self.image_to_base64(first_frame_image)
@@ -127,24 +130,24 @@ class Comfly_MiniMax_video:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (None, "", json.dumps({"status": "error", "message": error_message}))
                 
             result = response.json()
             
             if "base_resp" not in result or result["base_resp"]["status_code"] != 0:
                 error_message = f"API returned error: {result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (None, "", json.dumps({"status": "error", "message": error_message}))
                 
             task_id = result.get("task_id")
             if not task_id:
                 error_message = "No task ID returned from API"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (None, "", json.dumps({"status": "error", "message": error_message}))
             
             pbar.update_absolute(40)
-            print(f"Video generation task submitted. Task ID: {task_id}")
+            
 
             max_attempts = 120  
             attempts = 0
@@ -163,13 +166,13 @@ class Comfly_MiniMax_video:
                     )
                     
                     if status_response.status_code != 200:
-                        print(f"Error checking status: {status_response.status_code} - {status_response.text}")
+                        rn_pbar.error(f"Error checking status: {status_response.status_code} - {status_response.text}")
                         continue
                         
                     status_result = status_response.json()
                     
                     if "base_resp" not in status_result or status_result["base_resp"]["status_code"] != 0:
-                        print(f"Error in status response: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}")
+                        rn_pbar.error(f"Error in status response: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}")
                         continue
                     
                     status = status_result.get("status", "")
@@ -200,22 +203,22 @@ class Comfly_MiniMax_video:
                                 break
                     elif status == "Failed":
                         error_message = f"Video generation failed: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
                         return (None, task_id, json.dumps({"status": "error", "message": error_message}))
                     
                 except Exception as e:
-                    print(f"Error checking generation status: {str(e)}")
+                    rn_pbar.error(f"Error checking generation status: {str(e)}")
             
             if not file_id:
                 error_message = "Failed to retrieve file_id after multiple attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return (None, task_id, json.dumps({"status": "error", "message": error_message}))
                 
             if not video_url:
                 video_url = f"{baseurl}/minimax/v1/file?file_id={file_id}"
             
             pbar.update_absolute(90)
-            print(f"Video generation completed. URL: {video_url}")
+            
             
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -229,11 +232,12 @@ class Comfly_MiniMax_video:
             }
             
             pbar.update_absolute(100)
+            rn_pbar.done(char_count=len(json.dumps(response_data)))
             return (video_adapter, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
             return (None, "", json.dumps({"status": "error", "message": error_message}))

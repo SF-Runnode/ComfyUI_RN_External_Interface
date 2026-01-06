@@ -336,6 +336,9 @@ class Comfly_Googel_Veo3:
     
     def generate_video(self, prompt, model="veo3", enhance_prompt=False, aspect_ratio="16:9", apikey="", 
                       image1=None, image2=None, image3=None, seed=0, enable_upsample=False):
+        request_id = generate_request_id("video_gen", "google")
+        log_prepare("视频生成", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="视频生成", source="RunNode/Google-")
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -392,20 +395,20 @@ class Comfly_Googel_Veo3:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
                 
             result = response.json()
             
             if result.get("code") != "success":
                 error_message = f"API returned error: {result.get('message', 'Unknown error')}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
                 
             task_id = result.get("data")
             if not task_id:
                 error_message = "No task ID returned from API"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
             
             pbar.update_absolute(30)
@@ -453,15 +456,15 @@ class Comfly_Googel_Veo3:
                     elif status == "FAILURE":
                         fail_reason = data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
                         return ("", "", json.dumps({"code": "error", "message": error_message}))
                         
                 except Exception as e:
-                    print(f"Error checking generation status: {str(e)}")
+                    rn_pbar.error(f"Error checking generation status: {str(e)}")
             
             if not video_url:
                 error_message = "Failed to retrieve video URL after multiple attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
             
             if video_url:
@@ -480,11 +483,12 @@ class Comfly_Googel_Veo3:
                 }
                 
                 video_adapter = ComflyVideoAdapter(video_url)
+                rn_pbar.done(char_count=len(json.dumps(response_data)))
                 return (video_adapter, video_url, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             return ("", "", json.dumps({"code": "error", "message": error_message}))
 
 

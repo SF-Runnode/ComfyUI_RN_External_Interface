@@ -48,6 +48,9 @@ class Comfly_qwen_image:
     def generate_image(self, prompt, size, Custom_size, model, num_images=1,
                        api_key="", num_inference_steps=30, seed=0, guidance_scale=2.5, 
                        enable_safety_checker=True, negative_prompt="", output_format="png"):
+        request_id = generate_request_id("image_gen", "qwen")
+        log_prepare("图像生成", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像生成", source="RunNode/Qwen-")
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -59,7 +62,7 @@ class Comfly_qwen_image:
         try:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -71,7 +74,7 @@ class Comfly_qwen_image:
 
             if size == "Custom" and (Custom_size == "Enter custom size (e.g. 1280x720)" or "x" not in Custom_size):
                 error_message = "Please enter a valid custom size in the format 'widthxheight' (e.g. 1280x720)"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -114,7 +117,7 @@ class Comfly_qwen_image:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -151,10 +154,10 @@ class Comfly_qwen_image:
                             generated_tensor = pil2tensor(generated_image)
                             generated_images.append(generated_tensor)
                         except Exception as e:
-                            print(f"Error downloading image from URL: {str(e)}")
+                            rn_pbar.error(f"Error downloading image from URL: {str(e)}")
             else:
                 error_message = "No generated images in response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -164,10 +167,11 @@ class Comfly_qwen_image:
                 combined_tensor = torch.cat(generated_images, dim=0)
                 
                 pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_info))
                 return (combined_tensor, response_info, image_urls[0] if image_urls else "")
             else:
                 error_message = "No images were successfully processed"
-                print(error_message)
+                rn_pbar.error(error_message)
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -175,7 +179,7 @@ class Comfly_qwen_image:
                 
         except Exception as e:
             error_message = f"Error in image generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
@@ -230,6 +234,9 @@ class Comfly_qwen_image_edit:
                   apikey="", num_inference_steps=30, seed=0, guidance_scale=4.0, 
                   enable_safety_checker=True, negative_prompt="", output_format="png",
                   num_images=1, acceleration="none"):
+        request_id = generate_request_id("image_edit", "qwen")
+        log_prepare("图像编辑", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像编辑", source="RunNode/Qwen-")
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()

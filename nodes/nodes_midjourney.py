@@ -1816,6 +1816,9 @@ class Comfly_mj_video(ComflyBaseNode):
         return video_urls
 
     def generate_video(self, prompt, motion="Low", api_key="", image=None, notify_hook="", seed=0):
+        request_id = generate_request_id("video_gen", "midjourney")
+        log_prepare("视频生成", request_id, "RunNode/Midjourney-", "Midjourney")
+        rn_pbar = ProgressBar(request_id, "Midjourney", streaming=True, task_type="视频生成", source="RunNode/Midjourney-")
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -1830,6 +1833,7 @@ class Comfly_mj_video(ComflyBaseNode):
                 "message": "API key not provided. Please set your API key."
             })
             empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
+            rn_pbar.error("API key not provided. Please set your API key.")
             return (*empty_adapters, "", error_response)
             
         pbar = comfy.utils.ProgressBar(100)
@@ -1847,14 +1851,13 @@ class Comfly_mj_video(ComflyBaseNode):
  
             if image is not None:
                 pbar.update_absolute(20)
-                print("Processing input image...")
+                
                 image_base64 = self.image_to_base64(image)
                 if image_base64:
                     payload["image"] = image_base64
                 else:
-                    print("Warning: Failed to convert image to base64")
+                    rn_pbar.error("Failed to convert image to base64")
 
-            print("Submitting video generation request...")
             try:
                 response = requests.post(
                     f"{baseurl}/mj/submit/video", 
@@ -1865,13 +1868,13 @@ class Comfly_mj_video(ComflyBaseNode):
                 response.raise_for_status()
             except requests.exceptions.Timeout:
                 error_message = "API request timed out during submission"
-                print(error_message)
+                rn_pbar.error(error_message)
                 error_response = json.dumps({"status": "error", "message": error_message})
                 empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
                 return (*empty_adapters, "", error_response)
             except requests.exceptions.RequestException as e:
                 error_message = f"API request error during submission: {str(e)}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 error_response = json.dumps({"status": "error", "message": error_message})
                 empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
                 return (*empty_adapters, "", error_response)
@@ -1880,7 +1883,7 @@ class Comfly_mj_video(ComflyBaseNode):
             
             if "result" not in result:
                 error_message = f"No task ID in response: {result}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 error_response = json.dumps({
                     "status": "error", 
                     "message": error_message
@@ -1889,10 +1892,8 @@ class Comfly_mj_video(ComflyBaseNode):
                 return (*empty_adapters, "", error_response)
                 
             task_id = result["result"]
-            print(f"Video generation task submitted successfully. Task ID: {task_id}")
             
             pbar.update_absolute(40)
-            print("Waiting for video generation to complete...")
 
             task_result = {"status": "PENDING", "progress": "0%"}
             max_retries = 120  
@@ -1912,7 +1913,7 @@ class Comfly_mj_video(ComflyBaseNode):
                     if task_result.get("status") == "FAILURE":
                         fail_reason = task_result.get("fail_reason", "Unknown failure reason")
                         error_message = f"Video generation failed: {fail_reason}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
                         error_response = json.dumps({
                             "status": "error", 
                             "message": error_message
@@ -1935,11 +1936,11 @@ class Comfly_mj_video(ComflyBaseNode):
                         break
                         
                 except requests.exceptions.Timeout:
-                    print(f"Timeout while checking task status (retry {retry_count+1}/{max_retries})")
+                    rn_pbar.error(f"Timeout while checking task status (retry {retry_count+1}/{max_retries})")
                 except requests.exceptions.RequestException as e:
-                    print(f"Error checking task status (retry {retry_count+1}/{max_retries}): {str(e)}")
+                    rn_pbar.error(f"Error checking task status (retry {retry_count+1}/{max_retries}): {str(e)}")
                 except Exception as e:
-                    print(f"Unexpected error (retry {retry_count+1}/{max_retries}): {str(e)}")
+                    rn_pbar.error(f"Unexpected error (retry {retry_count+1}/{max_retries}): {str(e)}")
                 
                 time.sleep(5)  
                 retry_count += 1
@@ -1952,7 +1953,7 @@ class Comfly_mj_video(ComflyBaseNode):
         
             if not video_urls:
                 error_message = "No video URLs found in response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 error_response = json.dumps({
                     "status": "error",
                     "message": error_message,
@@ -1977,12 +1978,13 @@ class Comfly_mj_video(ComflyBaseNode):
             })
 
             pbar.update_absolute(100)
+            rn_pbar.done(char_count=len(success_response))
             return (video_adapters[0], video_adapters[1], video_adapters[2], video_adapters[3], 
                    task_id, success_response)
                 
         except Exception as e:
             error_message = f"Error in video generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             error_response = json.dumps({
                 "status": "error",
                 "message": error_message
@@ -2026,6 +2028,9 @@ class Comfly_mj_video_extend(ComflyBaseNode):
         }
 
     def extend_video(self, task_id, index=0, api_key=""):
+        request_id = generate_request_id("video_extend", "midjourney")
+        log_prepare("视频扩展", request_id, "RunNode/Midjourney-", "Midjourney")
+        rn_pbar = ProgressBar(request_id, "Midjourney", streaming=True, task_type="视频扩展", source="RunNode/Midjourney-")
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -2036,7 +2041,7 @@ class Comfly_mj_video_extend(ComflyBaseNode):
             
         if not self.api_key:
             error_message = "API key not provided. Please set your API key."
-            print(error_message)
+            rn_pbar.error(error_message)
             empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
             return (*empty_adapters, "", error_message)
             
@@ -2051,7 +2056,6 @@ class Comfly_mj_video_extend(ComflyBaseNode):
             }
                 
             pbar.update_absolute(30)
-            print("Submitting video extension request...")
 
             response = requests.post(
                 f"{baseurl}/mj/submit/video",
@@ -2061,22 +2065,20 @@ class Comfly_mj_video_extend(ComflyBaseNode):
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
                 return (*empty_adapters, "", error_message)
                 
             result = response.json()
             if result.get("code") != 1:
                 error_message = f"API Error: {result.get('description', 'Unknown error')}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
                 return (*empty_adapters, "", error_message)
             
             new_task_id = result["result"]
-            print(f"Video extension task submitted successfully. Task ID: {new_task_id}")
             
             pbar.update_absolute(40)
-            print("Waiting for video extension to complete...")
 
             video_urls = []
             
@@ -2096,7 +2098,7 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                     if status_result.get("status") == "FAILURE":
                         fail_reason = status_result.get("fail_reason", "Unknown failure reason")
                         error_message = f"Video extension failed: {fail_reason}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
                         empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
                         return (*empty_adapters, new_task_id, error_message)
 
@@ -2123,7 +2125,7 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                                         if isinstance(item, dict) and "url" in item:
                                             video_urls.append(item["url"])
                             except Exception as e:
-                                print(f"Error parsing video_urls: {str(e)}")
+                                rn_pbar.error(f"Error parsing video_urls: {str(e)}")
 
                         if not video_urls:
                             if "videoUrl" in status_result and status_result["videoUrl"]:
@@ -2144,7 +2146,7 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                                 elif isinstance(props, dict) and "videoUrl" in props:
                                     video_urls.append(props["videoUrl"])
                             except Exception as e:
-                                print(f"Error parsing properties: {str(e)}")
+                                rn_pbar.error(f"Error parsing properties: {str(e)}")
 
                         if video_urls:
                             break
@@ -2157,18 +2159,18 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                             break
 
                         if status_result.get("status") == "SUCCESS":
-                            print("Task completed successfully but no video URLs found in response")
+                            rn_pbar.error("Task completed successfully but no video URLs found in response")
                             break
                             
                     time.sleep(2) 
                     
                 except Exception as e:
-                    print(f"Error checking task status: {str(e)}")
+                    rn_pbar.error(f"Error checking task status: {str(e)}")
                     time.sleep(2)
             
             if not video_urls:
                 error_message = "Failed to retrieve video URLs from the response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
                 return (*empty_adapters, new_task_id, error_message)
 
@@ -2188,11 +2190,12 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                 "video_urls": video_urls
             })
             
+            rn_pbar.done(char_count=len(success_response))
             return (video_adapters[0], video_adapters[1], video_adapters[2], video_adapters[3], 
                    new_task_id, success_response)
             
         except Exception as e:
             error_message = f"Error in video extension: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
             return (*empty_adapters, "", error_message)

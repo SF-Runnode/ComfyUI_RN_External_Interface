@@ -41,30 +41,35 @@ def _filter_enabled_options(options: dict[str, Any] | None) -> dict[str, Any] | 
 @PromptServer.instance.routes.post("/runnode_ollama/get_models")
 async def get_models_endpoint(request):
     data = await request.json()
-    url = data.get("url")
-    api_key = data.get("api_key", "")
+    raw_url = data.get("url")
+    raw_api_key = data.get("api_key", "")
+    url = raw_url or os.environ.get('COMFYUI_RN_BASE_URL') or get_config().get('base_url', "http://127.0.0.1:11434")
+    api_key = raw_api_key or os.environ.get('COMFYUI_RN_API_KEY') or get_config().get('api_key', "")
     models = []
     if api_key:
         try:
-            req = urllib.request.Request(url + "/api/tags")
+            req = urllib.request.Request(url.rstrip("/") + "/api/tags")
             req.add_header("Content-Type", "application/json")
             req.add_header("Authorization", f"Bearer {api_key}")
             with urllib.request.urlopen(req) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
             models_list = payload.get("models", [])
             try:
-                models = [m["model"] for m in models_list]
+                models = [m.get("model") or m.get("name", "") for m in models_list]
             except Exception:
-                models = [m.get("name", "") for m in models_list]
+                models = []
         except Exception:
             models = []
     else:
-        client = Client(host=url)
-        models_list = client.list().get('models', [])
         try:
-            models = [model['model'] for model in models_list]
+            client = Client(host=url)
+            models_list = client.list().get('models', [])
+            try:
+                models = [model.get('model') or model.get('name', '') for model in models_list]
+            except Exception:
+                models = []
         except Exception:
-            models = [model.get('name', '') for model in models_list]
+            models = []
     return web.json_response(models)
 
 
