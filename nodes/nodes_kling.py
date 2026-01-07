@@ -141,25 +141,24 @@ class Comfly_kling_text2video:
 
         if model_name != "kling-v2-master":
             payload["mode"] = mode
-        else:
+
+        try:
+            pbar = comfy.utils.ProgressBar(100)  
+            response = requests.post(
+                f"{baseurl}/kling/v1/videos/text2video",
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            if result["code"] != 0:
+                error_response = {"task_status": "failed", "task_status_msg": f"API Error: {result['message']}"}
+                rn_pbar.error(f"API Error: {result['message']}")
+                return ("", "", "", "", json.dumps(error_response))
             
-            
-            try:
-                pbar = comfy.utils.ProgressBar(100)  
-                response = requests.post(
-                    f"{baseurl}/kling/v1/videos/text2video",
-                    headers=self.get_headers(),
-                    json=payload
-                )
-                response.raise_for_status()
-                result = response.json()
-                if result["code"] != 0:
-                    error_response = {"task_status": "failed", "task_status_msg": f"API Error: {result['message']}"}
-                    rn_pbar.error(f"API Error: {result['message']}")
-                    return ("", "", "", "", json.dumps(error_response))
-                
-                task_id = result["data"]["task_id"]
-                pbar.update_absolute(5)  
+            task_id = result["data"]["task_id"]
+            pbar.update_absolute(5)  
             
             last_status = {}
             while True:
@@ -198,10 +197,10 @@ class Comfly_kling_text2video:
                     }
                     rn_pbar.error(f"Task failed: {error_msg}")
                     return ("", "", task_id, "", json.dumps(error_response))
-            except Exception as e:
-                error_response = {"task_status": "failed", "task_status_msg": f"Error generating video: {str(e)}"}
-                rn_pbar.error(f"Error generating video: {str(e)}")
-                return ("", "", "", "", json.dumps(error_response))
+        except Exception as e:
+            error_response = {"task_status": "failed", "task_status_msg": f"Error generating video: {str(e)}"}
+            rn_pbar.error(f"Error generating video: {str(e)}")
+            return ("", "", "", "", json.dumps(error_response))
 
 
 class Comfly_kling_image2video:

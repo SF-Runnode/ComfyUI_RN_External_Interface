@@ -250,6 +250,12 @@ class OllamaChat:
         model = meta["connectivity"]["model"] or os.environ.get("COMFYUI_RN_MODEL") or get_config().get("model", "")
         api_key = meta["connectivity"].get("api_key", "") or os.environ.get("COMFYUI_RN_API_KEY") or get_config().get("api_key", "")
 
+        req_id = generate_request_id("chat", "ollama")
+        task_type = "图文对话" if images is not None else "文本生成"
+        log_prepare(task_type, req_id, "RunNode/Ollama-", "Ollama", model_name=model)
+        rn_pbar = ProgressBar(req_id, "Ollama", streaming=True, task_type=task_type, source="RunNode/Ollama-")
+        rn_pbar.set_generating()
+
         debug_print = (
             True if meta["options"] is not None and meta["options"].get("debug", False) else False
         )
@@ -364,7 +370,7 @@ class OllamaChat:
                     response_data = json.loads(resp.read().decode("utf-8"))
                 ollama_response_text = response_data["choices"][0]["message"]["content"]
                 ollama_response_thinking = None
-            except Exception:
+            except Exception as e:
                 try:
                     req = urllib.request.Request(
                         url.rstrip("/") + "/api/chat",
@@ -382,7 +388,8 @@ class OllamaChat:
                         response_json = json.loads(resp.read().decode("utf-8"))
                     ollama_response_text = response_json.get("message", {}).get("content")
                     ollama_response_thinking = None
-                except Exception:
+                except Exception as e2:
+                    rn_pbar.error("远程服务调用失败，请检查 Base URL 与 API Key")
                     raise RuntimeError("Third-party API call failed and Ollama '/api/chat' with Bearer also failed. Please verify base URL and API key are correct.")
         else:
             try:
@@ -396,7 +403,7 @@ class OllamaChat:
                 )
                 ollama_response_text = response_native.message.content if hasattr(response_native, "message") else None
                 ollama_response_thinking = response_native.message.thinking if hasattr(response_native, "message") and think else None
-            except Exception:
+            except Exception as e:
                 fallback_url = get_config().get('base_url', "http://127.0.0.1:11434")
                 client = Client(host=fallback_url)
                 response_native = client.chat(
@@ -408,6 +415,11 @@ class OllamaChat:
                 )
                 ollama_response_text = response_native.message.content if hasattr(response_native, "message") else None
                 ollama_response_thinking = response_native.message.thinking if hasattr(response_native, "message") and think else None
+
+        try:
+            rn_pbar.done(char_count=len(ollama_response_text or ""))
+        except Exception:
+            pass
 
         if debug_print:
             print("\n--- ollama chat response:")

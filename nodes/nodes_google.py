@@ -1222,6 +1222,10 @@ class Comfly_nano_banana2_edit:
                       image5=None, image6=None, image7=None, image8=None, image9=None, 
                       image10=None, image11=None, image12=None, image13=None, image14=None,
                       apikey="", response_format="url", seed=0):
+        request_id = generate_request_id("img_edit", "google")
+        log_prepare("图像编辑", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像编辑", source="RunNode/Google-")
+        rn_pbar.set_generating()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -1232,7 +1236,7 @@ class Comfly_nano_banana2_edit:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
@@ -1314,7 +1318,7 @@ class Comfly_nano_banana2_edit:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -1323,7 +1327,7 @@ class Comfly_nano_banana2_edit:
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -1363,24 +1367,28 @@ class Comfly_nano_banana2_edit:
                         generated_tensor = pil2tensor(generated_image)
                         generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        print(f"Error downloading image from URL: {str(e)}")
+                        rn_pbar.error(f"下载图片失败: {str(e)}")
             
             pbar.update_absolute(100)
             
             if generated_tensors:
                 combined_tensor = torch.cat(generated_tensors, dim=0)
                 first_image_url = image_urls[0] if image_urls else ""
+                try:
+                    rn_pbar.done(char_count=len(response_info))
+                except Exception:
+                    pass
                 return (combined_tensor, response_info, first_image_url)
             else:
                 error_message = "Failed to process any images"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
             
         except Exception as e:
             error_message = f"Error in image generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
             blank_image = Image.new('RGB', (1024, 1024), color='white')
@@ -1451,6 +1459,10 @@ class Comfly_nano_banana2_edit_S2A:
                       image5=None, image6=None, image7=None, image8=None, image9=None, 
                       image10=None, image11=None, image12=None, image13=None, image14=None,
                       apikey="", task_id="", response_format="url", seed=0):
+        request_id = generate_request_id("img_edit", "google")
+        log_prepare("图像编辑", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像编辑", source="RunNode/Google-")
+        rn_pbar.set_generating()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -1461,7 +1473,7 @@ class Comfly_nano_banana2_edit_S2A:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
@@ -1473,10 +1485,15 @@ class Comfly_nano_banana2_edit_S2A:
             # 如果提供了task_id，则查询任务状态
             if task_id.strip():
                 print(f"Querying task status for task_id: {task_id}")
-                return self._query_task_status(task_id, pbar)
+                result = self._query_task_status(task_id, pbar)
+                try:
+                    rn_pbar.done(char_count=len(str(result[-1])))
+                except Exception:
+                    pass
+                return result
             
             # 否则创建新的异步任务
-            print(f"Creating new async task with mode: {mode}")
+                print(f"Creating new async task with mode: {mode}")
             final_prompt = prompt
             
             if mode == "text2img":
@@ -1560,7 +1577,7 @@ class Comfly_nano_banana2_edit_S2A:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
@@ -1690,26 +1707,30 @@ class Comfly_nano_banana2_edit_S2A:
                                             "image_url": first_image_url,
                                             "all_urls": image_urls
                                         }
-                                        pbar.update_absolute(100)
-                                        return (combined_tensor, first_image_url, returned_task_id, json.dumps(final_result_info))
+                                    pbar.update_absolute(100)
+                                    try:
+                                        rn_pbar.done(char_count=len(json.dumps(final_result_info, ensure_ascii=False)))
+                                    except Exception:
+                                        pass
+                                    return (combined_tensor, first_image_url, returned_task_id, json.dumps(final_result_info))
                                 
                             elif actual_status == "failed" or actual_status == "error" or actual_status == "FAILURE":
                                 # 任务失败
                                 error_msg = query_result.get("error", "Unknown error")
-                                print(f"Task failed: {error_msg}")
+                                rn_pbar.error(f"任务失败: {error_msg}")
                                 blank_image = Image.new('RGB', (1024, 1024), color='red')
                                 blank_tensor = pil2tensor(blank_image)
                                 pbar.update_absolute(100)
                                 return (blank_tensor, "", "", json.dumps({"status": "failed", "task_id": returned_task_id, "message": error_msg}))
                                 
                         else:
-                            print(f"Query failed with status {query_response.status_code}")
+                            rn_pbar.error(f"查询失败: {query_response.status_code}")
                             
                     except Exception as e:
-                        print(f"Error querying task status: {str(e)}")
+                        rn_pbar.error(f"查询任务状态异常: {str(e)}")
                 
                 # 超时未完成
-                print("Task polling timed out")
+                rn_pbar.error("任务轮询超时")
                 blank_image = Image.new('RGB', (512, 512), color='yellow')
                 blank_tensor = pil2tensor(blank_image)
                 pbar.update_absolute(100)
@@ -1805,11 +1826,15 @@ class Comfly_nano_banana2_edit_S2A:
                     
                     # 打印调试信息
                     print(f"[SYNC_RESPONSE] {json.dumps(result_info, ensure_ascii=False)}")
+                    try:
+                        rn_pbar.done(char_count=len(json.dumps(result_info, ensure_ascii=False)))
+                    except Exception:
+                        pass
                     
                     return (combined_tensor, first_image_url, sync_task_id, json.dumps(result_info))
                 else:
                     error_message = "Failed to process any images"
-                    print(error_message)
+                    rn_pbar.error(error_message)
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
@@ -1817,14 +1842,14 @@ class Comfly_nano_banana2_edit_S2A:
             else:
                 # 未知响应格式
                 error_message = f"Unexpected API response format: {result}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
             
         except Exception as e:
             error_message = f"Error in image generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
             blank_image = Image.new('RGB', (1024, 1024), color='white')

@@ -108,11 +108,11 @@ class Comfly_suno_description:
                 return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
                 
             clip_ids = [clip["id"] for clip in result["clips"]]
-                if len(clip_ids) < 2:
-                    error_message = "Expected at least 2 clip IDs"
-                    rn_pbar.error(error_message)
-                    empty_audio = create_audio_object("")
-                    return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
+            if len(clip_ids) < 2:
+                error_message = "Expected at least 2 clip IDs"
+                rn_pbar.error(error_message)
+                empty_audio = create_audio_object("")
+                return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
                 
             pbar.update_absolute(30)
             max_attempts = 30
@@ -207,7 +207,6 @@ class Comfly_suno_description:
                 audio_objects.append(create_audio_object(""))
             
             pbar.update_absolute(100)
-            rn_pbar.done(char_count=len(json.dumps(response_info)))
             
             response_info = {
                 "status": "success",
@@ -219,6 +218,7 @@ class Comfly_suno_description:
                 "clips_generated": len(final_clips),
                 "tags": extracted_tags
             }
+            rn_pbar.done(char_count=len(json.dumps(response_info)))
             return (
                 audio_objects[0],
                 audio_objects[1],

@@ -984,17 +984,17 @@ class Comfly_sora2_openai:
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
             rn_pbar.error("API key not provided or not found in config")
-            return ("", json.dumps(error_response), "", "0")
+            return (EmptyVideoAdapter(), json.dumps(error_response), "", "0")
 
         if model == "sora-2":
             if seconds == "25":  
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
                 rn_pbar.error(error_message)
-                return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
+                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
             if size in ["1792x1024", "1024x1792"]:
                 error_message = "The sora-2 model does not support 1080P resolution. Please use sora-2-pro for 1080P videos."
                 rn_pbar.error(error_message)
-                return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
+                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
       
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1036,14 +1036,14 @@ class Comfly_sora2_openai:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
-                return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
+                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
                 
             result = response.json()
             
             if "id" not in result:
                 error_message = "No task ID in API response"
                 rn_pbar.error(error_message)
-                return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
+                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
             
             task_id = result["id"]
             
@@ -1096,7 +1096,7 @@ class Comfly_sora2_openai:
                         fail_reason = status_data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
-                        return ("", json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
+                        return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
                         
                 except Exception as e:
                     rn_pbar.error(f"Error checking task status: {str(e)}")
@@ -1104,7 +1104,7 @@ class Comfly_sora2_openai:
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
                 rn_pbar.error(error_message)
-                return ("", json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
+                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
             
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -1130,7 +1130,7 @@ class Comfly_sora2_openai:
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
-            return ("", json.dumps({"status": "error", "message": error_message}), "", "0")
+            return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
            
 
 class Comfly_sora2:
@@ -1194,22 +1194,22 @@ class Comfly_sora2:
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
-            return ("", "", json.dumps(error_response))
+            return (EmptyVideoAdapter(), "", json.dumps(error_response))
 
         if duration == "25" and hd == True:
             error_message = "25s and hd parameters cannot be used together. Please choose only one of them."
             print(error_message)
-            return ("", "", json.dumps({"status": "error", "message": error_message}))
+            return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
             
         if model == "sora-2":
             if duration == "25":  
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
                 print(error_message)
-                return ("", "", json.dumps({"status": "error", "message": error_message}))
+                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
             if hd:
                 error_message = "The sora-2 model does not support HD mode. Please use sora-2-pro for HD videos or disable HD."
                 print(error_message)
-                return ("", "", json.dumps({"status": "error", "message": error_message}))
+                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
       
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1228,7 +1228,7 @@ class Comfly_sora2:
                 if not images:
                     error_message = "Failed to process any of the input images"
                     print(error_message)
-                    return ("", "", json.dumps({"status": "error", "message": error_message}))
+                    return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
                 
                 payload = {
                     "prompt": prompt,
@@ -1271,7 +1271,7 @@ class Comfly_sora2:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 print(error_message)
-                return ("", "", json.dumps({"status": "error", "message": error_message}))
+                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
                 
             result = response.json()
             
@@ -1334,7 +1334,7 @@ class Comfly_sora2:
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
                 print(error_message)
-                return ("", "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
+                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
             
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -1359,7 +1359,7 @@ class Comfly_sora2:
             print(error_message)
             import traceback
             traceback.print_exc()
-            return ("", "", json.dumps({"status": "error", "message": error_message}))
+            return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
 
 
 class Comfly_sora2_chat:
@@ -1419,22 +1419,22 @@ class Comfly_sora2_chat:
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
-            return ("", "", "", json.dumps(error_response))
+            return (EmptyVideoAdapter(), "", "", json.dumps(error_response))
 
         if duration == "25" and hd:
             error_message = "25s and hd parameters cannot be used together. Please choose only one of them."
             print(error_message)
-            return ("", "", "", json.dumps({"status": "error", "message": error_message}))
+            return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
  
         if model == "sora-2":
             if duration == "25":
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
                 print(error_message)
-                return ("", "", "", json.dumps({"status": "error", "message": error_message}))
+                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
             if hd:
                 error_message = "The sora-2 model does not support HD mode. Please use sora-2-pro for HD videos or disable HD."
                 print(error_message)
-                return ("", "", "", json.dumps({"status": "error", "message": error_message}))
+                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
       
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1482,7 +1482,7 @@ class Comfly_sora2_chat:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 print(error_message)
-                return ("", "", "", json.dumps({"status": "error", "message": error_message}))
+                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
 
             full_response = ""
             task_id = None
@@ -1523,7 +1523,7 @@ class Comfly_sora2_chat:
             if not task_id:
                 error_message = "Failed to obtain task ID from the response"
                 print(error_message)
-                return ("", "", "", json.dumps({"status": "error", "message": error_message, "response": full_response}))
+                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message, "response": full_response}))
             
             pbar.update_absolute(40)
 
@@ -1569,7 +1569,7 @@ class Comfly_sora2_chat:
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
                 print(error_message)
-                return ("", "", "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
+                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
 
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -1595,7 +1595,7 @@ class Comfly_sora2_chat:
             print(error_message)
             import traceback
             traceback.print_exc()
-            return ("", "", "", json.dumps({"status": "error", "message": error_message}))
+            return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
 
 
 class Comfly_sora2_character:
@@ -1801,11 +1801,11 @@ class OpenAISoraAPIPlus:
         if not base_url.strip():  
             base_url = "https://ai.t8star.cn/v1"
         if not api_key:
-            return (None, "", "错误：未配置API Key，请在节点参数中设置 api_key")
+            return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
-            return (None, "", "错误：未配置 base_url，请在节点参数中设置 base_url")
+            return (EmptyVideoAdapter(), "", "错误：未配置 base_url，请在节点参数中设置 base_url")
         if not user_prompt.strip():
-            return (None, "", "错误：user_prompt 为空，请提供视频描述")
+            return (EmptyVideoAdapter(), "", "错误：user_prompt 为空，请提供视频描述")
 
         try:
             headers = self._build_headers(api_key)
@@ -1837,7 +1837,7 @@ class OpenAISoraAPIPlus:
                     ]
                     print(f"[OpenAISoraAPI] 图生视频模式: 已附带输入图像，尺寸={pil_image.size}, base64长度={len(image_base64)}")
                 except Exception as e:
-                    return (None, f"输入图像处理失败: {e}", "")
+                    return (EmptyVideoAdapter(), f"输入图像处理失败: {e}", "")
                 messages = [{"role": "user", "content": content}]
             else:
                 print(f"[OpenAISoraAPI] 文生视频模式: 纯文本提示词")
@@ -1863,7 +1863,7 @@ class OpenAISoraAPIPlus:
             print(f"[OpenAISoraAPI] 响应状态码: {resp.status_code}")
 
             if resp.status_code != 200:
-                return (None, f"API错误 (状态码: {resp.status_code}): {resp.text}", "")
+                return (EmptyVideoAdapter(), f"API错误 (状态码: {resp.status_code}): {resp.text}", "")
 
             reasoning_content, answer, tokens_usage = self._parse_302_stream(resp)
 
@@ -1880,7 +1880,7 @@ class OpenAISoraAPIPlus:
                         video2 = self._download_and_convert_video(video_url2)
                         return (video2, video_url2 or "", tu2)
                     else:
-                        return (None, f"非流式降级失败 (状态码: {resp2.status_code}): {resp2.text}", tokens_usage)
+                        return (EmptyVideoAdapter(), f"非流式降级失败 (状态码: {resp2.status_code}): {resp2.text}", tokens_usage)
                 except Exception as _e:
                     print(f"[OpenAISoraAPI] 非流式降级异常: {_e}")
 
@@ -1889,15 +1889,15 @@ class OpenAISoraAPIPlus:
             video_output = self._download_and_convert_video(video_url)
             return (video_output, video_url or "", tokens_usage)
         except requests.exceptions.ConnectTimeout as e:
-            return (None, f"网络连接超时: 无法连接到API服务器。请检查网络连接或代理。错误: {e}", "")
+            return (EmptyVideoAdapter(), f"网络连接超时: 无法连接到API服务器。请检查网络连接或代理。错误: {e}", "")
         except requests.exceptions.Timeout as e:
-            return (None, f"请求超时: API响应时间过长。请稍后重试。错误: {e}", "")
+            return (EmptyVideoAdapter(), f"请求超时: API响应时间过长。请稍后重试。错误: {e}", "")
         except requests.exceptions.ConnectionError as e:
-            return (None, f"网络连接错误: 无法建立到API的连接。请检查网络设置。错误: {e}", "")
+            return (EmptyVideoAdapter(), f"网络连接错误: 无法建立到API的连接。请检查网络设置。错误: {e}", "")
         except requests.exceptions.RequestException as e:
-            return (None, f"API请求失败: {e}", "")
+            return (EmptyVideoAdapter(), f"API请求失败: {e}", "")
         except Exception as e:
-            return (None, f"处理失败: {e}", "")
+            return (EmptyVideoAdapter(), f"处理失败: {e}", "")
 
     def _build_headers(self, api_key: str):
         return {
@@ -2306,11 +2306,11 @@ class OpenAISoraAPI:
         if not base_url.strip():  
             base_url = "https://ai.t8star.cn/v1"
         if not api_key:
-            return (None, "", "错误：未配置API Key，请在节点参数中设置 api_key")
+            return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
-            return (None, "", "错误：未配置 base_url，请在节点参数中设置 base_url")
+            return (EmptyVideoAdapter(), "", "错误：未配置 base_url，请在节点参数中设置 base_url")
         if not user_prompt.strip():
-            return (None, "", "错误：user_prompt 为空，请提供视频描述")
+            return (EmptyVideoAdapter(), "", "错误：user_prompt 为空，请提供视频描述")
 
         try:
             headers = self._build_headers(api_key)
@@ -2342,7 +2342,7 @@ class OpenAISoraAPI:
                     ]
                     print(f"[OpenAISoraAPI] 图生视频模式: 已附带输入图像，尺寸={pil_image.size}, base64长度={len(image_base64)}")
                 except Exception as e:
-                    return (None, f"输入图像处理失败: {e}", "")
+                    return (EmptyVideoAdapter(), f"输入图像处理失败: {e}", "")
                 messages = [{"role": "user", "content": content}]
             else:
                 print(f"[OpenAISoraAPI] 文生视频模式: 纯文本提示词")
@@ -2368,7 +2368,7 @@ class OpenAISoraAPI:
             print(f"[OpenAISoraAPI] 响应状态码: {resp.status_code}")
 
             if resp.status_code != 200:
-                return (None, f"API错误 (状态码: {resp.status_code}): {resp.text}", "")
+                return (EmptyVideoAdapter(), f"API错误 (状态码: {resp.status_code}): {resp.text}", "")
 
             reasoning_content, answer, tokens_usage = self._parse_302_stream(resp)
 
@@ -2385,7 +2385,7 @@ class OpenAISoraAPI:
                         video2 = self._download_and_convert_video(video_url2)
                         return (video2, video_url2 or "", tu2)
                     else:
-                        return (None, f"非流式降级失败 (状态码: {resp2.status_code}): {resp2.text}", tokens_usage)
+                        return (EmptyVideoAdapter(), f"非流式降级失败 (状态码: {resp2.status_code}): {resp2.text}", tokens_usage)
                 except Exception as _e:
                     print(f"[OpenAISoraAPI] 非流式降级异常: {_e}")
 
@@ -2394,15 +2394,15 @@ class OpenAISoraAPI:
             video_output = self._download_and_convert_video(video_url)
             return (video_output, video_url or "", tokens_usage)
         except requests.exceptions.ConnectTimeout as e:
-            return (None, f"网络连接超时: 无法连接到API服务器。请检查网络连接或代理。错误: {e}", "")
+            return (EmptyVideoAdapter(), f"网络连接超时: 无法连接到API服务器。请检查网络连接或代理。错误: {e}", "")
         except requests.exceptions.Timeout as e:
-            return (None, f"请求超时: API响应时间过长。请稍后重试。错误: {e}", "")
+            return (EmptyVideoAdapter(), f"请求超时: API响应时间过长。请稍后重试。错误: {e}", "")
         except requests.exceptions.ConnectionError as e:
-            return (None, f"网络连接错误: 无法建立到API的连接。请检查网络设置。错误: {e}", "")
+            return (EmptyVideoAdapter(), f"网络连接错误: 无法建立到API的连接。请检查网络设置。错误: {e}", "")
         except requests.exceptions.RequestException as e:
-            return (None, f"API请求失败: {e}", "")
+            return (EmptyVideoAdapter(), f"API请求失败: {e}", "")
         except Exception as e:
-            return (None, f"处理失败: {e}", "")
+            return (EmptyVideoAdapter(), f"处理失败: {e}", "")
 
     def _build_headers(self, api_key: str):
         return {
@@ -2912,7 +2912,7 @@ class Comfly_sora2_batch_32:
         task_result = {
             "index": task_idx,
             "status": "failed",
-            "video": "",
+            "video": EmptyVideoAdapter(),
             "video_url": "",
             "error": "",
             "response": "",
@@ -3050,6 +3050,12 @@ class Comfly_sora2_batch_32:
 
     def generate_video(self, **kwargs):
         """核心批量生成逻辑"""
+        request_id = generate_request_id("video_batch", "openai")
+        model_for_log = kwargs.get("model") or "sora-2"
+        log_prepare("视频批量生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model_for_log)
+        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"并发:{kwargs.get('max_concurrent', 1)}", streaming=True, task_type="视频批量生成", source="RunNode/OpenAI-")
+        rn_pbar.set_generating()
+        _rn_start = time.perf_counter()
         # 1. 处理base_url优先级：手动覆盖 > 配置文件 > 默认值
         base_url = kwargs.get("base_url", "").strip()
         current_base_url = base_url if base_url else self.base_url
@@ -3066,11 +3072,12 @@ class Comfly_sora2_batch_32:
             self.config = get_config()
                 
         if not self.api_key:
+            rn_pbar.error("API Key未配置")
             log = json.dumps({
                 "error": "API Key未配置",
                 "tips": "请在节点中输入api_key或配置文件中设置"
             }, ensure_ascii=False, indent=2)
-            empty_videos = [""] * 32
+            empty_videos = [EmptyVideoAdapter()] * 32
             return (*empty_videos, log)
 
         # 3. 提取全局配置
@@ -3136,7 +3143,7 @@ class Comfly_sora2_batch_32:
                     task_results[idx] = {
                         "index": idx,
                         "status": "failed",
-                        "video": "",
+                        "video": EmptyVideoAdapter(),
                         "video_url": "",
                         "error": f"任务执行异常：{str(e)}",
                         "response": "",
@@ -3148,7 +3155,7 @@ class Comfly_sora2_batch_32:
         output_videos = []
         for idx in range(1, 33):
             result = task_results.get(idx, {})
-            output_videos.append(result.get("video", ""))
+            output_videos.append(result.get("video", EmptyVideoAdapter()))
 
         # 8. 整理日志（按顺序合并所有任务信息）
         log_data = {
@@ -3181,6 +3188,11 @@ class Comfly_sora2_batch_32:
 
         # 9. 完成进度条
         self.global_pbar.update_absolute(100)
+
+        try:
+            rn_pbar.done(char_count=len(log), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+        except Exception:
+            pass
 
         # 返回32个视频 + 日志
         return (*output_videos, log)
@@ -3262,6 +3274,7 @@ class _ComflySora2BatchRunner:
         self.base_url = self.config.get('base_url', 'https://ai.t8star.cn')
         self.task_progress = {}
         self.global_pbar = None
+        self.rn_pbar = None
         self.timeout = 900
     def _headers(self, api_key):
         return {
@@ -3283,7 +3296,7 @@ class _ComflySora2BatchRunner:
         res = {
             "index": idx,
             "status": "failed",
-            "video": "",
+            "video": EmptyVideoAdapter(),
             "video_url": "",
             "error": "",
             "response": "",
@@ -3385,13 +3398,21 @@ class _ComflySora2BatchRunner:
         self.global_pbar.update_absolute(avg)
 
     def run(self, groups, max_workers, global_cfg):
+        request_id = generate_request_id("video_batch", "openai")
+        model_name = (global_cfg.get("model") or "sora-2") if isinstance(global_cfg, dict) else "sora-2"
+        log_prepare("视频批量生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model_name)
+        self.rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"并发:{max_workers}", streaming=True, task_type="视频批量生成", source="RunNode/OpenAI-")
+        self.rn_pbar.set_generating()
+        _rn_start = time.perf_counter()
         base_url = global_cfg.get("base_url", "").strip() or self.base_url or "https://ai.t8star.cn"
         api_key = global_cfg.get("api_key", "").strip() or self.api_key
         if api_key:
             # save_config({'api_key': api_key})
             self.api_key = api_key
         if not self.api_key:
-            empty = [""] * max_workers
+            if self.rn_pbar:
+                self.rn_pbar.error("API Key未配置")
+            empty = [EmptyVideoAdapter()] * max_workers
             log = json.dumps({"error": "API Key未配置"}, ensure_ascii=False, indent=2)
             return (*empty, log)
         tasks = []
@@ -3441,7 +3462,7 @@ class _ComflySora2BatchRunner:
                     results[idx] = {
                         "index": idx,
                         "status": "failed",
-                        "video": "",
+                        "video": EmptyVideoAdapter(),
                         "video_url": "",
                         "error": f"任务执行异常：{str(e)}",
                         "response": "",
@@ -3450,7 +3471,7 @@ class _ComflySora2BatchRunner:
                 self._update_bar()
         output_videos = []
         for i in range(1, max_workers + 1):
-            output_videos.append(results.get(i, {}).get("video", ""))
+            output_videos.append(results.get(i, {}).get("video", EmptyVideoAdapter()))
         log_data = {
             "global_config": {
                 "aspect_ratio": global_cfg.get("aspect_ratio"),
@@ -3474,6 +3495,11 @@ class _ComflySora2BatchRunner:
             })
         log = json.dumps(log_data, ensure_ascii=False, indent=2)
         self.global_pbar.update_absolute(100)
+        if self.rn_pbar:
+            try:
+                self.rn_pbar.done(char_count=len(log), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+            except Exception:
+                pass
         return (*output_videos, log)
 
 
