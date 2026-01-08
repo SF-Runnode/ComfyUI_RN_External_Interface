@@ -56,7 +56,7 @@ class Comfly_gpt_image_1_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = 1800
         self.session = requests.Session()
         retry_strategy = requests.packages.urllib3.util.retry.Retry(
             total=3,
@@ -1050,7 +1050,7 @@ class Comfly_sora2_openai:
             
             pbar.update_absolute(30)
 
-            max_attempts = 120  
+            max_attempts = 180
             attempts = 0
             video_url = None
             actual_seed = str(seed) if seed > 0 else "0"
@@ -1163,7 +1163,7 @@ class Comfly_sora2:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = 1800
 
     def get_headers(self):
         return {
@@ -1285,7 +1285,7 @@ class Comfly_sora2:
             
             pbar.update_absolute(30)
 
-            max_attempts = 300  
+            max_attempts = 180
             attempts = 0
             video_url = None
             
@@ -1388,7 +1388,7 @@ class Comfly_sora2_chat:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = 1800
 
     def get_headers(self):
         return {
@@ -1527,7 +1527,7 @@ class Comfly_sora2_chat:
             
             pbar.update_absolute(40)
 
-            max_attempts = 120  
+            max_attempts = 180
             attempts = 0
             video_url = None
             gif_url = None
@@ -1620,7 +1620,7 @@ class Comfly_sora2_character:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = 1800
 
     def get_headers(self):
         return {
@@ -1859,7 +1859,7 @@ class OpenAISoraAPIPlus:
                 print(f"[OpenAISoraAPI] 请求载荷(精简): {self._safe_json_dumps(payload)}")
             except Exception:
                 pass
-            resp = requests.post(api_url, headers=headers, json=payload, timeout=600, stream=True)
+            resp = requests.post(api_url, headers=headers, json=payload, timeout=1800, stream=True)
             print(f"[OpenAISoraAPI] 响应状态码: {resp.status_code}")
 
             if resp.status_code != 200:
@@ -1873,7 +1873,7 @@ class OpenAISoraAPIPlus:
                     safe_payload = dict(payload)
                     safe_payload["stream"] = False
                     print(f"[OpenAISoraAPI] 流式无增量，降级为非流式请求")
-                    resp2 = requests.post(api_url, headers=headers, json=safe_payload, timeout=600)
+                    resp2 = requests.post(api_url, headers=headers, json=safe_payload, timeout=1800)
                     if resp2.status_code == 200:
                         rc2, answer2, tu2 = self._parse_non_stream(resp2)
                         video_url2 = self._extract_video_url(answer2)
@@ -2364,7 +2364,7 @@ class OpenAISoraAPI:
                 print(f"[OpenAISoraAPI] 请求载荷(精简): {self._safe_json_dumps(payload)}")
             except Exception:
                 pass
-            resp = requests.post(api_url, headers=headers, json=payload, timeout=600, stream=True)
+            resp = requests.post(api_url, headers=headers, json=payload, timeout=1800, stream=True)
             print(f"[OpenAISoraAPI] 响应状态码: {resp.status_code}")
 
             if resp.status_code != 200:
@@ -2378,7 +2378,7 @@ class OpenAISoraAPI:
                     safe_payload = dict(payload)
                     safe_payload["stream"] = False
                     print(f"[OpenAISoraAPI] 流式无增量，降级为非流式请求")
-                    resp2 = requests.post(api_url, headers=headers, json=safe_payload, timeout=600)
+                    resp2 = requests.post(api_url, headers=headers, json=safe_payload, timeout=1800)
                     if resp2.status_code == 200:
                         rc2, answer2, tu2 = self._parse_non_stream(resp2)
                         video_url2 = self._extract_video_url(answer2)
@@ -2742,6 +2742,7 @@ class OpenAISoraAPI:
             return None
 
 
+TIMEOUT = 1800
 class Comfly_sora2_batch_32:
     @classmethod
     def INPUT_TYPES(cls):
@@ -3275,7 +3276,7 @@ class _ComflySora2BatchRunner:
         self.task_progress = {}
         self.global_pbar = None
         self.rn_pbar = None
-        self.timeout = 900
+        self.timeout = 1800
     def _headers(self, api_key):
         return {
             "Content-Type": "application/json",
@@ -3343,7 +3344,7 @@ class _ComflySora2BatchRunner:
                 return res
             res["task_id"] = task_id
             self.task_progress[idx] = 30
-            _timeout_sec = self.timeout if isinstance(self.timeout, (int, float)) and self.timeout > 0 else 900
+            _timeout_sec = self.timeout if isinstance(self.timeout, (int, float)) and self.timeout > 0 else 1800
             max_attempts = max(1, int(_timeout_sec / 10))
             attempts = 0
             while attempts < max_attempts:
