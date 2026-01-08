@@ -976,7 +976,7 @@ class Comfly_nano_banana_edit:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana", "nano-banana-hd"], {"default": "nano-banana"}),
                 "aspect_ratio": (["16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "1:1"}),
             },
@@ -2190,7 +2190,7 @@ class _ComflyBanana2ImageBatchRunner:
     def _process(self, idx, payload):
         res = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": "", "response": ""}
         prompt = payload.get("prompt", "")
-        mode = payload.get("mode", "text2img")
+        mode = payload.get("mode", "img2img")
         model = payload.get("model", "nano-banana-2")
         aspect_ratio = payload.get("aspect_ratio", "auto")
         image_size = payload.get("image_size", "2K")
@@ -2271,6 +2271,10 @@ class _ComflyBanana2ImageBatchRunner:
         if not self.api_key:
             empty = [self._blank()] * max_workers
             log = json.dumps({"error": "API Key未配置"}, ensure_ascii=False, indent=2)
+            try:
+                self.rn_pbar.error("API Key未配置")
+            except Exception:
+                pass
             return (*empty, log)
         tasks = []
         for i, g in enumerate(groups, start=1):
@@ -2279,7 +2283,7 @@ class _ComflyBanana2ImageBatchRunner:
             except Exception:
                 d = {}
             prompt = d.get("prompt", "") or global_cfg.get("global_prompt", "")
-            mode = d.get("mode", global_cfg.get("mode", "text2img"))
+            mode = d.get("mode", global_cfg.get("mode", "img2img"))
             model = d.get("model", global_cfg.get("model", "nano-banana-2"))
             aspect_ratio = d.get("aspect_ratio", global_cfg.get("aspect_ratio", "auto"))
             image_size = d.get("image_size", global_cfg.get("image_size", "2K"))
@@ -2324,6 +2328,10 @@ class _ComflyBanana2ImageBatchRunner:
             r = results.get(i, {})
             log_data["tasks"].append({"task_index": i, "status": r.get("status", "idle"), "image_url": r.get("image_url", ""), "error": r.get("error", "")})
         log = json.dumps(log_data, ensure_ascii=False, indent=2)
+        try:
+            self.rn_pbar.done(char_count=len(log))
+        except Exception:
+            pass
         return (*output_images, log)
 
 
@@ -2340,7 +2348,7 @@ class Comfly_banana2_edit_run_4:
                 "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
                 "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -2374,7 +2382,7 @@ class Comfly_banana2_edit_run_8:
                 **promt_,
                 "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -2408,7 +2416,7 @@ class Comfly_banana2_edit_run_16:
                 **promt_,
                 "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -2444,7 +2452,7 @@ class Comfly_banana2_edit_run_32:
                 **promt_,
                 "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -2505,7 +2513,7 @@ class _ComflyBanana2ImageBatchRunnerS2A:
                 continue
         return files, count
     def _submit_async(self, payload, headers):
-        mode = payload.get("mode", "text2img")
+        mode = payload.get("mode", "img2img")
         model = payload.get("model", "nano-banana-2")
         prompt = payload.get("prompt", "")
         aspect_ratio = payload.get("aspect_ratio", "auto")
@@ -2621,7 +2629,7 @@ class _ComflyBanana2ImageBatchRunnerS2A:
             except Exception:
                 d = {}
             prompt = d.get("prompt", "") or global_cfg.get("global_prompt", "")
-            mode = d.get("mode", global_cfg.get("mode", "text2img"))
+            mode = d.get("mode", global_cfg.get("mode", "img2img"))
             model = d.get("model", global_cfg.get("model", "nano-banana-2"))
             aspect_ratio = d.get("aspect_ratio", global_cfg.get("aspect_ratio", "auto"))
             image_size = d.get("image_size", global_cfg.get("image_size", "2K"))
@@ -2681,7 +2689,7 @@ class Comfly_banana2_edit_S2A_run_4:
                 "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
                 "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -2717,7 +2725,7 @@ class Comfly_banana2_edit_S2A_run_8:
                 **promt_,
                 "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -2753,7 +2761,7 @@ class Comfly_banana2_edit_S2A_run_16:
                 **promt_,
                 "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
