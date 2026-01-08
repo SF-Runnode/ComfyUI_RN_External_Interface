@@ -31,7 +31,7 @@ class Comfly_api_set:
         log_prepare("API设置", request_id, "RunNode-", "Config")
         global baseurl
         base_url_mapping = {
-            "RunNode": "https://ai.t8star.cn",
+            "RunNode": baseurl,
             "ip": custom_ip,
             "hk": "https://hk-api.gptbest.vip",
             "us": "https://api.gptbest.vip"

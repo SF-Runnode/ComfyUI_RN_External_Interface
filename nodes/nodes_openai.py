@@ -56,7 +56,7 @@ class Comfly_gpt_image_1_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = None
         self.session = requests.Session()
         retry_strategy = requests.packages.urllib3.util.retry.Retry(
             total=3,
@@ -415,7 +415,7 @@ class Comfly_gpt_image_1:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -595,7 +595,7 @@ class ComflyChatGPTApi:
     
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 800
+        self.timeout = None
         self.image_download_timeout = 600
         self.api_endpoint = f"{baseurl}/v1/chat/completions"
         self.conversation_history = []
@@ -951,7 +951,7 @@ class Comfly_sora2_openai:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1026,7 +1026,7 @@ class Comfly_sora2_openai:
             
             # 请求体 暂不修改
             response = requests.post(
-                "https://ai.t8star.cn/v1/videos",
+                f"{baseurl.rstrip('/')}/v1/videos",
                 headers=headers,
                 data=data,
                 files=files,
@@ -1062,7 +1062,7 @@ class Comfly_sora2_openai:
                 try:
                     # 请求体，暂不修改
                     status_response = requests.get(
-                        f"https://ai.t8star.cn/v1/videos/{task_id}",
+                        f"{baseurl.rstrip('/')}/v1/videos/{task_id}",
                         headers=self.get_headers(),
                         timeout=self.timeout
                     )
@@ -1163,7 +1163,7 @@ class Comfly_sora2:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1388,7 +1388,7 @@ class Comfly_sora2_chat:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1620,7 +1620,7 @@ class Comfly_sora2_character:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1735,13 +1735,13 @@ class Comfly_sora2_character:
 
 class OpenAISoraAPIPlus:
     """
-    ComfyUI自定义节点：ai.t8star.cn Sora-2 视频生成（OpenAI兼容流式接口）
+    ComfyUI自定义节点：{base_url} Sora-2 视频生成（OpenAI兼容流式接口）
     - 参考 openai_chat_api_node.py 的结构与风格
-    - 通过 ai.t8star.cn 的 /chat/completions 接口，以 stream=True 获取流式增量内容
+    - 通过 {base_url} 的 /chat/completions 接口，以 stream=True 获取流式增量内容
     - 适配示例返回：每行均为 JSON，字段为 choices[0].delta.content
     - 超时时间：600 秒（10 分钟）
     输入参数：
-      - base_url: 默认 https://ai.t8star.cn/v1
+      - base_url: 默认 {base_url}/v1
       - model: 默认 sora_video2
       - api_key: 必填
       - system_prompt: 可选，用于设定系统指令
@@ -1779,7 +1779,7 @@ class OpenAISoraAPIPlus:
 
     def generate(self, base_url, model, api_key, user_prompt,image=None,hd=True,duration=15,aspect_ratio="16:9"):
         """
-        调用 ai.t8star.cn 的 sora-2 模型进行视频生成（流式）。
+        调用 {base_url} 的 sora-2 模型进行视频生成（流式）。
         请求：
           POST {base_url}/chat/completions
           headers:
@@ -1799,7 +1799,7 @@ class OpenAISoraAPIPlus:
           - timeout=600 秒
         """
         if not base_url.strip():  
-            base_url = "https://ai.t8star.cn/v1"
+            base_url = f"{baseurl.rstrip('/')}/v1"
         if not api_key:
             return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
@@ -1991,7 +1991,7 @@ class OpenAISoraAPIPlus:
 
     def _parse_302_stream(self, resp):
         """
-        解析 ai.t8star.cn 的流式响应。
+        解析 {base_url} 的流式响应。
         示例行：
           {"choices":[{"delta":{"content":"...","role":"assistant"},"index":0}],"id":"...","model":"sora-2","object":"chat.completion.chunk"}
         策略：
@@ -2239,13 +2239,13 @@ class OpenAISoraAPIPlus:
 
 class OpenAISoraAPI:
     """
-    ComfyUI自定义节点：ai.t8star.cn Sora-2 视频生成（OpenAI兼容流式接口）
+    ComfyUI自定义节点：{base_url} Sora-2 视频生成（OpenAI兼容流式接口）
     - 参考 openai_chat_api_node.py 的结构与风格
-    - 通过 ai.t8star.cn 的 /chat/completions 接口，以 stream=True 获取流式增量内容
+    - 通过 {base_url} 的 /chat/completions 接口，以 stream=True 获取流式增量内容
     - 适配示例返回：每行均为 JSON，字段为 choices[0].delta.content
     - 超时时间：600 秒（10 分钟）
     输入参数：
-      - base_url: 默认 https://ai.t8star.cn/v1
+      - base_url: 默认 {base_url}/v1
       - model: 默认 sora_video2
       - api_key: 必填
       - system_prompt: 可选，用于设定系统指令
@@ -2284,7 +2284,7 @@ class OpenAISoraAPI:
 
     def generate(self, base_url, model, api_key, user_prompt, image=None):
         """
-        调用 ai.t8star.cn 的 sora-2 模型进行视频生成（流式）。
+        调用 {base_url} 的 sora-2 模型进行视频生成（流式）。
         请求：
           POST {base_url}/chat/completions
           headers:
@@ -2304,7 +2304,7 @@ class OpenAISoraAPI:
           - timeout=600 秒
         """
         if not base_url.strip():  
-            base_url = "https://ai.t8star.cn/v1"
+            base_url = f"{baseurl.rstrip('/')}/v1"
         if not api_key:
             return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
@@ -2496,7 +2496,7 @@ class OpenAISoraAPI:
 
     def _parse_302_stream(self, resp):
         """
-        解析 ai.t8star.cn 的流式响应。
+        解析 {base_url} 的流式响应。
         示例行：
           {"choices":[{"delta":{"content":"...","role":"assistant"},"index":0}],"id":"...","model":"sora-2","object":"chat.completion.chunk"}
         策略：
@@ -2855,7 +2855,7 @@ class Comfly_sora2_batch_32:
         # 从配置文件初始化API Key和base_url
         self.config = get_config()
         self.api_key = self.config.get('api_key', '')
-        self.base_url = self.config.get('base_url', 'https://ai.t8star.cn')
+        self.base_url = self.config.get('base_url', baseurl)
         
         self.task_progress: Dict[int, int] = {}  # 任务进度 {任务索引: 进度值}
         self.global_pbar = None
@@ -3060,7 +3060,7 @@ class Comfly_sora2_batch_32:
         base_url = kwargs.get("base_url", "").strip()
         current_base_url = base_url if base_url else self.base_url
         if not current_base_url:
-            current_base_url = "https://ai.t8star.cn"  # 最终兜底
+            current_base_url = baseurl  # 最终兜底
 
         # 2. 初始化API Key
         api_key = kwargs.get("api_key", "").strip()
@@ -3227,7 +3227,7 @@ class Comfly_sora2_group:
     def __init__(self):
         self.config = get_config()
         self.api_key = self.config.get('api_key', '')
-        self.base_url = self.config.get('base_url', 'https://ai.t8star.cn')
+        self.base_url = self.config.get('base_url', baseurl)
     def image_to_base64(self, image_tensor):
         if image_tensor is None:
             return None
@@ -3271,11 +3271,11 @@ class _ComflySora2BatchRunner:
     def __init__(self):
         self.config = get_config()
         self.api_key = self.config.get('api_key', '')
-        self.base_url = self.config.get('base_url', 'https://ai.t8star.cn')
+        self.base_url = self.config.get('base_url', baseurl)
         self.task_progress = {}
         self.global_pbar = None
         self.rn_pbar = None
-        self.timeout = 900
+        self.timeout = None
     def _headers(self, api_key):
         return {
             "Content-Type": "application/json",
@@ -3404,7 +3404,7 @@ class _ComflySora2BatchRunner:
         self.rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"并发:{max_workers}", streaming=True, task_type="视频批量生成", source="RunNode/OpenAI-")
         self.rn_pbar.set_generating()
         _rn_start = time.perf_counter()
-        base_url = global_cfg.get("base_url", "").strip() or self.base_url or "https://ai.t8star.cn"
+        base_url = global_cfg.get("base_url", "").strip() or self.base_url or baseurl
         api_key = global_cfg.get("api_key", "").strip() or self.api_key
         if api_key:
             # save_config({'api_key': api_key})

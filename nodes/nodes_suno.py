@@ -26,7 +26,7 @@ class Comfly_suno_description:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
         
     def get_headers(self):
         return {
@@ -263,7 +263,7 @@ class Comfly_suno_lyrics:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
         
     def get_headers(self):
         return {
@@ -390,7 +390,7 @@ class Comfly_suno_custom:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -620,7 +620,7 @@ class Comfly_suno_upload:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -839,7 +839,7 @@ class Comfly_suno_upload_extend:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1071,7 +1071,7 @@ class Comfly_suno_cover:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {

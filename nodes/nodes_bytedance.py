@@ -30,7 +30,7 @@ class Comfly_Doubao_Seedream:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -232,7 +232,7 @@ class Comfly_Doubao_Seedream_4:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = None
         self.size_mapping = {
             
             "1K": {
@@ -506,7 +506,7 @@ class Comfly_Doubao_Seedream_4_5:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 900
+        self.timeout = None
         self.size_mapping = {
             
             "2K": {
@@ -758,7 +758,7 @@ class Comfly_Doubao_Seededit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -916,7 +916,7 @@ class ComflyJimengApi:
     def __init__(self):
         super().__init__()
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1263,7 +1263,7 @@ class ComflyJimengVideoApi:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1502,7 +1502,7 @@ class ComflySeededit:
     def __init__(self):
         super().__init__()
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def get_headers(self):
         return {

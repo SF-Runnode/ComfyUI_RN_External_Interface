@@ -45,7 +45,7 @@ class ComflyGeminiAPI:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 120 
+        self.timeout = None  
 
     def get_headers(self):
         return {
@@ -316,7 +316,7 @@ class Comfly_Googel_Veo3:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None  
 
     def get_headers(self):
         return {
@@ -521,7 +521,7 @@ class Comfly_nano_banana:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None  
 
     def get_headers(self):
         return {
@@ -731,7 +731,7 @@ class Comfly_nano_banana_fal:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None  
 
     def get_headers(self):
         return {
@@ -895,7 +895,7 @@ class Comfly_nano_banana_fal:
             response_url = result.get("response_url", "")
  
             if "queue.fal.run" in response_url:
-                response_url = response_url.replace("https://queue.fal.run", "https://ai.t8star.cn")
+                response_url = response_url.replace("https://queue.fal.run", baseurl)
 
             if not response_url:
                 response_url = f"{baseurl}/fal-ai/{model}/requests/{request_id}"
@@ -944,7 +944,7 @@ class Comfly_nano_banana_fal:
                 if "url" in img_data:
                     img_url = img_data["url"]
                     if "queue.fal.run" in img_url:
-                        img_url = img_url.replace("https://queue.fal.run", "https://ai.t8star.cn")
+                        img_url = img_url.replace("https://queue.fal.run", baseurl)
                     
                     try:
                         img_response = requests.get(img_url, timeout=self.timeout)
@@ -999,7 +999,7 @@ class Comfly_nano_banana_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 1200
+        self.timeout = None  
 
     def get_headers(self):
         return {
@@ -1166,7 +1166,7 @@ class Comfly_nano_banana2_edit:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -1200,7 +1200,7 @@ class Comfly_nano_banana2_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 600
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -1402,7 +1402,7 @@ class Comfly_nano_banana2_edit_S2A:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
@@ -1437,7 +1437,7 @@ class Comfly_nano_banana2_edit_S2A:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 600
+        self.timeout = None
 
     def get_headers(self):
         return {
@@ -2011,3 +2011,823 @@ class Comfly_nano_banana2_edit_S2A:
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, "", "", json.dumps({"status": "query_error", "task_id": task_id, "message": error_message}))
+
+
+class Comfly_banana2_edit_group:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+            },
+            "optional": {
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "image5": ("IMAGE",),
+                "image6": ("IMAGE",),
+                "image7": ("IMAGE",),
+                "image8": ("IMAGE",),
+                "image9": ("IMAGE",),
+                "image10": ("IMAGE",),
+                "image11": ("IMAGE",),
+                "image12": ("IMAGE",),
+                "image13": ("IMAGE",),
+                "image14": ("IMAGE",),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("prompt",)
+    FUNCTION = "build"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+    def _image_to_b64(self, image_tensor):
+        if image_tensor is None:
+            return None
+        pil_image = tensor2pil(image_tensor)[0]
+        buf = BytesIO()
+        pil_image.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        return f"data:image/png;base64,{b64}"
+    def build(self, **kwargs):
+        prompt = kwargs.get("prompt", "")
+        mode = kwargs.get("mode", "text2img")
+        model = kwargs.get("model", "nano-banana-2")
+        aspect_ratio = kwargs.get("aspect_ratio", "auto")
+        image_size = kwargs.get("image_size", "2K")
+        response_format = kwargs.get("response_format", "url")
+        seed = int(kwargs.get("seed", 0))
+        api_key = kwargs.get("api_key", "").strip() or self.api_key
+        images = []
+        for i in range(1, 15):
+            b64 = self._image_to_b64(kwargs.get(f"image{i}"))
+            if b64:
+                images.append(b64)
+        group = {
+            "prompt": prompt,
+            "mode": mode,
+            "model": model,
+            "aspect_ratio": aspect_ratio,
+            "image_size": image_size,
+            "response_format": response_format,
+            "seed": seed,
+            "api_key": api_key,
+            "images": images,
+        }
+        return (json.dumps(group, ensure_ascii=False),)
+
+
+class Comfly_banana2_edit_S2A_group:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+            },
+            "optional": {
+                "mode": (["text2img", "img2img"], {"default": "img2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "image5": ("IMAGE",),
+                "image6": ("IMAGE",),
+                "image7": ("IMAGE",),
+                "image8": ("IMAGE",),
+                "image9": ("IMAGE",),
+                "image10": ("IMAGE",),
+                "image11": ("IMAGE",),
+                "image12": ("IMAGE",),
+                "image13": ("IMAGE",),
+                "image14": ("IMAGE",),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("group",)
+    FUNCTION = "build"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+    def _image_to_b64(self, image_tensor):
+        if image_tensor is None:
+            return None
+        pil_image = tensor2pil(image_tensor)[0]
+        buf = BytesIO()
+        pil_image.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        return f"data:image/png;base64,{b64}"
+    def build(self, **kwargs):
+        prompt = kwargs.get("prompt", "")
+        mode = kwargs.get("mode", "text2img")
+        model = kwargs.get("model", "nano-banana-2")
+        aspect_ratio = kwargs.get("aspect_ratio", "auto")
+        image_size = kwargs.get("image_size", "2K")
+        response_format = kwargs.get("response_format", "url")
+        seed = int(kwargs.get("seed", 0))
+        api_key = kwargs.get("api_key", "").strip() or self.api_key
+        images = []
+        for i in range(1, 15):
+            b64 = self._image_to_b64(kwargs.get(f"image{i}"))
+            if b64:
+                images.append(b64)
+        group = {
+            "prompt": prompt,
+            "mode": mode,
+            "model": model,
+            "aspect_ratio": aspect_ratio,
+            "image_size": image_size,
+            "response_format": response_format,
+            "seed": seed,
+            "api_key": api_key,
+            "images": images,
+        }
+        return (json.dumps(group, ensure_ascii=False),)
+
+class _ComflyBanana2ImageBatchRunner:
+    def __init__(self):
+        self.config = get_config()
+        self.api_key = self.config.get('api_key', '')
+        self.timeout = None
+        self.task_progress = {}
+        self.global_pbar = None
+        self.rn_pbar = None
+    def _headers(self, api_key):
+        return {"Authorization": f"Bearer {api_key}"}
+    def _blank(self, w=1024, h=1024, color='white'):
+        img = Image.new('RGB', (w, h), color=color)
+        return pil2tensor(img)
+    def _decode_b64_images(self, images_b64):
+        files = []
+        count = 0
+        for b64 in images_b64:
+            try:
+                if b64.startswith("data:image"):
+                    header, data = b64.split(",", 1)
+                    raw = base64.b64decode(data)
+                else:
+                    raw = base64.b64decode(b64)
+                bio = BytesIO(raw)
+                files.append(('image', (f'image_{count}.png', bio, 'image/png')))
+                count += 1
+            except Exception:
+                continue
+        return files, count
+    def _process(self, idx, payload):
+        res = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": "", "response": ""}
+        prompt = payload.get("prompt", "")
+        mode = payload.get("mode", "text2img")
+        model = payload.get("model", "nano-banana-2")
+        aspect_ratio = payload.get("aspect_ratio", "auto")
+        image_size = payload.get("image_size", "2K")
+        response_format = payload.get("response_format", "url")
+        seed = int(payload.get("seed", 0))
+        api_key = payload.get("api_key", "")
+        images_b64 = payload.get("images", [])
+        headers = self._headers(api_key)
+        try:
+            if mode == "text2img":
+                headers["Content-Type"] = "application/json"
+                body = {"prompt": prompt, "model": model, "aspect_ratio": aspect_ratio}
+                if model == "nano-banana-2":
+                    body["image_size"] = image_size
+                if response_format:
+                    body["response_format"] = response_format
+                if seed > 0:
+                    body["seed"] = seed
+                resp = requests.post(f"{baseurl}/v1/images/generations", headers=headers, json=body, timeout=self.timeout)
+            else:
+                files, count = self._decode_b64_images(images_b64)
+                data = {"prompt": prompt, "model": model, "aspect_ratio": aspect_ratio}
+                if model == "nano-banana-2":
+                    data["image_size"] = image_size
+                if response_format:
+                    data["response_format"] = response_format
+                if seed > 0:
+                    data["seed"] = str(seed)
+                resp = requests.post(f"{baseurl}/v1/images/edits", headers=headers, data=data, files=files, timeout=self.timeout)
+            if resp.status_code != 200:
+                res["error"] = f"HTTP {resp.status_code}: {resp.text}"
+                return res
+            result = resp.json()
+            tensors = []
+            urls = []
+            items = result.get("data", [])
+            if not isinstance(items, list):
+                items = [items]
+            for item in items:
+                if "b64_json" in item and item["b64_json"]:
+                    raw = base64.b64decode(item["b64_json"])
+                    bio = BytesIO(raw)
+                    im = Image.open(bio)
+                    if im.mode != 'RGB':
+                        im = im.convert('RGB')
+                    tensors.append(pil2tensor(im))
+                elif "url" in item and item["url"]:
+                    url = item["url"]
+                    urls.append(url)
+                    r = requests.get(url, timeout=self.timeout)
+                    r.raise_for_status()
+                    im = Image.open(BytesIO(r.content))
+                    if im.mode != 'RGB':
+                        im = im.convert('RGB')
+                    tensors.append(pil2tensor(im))
+            if tensors:
+                combined = torch.cat(tensors, dim=0)
+                res["status"] = "success"
+                res["image"] = combined
+                res["image_url"] = urls[0] if urls else ""
+                res["response"] = json.dumps({"count": len(tensors), "urls": urls}, ensure_ascii=False)
+                return res
+            res["error"] = "No image data"
+            return res
+        except Exception as e:
+            res["error"] = str(e)
+            return res
+    def run(self, groups, max_workers, global_cfg):
+        request_id = generate_request_id("image_batch", "google")
+        model_name = (global_cfg.get("model") or "nano-banana-2") if isinstance(global_cfg, dict) else "nano-banana-2"
+        log_prepare("图像批量生成", request_id, "RunNode/Google-", "Google", model_name=model_name)
+        self.rn_pbar = ProgressBar(request_id, "Google", extra_info=f"并发:{max_workers}", streaming=True, task_type="图像批量生成", source="RunNode/Google-")
+        self.rn_pbar.set_generating()
+        self.global_pbar = comfy.utils.ProgressBar(100)
+        api_key = global_cfg.get("api_key", "").strip() or self.api_key
+        if api_key:
+            self.api_key = api_key
+        if not self.api_key:
+            empty = [self._blank()] * max_workers
+            log = json.dumps({"error": "API Key未配置"}, ensure_ascii=False, indent=2)
+            return (*empty, log)
+        tasks = []
+        for i, g in enumerate(groups, start=1):
+            try:
+                d = json.loads(g) if isinstance(g, str) else {}
+            except Exception:
+                d = {}
+            prompt = d.get("prompt", "") or global_cfg.get("global_prompt", "")
+            mode = d.get("mode", global_cfg.get("mode", "text2img"))
+            model = d.get("model", global_cfg.get("model", "nano-banana-2"))
+            aspect_ratio = d.get("aspect_ratio", global_cfg.get("aspect_ratio", "auto"))
+            image_size = d.get("image_size", global_cfg.get("image_size", "2K"))
+            response_format = d.get("response_format", global_cfg.get("response_format", "url"))
+            seed = int(d.get("seed", global_cfg.get("seed", 0)))
+            g_api_key = d.get("api_key", "").strip() or self.api_key
+            images = d.get("images", [])
+            tasks.append({
+                "idx": i,
+                "payload": {
+                    "prompt": prompt,
+                    "mode": mode,
+                    "model": model,
+                    "aspect_ratio": aspect_ratio,
+                    "image_size": image_size,
+                    "response_format": response_format,
+                    "seed": seed,
+                    "api_key": g_api_key,
+                    "images": images,
+                }
+            })
+        self.task_progress = {t["idx"]: 0 for t in tasks}
+        results = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futmap = {}
+            for t in tasks:
+                f = ex.submit(self._process, t["idx"], t["payload"])
+                futmap[f] = t["idx"]
+                if t["payload"]["prompt"]:
+                    time.sleep(0.1)
+            for f in as_completed(futmap):
+                idx = futmap[f]
+                try:
+                    results[idx] = f.result()
+                except Exception as e:
+                    results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": str(e), "response": ""}
+        output_images = []
+        for i in range(1, max_workers + 1):
+            output_images.append(results.get(i, {}).get("image", self._blank()))
+        log_data = {"global": {"max_concurrent": max_workers, "api_key_configured": bool(self.api_key)}, "tasks": []}
+        for i in range(1, max_workers + 1):
+            r = results.get(i, {})
+            log_data["tasks"].append({"task_index": i, "status": r.get("status", "idle"), "image_url": r.get("image_url", ""), "error": r.get("error", "")})
+        log = json.dumps(log_data, ensure_ascii=False, indent=2)
+        return (*output_images, log)
+
+
+class Comfly_banana2_edit_run_4:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
+                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
+    RETURN_NAMES = ("image1", "image2", "image3", "image4", "log")
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunner()
+    def run(self, promt_1, promt_2, promt_3, promt_4, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 4))
+        max_workers = max(1, min(4, max_workers))
+        groups = [promt_1, promt_2, promt_3, promt_4]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_banana2_edit_run_8:
+    @classmethod
+    def INPUT_TYPES(cls):
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                **promt_,
+                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
+    RETURN_NAMES = ("image1", "image2", "image3", "image4", "image5", "image6", "image7", "image8", "log")
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunner()
+    def run(self, promt_1, promt_2, promt_3, promt_4, promt_5=None, promt_6=None, promt_7=None, promt_8=None, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 8))
+        max_workers = max(1, min(8, max_workers))
+        groups = [promt_1, promt_2, promt_3, promt_4, promt_5, promt_6, promt_7, promt_8]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_banana2_edit_run_16:
+    @classmethod
+    def INPUT_TYPES(cls):
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                **promt_,
+                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+                    "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
+    RETURN_NAMES = ("image1", "image2", "image3", "image4", "image5", "image6", "image7", "image8",
+                    "image9", "image10", "image11", "image12", "image13", "image14", "image15", "image16", "log")
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunner()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 16))
+        max_workers = max(1, min(16, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 17)]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_banana2_edit_run_32:
+    @classmethod
+    def INPUT_TYPES(cls):
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                **promt_,
+                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+    RETURN_TYPES = (
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "STRING"
+    )
+    RETURN_NAMES = (
+        "image1", "image2", "image3", "image4", "image5", "image6", "image7", "image8",
+        "image9", "image10", "image11", "image12", "image13", "image14", "image15", "image16",
+        "image17", "image18", "image19", "image20", "image21", "image22", "image23", "image24",
+        "image25", "image26", "image27", "image28", "image29", "image30", "image31", "image32",
+        "log"
+    )
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunner()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 32))
+        max_workers = max(1, min(32, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 33)]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class _ComflyBanana2ImageBatchRunnerS2A:
+    def __init__(self):
+        self.config = get_config()
+        self.api_key = self.config.get('api_key', '')
+        self.timeout = None
+    def _headers(self, api_key):
+        return {"Authorization": f"Bearer {api_key}"}
+    def _blank(self, w=512, h=512, color='lightgray'):
+        img = Image.new('RGB', (w, h), color=color)
+        return pil2tensor(img)
+    def _decode_b64_images(self, images_b64):
+        files = []
+        count = 0
+        for b64 in images_b64:
+            try:
+                if b64.startswith("data:image"):
+                    header, data = b64.split(",", 1)
+                    raw = base64.b64decode(data)
+                else:
+                    raw = base64.b64decode(b64)
+                bio = BytesIO(raw)
+                files.append(('image', (f'image_{count}.png', bio, 'image/png')))
+                count += 1
+            except Exception:
+                continue
+        return files, count
+    def _submit_async(self, payload, headers):
+        mode = payload.get("mode", "text2img")
+        model = payload.get("model", "nano-banana-2")
+        prompt = payload.get("prompt", "")
+        aspect_ratio = payload.get("aspect_ratio", "auto")
+        image_size = payload.get("image_size", "2K")
+        response_format = payload.get("response_format", "url")
+        seed = int(payload.get("seed", 0))
+        if mode == "text2img":
+            headers["Content-Type"] = "application/json"
+            body = {"prompt": prompt, "model": model, "aspect_ratio": aspect_ratio}
+            if model == "nano-banana-2":
+                body["image_size"] = image_size
+            if response_format:
+                body["response_format"] = response_format
+            if seed > 0:
+                body["seed"] = seed
+            params = {"async": "true"}
+            resp = requests.post(f"{baseurl}/v1/images/generations", headers=headers, params=params, json=body, timeout=self.timeout)
+        else:
+            files, count = self._decode_b64_images(payload.get("images", []))
+            data = {"prompt": prompt, "model": model, "aspect_ratio": aspect_ratio}
+            if model == "nano-banana-2":
+                data["image_size"] = image_size
+            if response_format:
+                data["response_format"] = response_format
+            if seed > 0:
+                data["seed"] = str(seed)
+            params = {"async": "true"}
+            resp = requests.post(f"{baseurl}/v1/images/edits", headers=headers, params=params, data=data, files=files, timeout=self.timeout)
+        if resp.status_code != 200:
+            return None, f"HTTP {resp.status_code}: {resp.text}"
+        data = resp.json()
+        task_id = data.get("task_id")
+        if not task_id:
+            return None, "No task_id in async response"
+        return task_id, None
+    def _poll(self, task_id, headers, poll_interval_sec=15, max_attempts=40):
+        attempt = 0
+        while attempt < max_attempts:
+            time.sleep(poll_interval_sec)
+            attempt += 1
+            q = requests.get(f"{baseurl}/v1/images/tasks/{task_id}", headers=headers, timeout=self.timeout)
+            if q.status_code != 200:
+                continue
+            qr = q.json()
+            actual_status = "unknown"
+            actual_data = None
+            if isinstance(qr.get("data"), dict):
+                actual_status = qr["data"].get("status", "unknown")
+                actual_data = qr["data"].get("data")
+            if actual_status in ["completed", "success", "done", "finished", "SUCCESS"] or (actual_status == "unknown" and actual_data):
+                items = actual_data.get("data", []) if isinstance(actual_data, dict) else (actual_data or [])
+                if not isinstance(items, list):
+                    items = [items]
+                tensors = []
+                urls = []
+                for item in items:
+                    if "b64_json" in item and item["b64_json"]:
+                        raw = base64.b64decode(item["b64_json"])
+                        im = Image.open(BytesIO(raw))
+                        if im.mode != 'RGB':
+                            im = im.convert('RGB')
+                        tensors.append(pil2tensor(im))
+                    elif "url" in item and item["url"]:
+                        url = item["url"]
+                        urls.append(url)
+                        r = requests.get(url, timeout=self.timeout)
+                        r.raise_for_status()
+                        im = Image.open(BytesIO(r.content))
+                        if im.mode != 'RGB':
+                            im = im.convert('RGB')
+                        tensors.append(pil2tensor(im))
+                if tensors:
+                    combined = torch.cat(tensors, dim=0)
+                    return combined, (urls[0] if urls else ""), None
+                return self._blank(), "", "No image data in completed task"
+            if actual_status in ["failed", "error", "FAILURE"]:
+                err = qr.get("error", "Unknown error")
+                return self._blank(w=1024, h=1024, color='red'), "", err
+        return self._blank(), "", "Task polling timed out"
+    def _process(self, idx, payload, poll_interval_sec=15, max_attempts=40):
+        res = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": "", "response": ""}
+        api_key = payload.get("api_key", "")
+        headers = self._headers(api_key)
+        task_id, err = self._submit_async(payload, headers)
+        if err:
+            res["error"] = err
+            return res
+        image, url, perr = self._poll(task_id, headers, poll_interval_sec=poll_interval_sec, max_attempts=max_attempts)
+        if perr:
+            res["error"] = perr
+            return res
+        res["status"] = "success"
+        res["image"] = image
+        res["image_url"] = url
+        return res
+    def run(self, groups, max_workers, global_cfg):
+        request_id = generate_request_id("image_batch_s2a", "google")
+        model_name = (global_cfg.get("model") or "nano-banana-2") if isinstance(global_cfg, dict) else "nano-banana-2"
+        log_prepare("图像批量生成(异步轮询)", request_id, "RunNode/Google-", "Google", model_name=model_name)
+        api_key = global_cfg.get("api_key", "").strip() or self.api_key
+        if api_key:
+            self.api_key = api_key
+        if not self.api_key:
+            empty = [self._blank()] * max_workers
+            log = json.dumps({"error": "API Key未配置"}, ensure_ascii=False, indent=2)
+            return (*empty, log)
+        poll_interval_sec = int(global_cfg.get("poll_interval_sec", 15))
+        max_attempts = int(global_cfg.get("max_attempts", 40))
+        tasks = []
+        for i, g in enumerate(groups, start=1):
+            try:
+                d = json.loads(g) if isinstance(g, str) else {}
+            except Exception:
+                d = {}
+            prompt = d.get("prompt", "") or global_cfg.get("global_prompt", "")
+            mode = d.get("mode", global_cfg.get("mode", "text2img"))
+            model = d.get("model", global_cfg.get("model", "nano-banana-2"))
+            aspect_ratio = d.get("aspect_ratio", global_cfg.get("aspect_ratio", "auto"))
+            image_size = d.get("image_size", global_cfg.get("image_size", "2K"))
+            response_format = d.get("response_format", global_cfg.get("response_format", "url"))
+            seed = int(d.get("seed", global_cfg.get("seed", 0)))
+            g_api_key = d.get("api_key", "").strip() or self.api_key
+            images = d.get("images", [])
+            tasks.append({
+                "idx": i,
+                "payload": {
+                    "prompt": prompt,
+                    "mode": mode,
+                    "model": model,
+                    "aspect_ratio": aspect_ratio,
+                    "image_size": image_size,
+                    "response_format": response_format,
+                    "seed": seed,
+                    "api_key": g_api_key,
+                    "images": images,
+                }
+            })
+        results = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futmap = {}
+            for t in tasks:
+                f = ex.submit(self._process, t["idx"], t["payload"], poll_interval_sec, max_attempts)
+                futmap[f] = t["idx"]
+                if t["payload"]["prompt"]:
+                    time.sleep(0.1)
+            for f in as_completed(futmap):
+                idx = futmap[f]
+                try:
+                    results[idx] = f.result()
+                except Exception as e:
+                    results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": str(e), "response": ""}
+        output_images = []
+        for i in range(1, max_workers + 1):
+            output_images.append(results.get(i, {}).get("image", self._blank()))
+        log_data = {"global": {"max_concurrent": max_workers, "api_key_configured": bool(self.api_key)}, "tasks": []}
+        for i in range(1, max_workers + 1):
+            r = results.get(i, {})
+            log_data["tasks"].append({"task_index": i, "status": r.get("status", "idle"), "image_url": r.get("image_url", ""), "error": r.get("error", "")})
+        log = json.dumps(log_data, ensure_ascii=False, indent=2)
+        return (*output_images, log)
+
+
+class Comfly_banana2_edit_S2A_run_4:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
+                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+            }
+        }
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
+    RETURN_NAMES = ("image1", "image2", "image3", "image4", "log")
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunnerS2A()
+    def run(self, promt_1, promt_2, promt_3, promt_4, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 4))
+        max_workers = max(1, min(4, max_workers))
+        groups = [promt_1, promt_2, promt_3, promt_4]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_banana2_edit_S2A_run_8:
+    @classmethod
+    def INPUT_TYPES(cls):
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                **promt_,
+                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+            }
+        }
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
+    RETURN_NAMES = ("image1", "image2", "image3", "image4", "image5", "image6", "image7", "image8", "log")
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunnerS2A()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 8))
+        max_workers = max(1, min(8, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 9)]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_banana2_edit_S2A_run_16:
+    @classmethod
+    def INPUT_TYPES(cls):
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                **promt_,
+                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+            }
+        }
+    RETURN_TYPES = (
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "STRING"
+    )
+    RETURN_NAMES = (
+        "image1", "image2", "image3", "image4", "image5", "image6", "image7", "image8",
+        "image9", "image10", "image11", "image12", "image13", "image14", "image15", "image16",
+        "log"
+    )
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunnerS2A()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 16))
+        max_workers = max(1, min(16, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 17)]
+        return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_banana2_edit_S2A_run_32:
+    @classmethod
+    def INPUT_TYPES(cls):
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
+        return {
+            "required": {
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+            },
+            "optional": {
+                **promt_,
+                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+            }
+        }
+    RETURN_TYPES = (
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
+        "STRING"
+    )
+    RETURN_NAMES = (
+        "image1", "image2", "image3", "image4", "image5", "image6", "image7", "image8",
+        "image9", "image10", "image11", "image12", "image13", "image14", "image15", "image16",
+        "image17", "image18", "image19", "image20", "image21", "image22", "image23", "image24",
+        "image25", "image26", "image27", "image28", "image29", "image30", "image31", "image32",
+        "log"
+    )
+    FUNCTION = "run"
+    CATEGORY = "RunNode/Google"
+    def __init__(self):
+        self.runner = _ComflyBanana2ImageBatchRunnerS2A()
+    def run(self, **cfg):
+        max_workers = int(cfg.get("max_concurrent", 32))
+        max_workers = max(1, min(32, max_workers))
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 33)]
+        return self.runner.run(groups, max_workers, cfg)

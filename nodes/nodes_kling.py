@@ -35,7 +35,7 @@ class Comfly_kling_text2video:
     def __init__(self):
         super().__init__()
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
         self.model_capabilities = {
             "kling-v1": {
                 "std": {
@@ -237,7 +237,7 @@ class Comfly_kling_image2video:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
         self.model_compatibility = {
             "kling-v1": {
                 "std": {"5": True, "10": True},  
@@ -481,7 +481,7 @@ class Comfly_kling_multi_image2video:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
         self.session = requests.Session()
         retry_strategy = requests.packages.urllib3.util.retry.Retry(
             total=5,
@@ -518,10 +518,8 @@ class Comfly_kling_multi_image2video:
         initial_timeout = kwargs.pop('initial_timeout', self.timeout)
         
         for attempt in range(1, max_retries + 1):
-            current_timeout = min(initial_timeout * (2 ** (attempt - 1)), 900)  
-            
             try:
-                kwargs['timeout'] = current_timeout
+                kwargs['timeout'] = None if initial_timeout is None else min(initial_timeout * (2 ** (attempt - 1)), 900)
                 
                 if method.lower() == 'get':
                     response = self.session.get(url, **kwargs)
@@ -615,8 +613,8 @@ class Comfly_kling_multi_image2video:
             return {"task_status": "failed", "task_status_msg": "Maximum polling attempts reached without getting a valid status"}
     
     def generate_video(self, prompt, model_name, mode, duration, aspect_ratio, negative_prompt="", 
-                  image1=None, image2=None, image3=None, image4=None, api_key="", 
-                  max_retries=10, initial_timeout=300, seed=0):
+                 image1=None, image2=None, image3=None, image4=None, api_key="", 
+                 max_retries=10, initial_timeout=None, seed=0):
         request_id = generate_request_id("video_gen_multi", "kling")
         log_prepare("多图视频生成", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
         rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="多图视频生成", source="RunNode/Kling-")
@@ -756,7 +754,7 @@ class Comfly_video_extend:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
 
     def extend_video(self, video_id, prompt="", api_key=""):
         request_id = generate_request_id("video_extend", "kling")
@@ -949,7 +947,7 @@ class Comfly_lip_sync:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 300
+        self.timeout = None
         self.zh_voice_map = {name: voice_id for name, voice_id in self.__class__.zh_voices}
         self.en_voice_map = {name: voice_id for name, voice_id in self.__class__.en_voices}
         

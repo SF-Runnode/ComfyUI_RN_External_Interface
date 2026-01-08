@@ -31,7 +31,7 @@ class Comfly_MiniMax_video:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 600
+        self.timeout = None
         self.api_endpoint = f"{baseurl}/minimax/v1/video_generation"
         self.query_endpoint = f"{baseurl}/minimax/v1/query/video_generation"
 
