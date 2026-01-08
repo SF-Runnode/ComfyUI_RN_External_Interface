@@ -32,7 +32,7 @@ class Comfly_Flux_Kontext:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -253,7 +253,7 @@ class Comfly_Flux_Kontext_Edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -445,7 +445,7 @@ class Comfly_Flux_Kontext_bfl:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -647,7 +647,7 @@ class Comfly_Flux_2_Pro:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 600
 
     def get_headers(self):
         return {
@@ -871,7 +871,7 @@ class Comfly_Flux_2_Flex:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 600
 
     def get_headers(self):
         return {

@@ -37,7 +37,7 @@ class Comfly_qwen_image:
        
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -222,7 +222,7 @@ class Comfly_qwen_image_edit:
        
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -407,7 +407,7 @@ class Comfly_Z_image_turbo:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -566,7 +566,7 @@ class Comfly_Z_image_turbo:
 
 class Comfly_wan2_6_API:
     def __init__(self):
-        self.timeout = None
+        self.timeout = 300
         self.api_key = get_config().get('api_key', '')
 
     @classmethod

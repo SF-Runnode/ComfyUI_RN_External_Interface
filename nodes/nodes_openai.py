@@ -56,7 +56,7 @@ class Comfly_gpt_image_1_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
         self.session = requests.Session()
         retry_strategy = requests.packages.urllib3.util.retry.Retry(
             total=3,
@@ -415,7 +415,7 @@ class Comfly_gpt_image_1:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -595,7 +595,7 @@ class ComflyChatGPTApi:
     
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 800
         self.image_download_timeout = 600
         self.api_endpoint = f"{baseurl}/v1/chat/completions"
         self.conversation_history = []
@@ -951,7 +951,7 @@ class Comfly_sora2_openai:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
 
     def get_headers(self):
         return {
@@ -1163,7 +1163,7 @@ class Comfly_sora2:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
 
     def get_headers(self):
         return {
@@ -1388,7 +1388,7 @@ class Comfly_sora2_chat:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
 
     def get_headers(self):
         return {
@@ -1620,7 +1620,7 @@ class Comfly_sora2_character:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -3275,7 +3275,7 @@ class _ComflySora2BatchRunner:
         self.task_progress = {}
         self.global_pbar = None
         self.rn_pbar = None
-        self.timeout = None
+        self.timeout = 900
     def _headers(self, api_key):
         return {
             "Content-Type": "application/json",
@@ -3343,7 +3343,8 @@ class _ComflySora2BatchRunner:
                 return res
             res["task_id"] = task_id
             self.task_progress[idx] = 30
-            max_attempts = int(self.timeout / 10)
+            _timeout_sec = self.timeout if isinstance(self.timeout, (int, float)) and self.timeout > 0 else 900
+            max_attempts = max(1, int(_timeout_sec / 10))
             attempts = 0
             while attempts < max_attempts:
                 time.sleep(10)
@@ -3353,7 +3354,7 @@ class _ComflySora2BatchRunner:
                     s = requests.get(
                         f"{base_url}/v2/videos/generations/{task_id}",
                         headers=self._headers(api_key),
-                        timeout=self.timeout
+                        timeout=_timeout_sec
                     )
                     if s.status_code != 200:
                         continue
@@ -3383,7 +3384,7 @@ class _ComflySora2BatchRunner:
                 except Exception as e:
                     res["error"] = f"轮询状态异常：{str(e)}"
                     continue
-            res["error"] = f"任务超时（{self.timeout}秒）未生成完成"
+            res["error"] = f"任务超时（{_timeout_sec}秒）未生成完成"
             self.task_progress[idx] = 100
             return res
         except Exception as e:
@@ -3406,6 +3407,9 @@ class _ComflySora2BatchRunner:
         _rn_start = time.perf_counter()
         base_url = global_cfg.get("base_url", "").strip() or self.base_url or baseurl
         api_key = global_cfg.get("api_key", "").strip() or self.api_key
+        _cfg_timeout = global_cfg.get("timeout")
+        if isinstance(_cfg_timeout, (int, float)) and _cfg_timeout > 0:
+            self.timeout = int(_cfg_timeout)
         if api_key:
             # save_config({'api_key': api_key})
             self.api_key = api_key

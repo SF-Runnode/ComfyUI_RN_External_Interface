@@ -11,7 +11,7 @@ class ComflyBaseNode:
         }
         self.api_key = get_config().get('api_key', '') 
         self.speed = "fast mode"
-        self.timeout = None
+        self.timeout = 800
 
     def set_speed(self, speed):
         self.speed = speed
@@ -1451,7 +1451,7 @@ class Comfly_Mj_swap_face(ComflyBaseNode):
     def __init__(self):
         super().__init__()
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 300
         self.poll_interval = 3 
 
     def get_headers(self):

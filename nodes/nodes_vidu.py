@@ -185,7 +185,7 @@ class Comfly_vidu_img2video:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
 
     def get_headers(self):
         return {
@@ -405,7 +405,7 @@ class Comfly_vidu_text2video:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
 
     def get_headers(self):
         return {
@@ -619,7 +619,7 @@ class Comfly_vidu_ref2video:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
 
     def get_headers(self):
         return {
@@ -872,7 +872,7 @@ class Comfly_vidu_start_end2video:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 900
 
     def get_headers(self):
         return {

@@ -45,7 +45,7 @@ class ComflyGeminiAPI:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None  
+        self.timeout = 120
 
     def get_headers(self):
         return {
@@ -316,7 +316,7 @@ class Comfly_Googel_Veo3:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None  
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -521,7 +521,7 @@ class Comfly_nano_banana:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None  
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -731,7 +731,7 @@ class Comfly_nano_banana_fal:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None  
+        self.timeout = 300
 
     def get_headers(self):
         return {
@@ -999,7 +999,7 @@ class Comfly_nano_banana_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None  
+        self.timeout = 1200
 
     def get_headers(self):
         return {
@@ -1200,7 +1200,7 @@ class Comfly_nano_banana2_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 600
 
     def get_headers(self):
         return {
@@ -1437,7 +1437,7 @@ class Comfly_nano_banana2_edit_S2A:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = None
+        self.timeout = 600
 
     def get_headers(self):
         return {
@@ -2162,7 +2162,7 @@ class _ComflyBanana2ImageBatchRunner:
     def __init__(self):
         self.config = get_config()
         self.api_key = self.config.get('api_key', '')
-        self.timeout = None
+        self.timeout = 600
         self.task_progress = {}
         self.global_pbar = None
         self.rn_pbar = None
@@ -2490,7 +2490,7 @@ class _ComflyBanana2ImageBatchRunnerS2A:
     def __init__(self):
         self.config = get_config()
         self.api_key = self.config.get('api_key', '')
-        self.timeout = None
+        self.timeout = 600
     def _headers(self, api_key):
         return {"Authorization": f"Bearer {api_key}"}
     def _blank(self, w=512, h=512, color='lightgray'):
