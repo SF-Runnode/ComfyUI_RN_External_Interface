@@ -3167,7 +3167,7 @@ class Comfly_sora2_batch_32:
                 "hd": hd,
                 "max_concurrent": max_concurrent,
                 "global_prompt_used": bool(global_prompt),
-                "base_url": current_base_url,
+                "base_url": ("base_url(param)" if kwargs.get("base_url", "").strip() else ("self.base_url(config)" if self.base_url else "baseurl(default)")),
                 "api_key_configured": bool(self.api_key)
             },
             "tasks": []
@@ -3483,7 +3483,7 @@ class _ComflySora2BatchRunner:
                 "duration": global_cfg.get("duration"),
                 "hd": global_cfg.get("hd"),
                 "max_concurrent": max_workers,
-                "base_url": base_url,
+                "base_url": ("global_cfg.base_url" if isinstance(global_cfg.get("base_url", ""), str) and global_cfg.get("base_url", "").strip() else ("self.base_url(config)" if self.base_url else "baseurl(default)")),
                 "api_key_configured": bool(self.api_key)
             },
             "tasks": []
