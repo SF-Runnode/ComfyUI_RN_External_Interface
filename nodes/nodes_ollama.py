@@ -40,36 +40,44 @@ def _filter_enabled_options(options: dict[str, Any] | None) -> dict[str, Any] | 
 
 @PromptServer.instance.routes.post("/runnode_ollama/get_models")
 async def get_models_endpoint(request):
-    data = await request.json()
-    raw_url = data.get("url")
-    raw_api_key = data.get("api_key", "")
-    url = raw_url or os.environ.get('COMFYUI_RN_BASE_URL') or get_config().get('base_url', "http://127.0.0.1:11434")
-    api_key = raw_api_key or os.environ.get('COMFYUI_RN_API_KEY') or get_config().get('api_key', "")
-    models = []
-    if api_key:
-        try:
+    req_id = generate_request_id("models", "ollama")
+    start = time.perf_counter()
+    models: list[str] = []
+    try:
+        data = await request.json()
+        raw_url = (data.get("url") or "").strip()
+        raw_api_key = (data.get("api_key", "") or "").strip()
+
+        url = raw_url or os.environ.get("COMFYUI_RN_BASE_URL") or get_config().get("base_url", "http://127.0.0.1:11434")
+        api_key = raw_api_key or os.environ.get("COMFYUI_RN_API_KEY") or get_config().get("api_key", "")
+
+        if api_key:
             req = urllib.request.Request(url.rstrip("/") + "/api/tags")
             req.add_header("Content-Type", "application/json")
             req.add_header("Authorization", f"Bearer {api_key}")
             with urllib.request.urlopen(req) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
             models_list = payload.get("models", [])
-            try:
-                models = [m.get("model") or m.get("name", "") for m in models_list]
-            except Exception:
-                models = []
-        except Exception:
-            models = []
-    else:
-        try:
+            models = [m.get("model") or m.get("name", "") for m in models_list if isinstance(m, dict)]
+        else:
             client = Client(host=url)
-            models_list = client.list().get('models', [])
-            try:
-                models = [model.get('model') or model.get('name', '') for model in models_list]
-            except Exception:
-                models = []
-        except Exception:
-            models = []
+            models_list = client.list().get("models", [])
+            models = [m.get("model") or m.get("name", "") for m in models_list if isinstance(m, dict)]
+    except Exception:
+        log_backend_exception(
+            "ollama_get_models_failed",
+            request_id=req_id,
+            url=safe_public_url(locals().get("url", "")),
+        )
+        models = []
+    finally:
+        log_backend(
+            "ollama_get_models_done",
+            request_id=req_id,
+            url=safe_public_url(locals().get("url", "")),
+            model_count=len(models),
+            elapsed_ms=int((time.perf_counter() - start) * 1000),
+        )
     return web.json_response(models)
 
 
@@ -252,8 +260,9 @@ class OllamaChat:
 
         req_id = generate_request_id("chat", "ollama")
         task_type = "图文对话" if images is not None else "文本生成"
-        log_prepare(task_type, req_id, "RunNode/Ollama-", "Ollama", model_name=model)
-        rn_pbar = ProgressBar(req_id, "Ollama", streaming=True, task_type=task_type, source="RunNode/Ollama-")
+        service_label = format_service_label("Ollama", url, bool(api_key))
+        log_prepare(task_type, req_id, "RunNode/Ollama-", service_label, model_name=model)
+        rn_pbar = ProgressBar(req_id, service_label, streaming=True, task_type=task_type, source="RunNode/Ollama-")
         rn_pbar.set_generating()
 
         debug_print = (
@@ -273,6 +282,17 @@ class OllamaChat:
 
         request_options = _filter_enabled_options(options)
 
+        options_summary = None
+        if request_options:
+            options_summary = {}
+            for k, v in request_options.items():
+                if isinstance(v, (int, float, bool)) or v is None:
+                    options_summary[k] = v
+                elif isinstance(v, (list, tuple)):
+                    options_summary[k] = f"list({len(v)})"
+                else:
+                    options_summary[k] = "set"
+
         images_b64: list[str] | None = None
         if images is not None:
             images_b64 = []
@@ -285,28 +305,31 @@ class OllamaChat:
                 images_b64.append(img_bytes)
 
         if debug_print:
-            print(
-                f"""
-                    --- ollama chat request: 
-
-                    url: {url}
-                    model: {model}
-                    system: {system}
-                    prompt: {prompt}
-                    images: {0 if images_b64 is None else len(images_b64)}
-                    think: {think}
-                    options: {request_options}
-                    keep alive: {request_keep_alive}
-                    format: {format}
-                    ---------------------------------------------------------
-                    """
+            log_backend(
+                "ollama_chat_request_debug",
+                level="DEBUG",
+                request_id=req_id,
+                url=safe_public_url(url),
+                model=model,
+                prompt_len=len(prompt or ""),
+                system_len=len(system or ""),
+                image_count=(0 if images_b64 is None else len(images_b64)),
+                think=think,
+                options=options_summary,
+                keep_alive=request_keep_alive,
+                format=format,
             )
 
         session_key = history if history is not None else unique_id
         if reset_session:
             CHAT_SESSIONS[session_key] = ChatSession()
             if debug_print:
-                print(f"Session {session_key} has been reset")
+                log_backend(
+                    "ollama_chat_session_reset",
+                    level="DEBUG",
+                    request_id=req_id,
+                    session_key=session_key,
+                )
         if session_key not in CHAT_SESSIONS:
             CHAT_SESSIONS[session_key] = ChatSession()
         session = CHAT_SESSIONS[session_key]
@@ -325,13 +348,14 @@ class OllamaChat:
         session.messages.append(user_message_for_history)
 
         if debug_print:
-            print("\n--- ollama chat session:")
-            for message in session.messages:
-                pprint(f"{message['role']}> {message['content'][:50]}...")
-                if "images" in message:
-                    for image in message["images"]:
-                        pprint(f"Image: {image[:50]}...")
-            print("---------------------------------------------------------")
+            log_backend(
+                "ollama_chat_session_debug",
+                level="DEBUG",
+                request_id=req_id,
+                session_key=session_key,
+                message_count=len(session.messages),
+                image_count=(0 if images_b64 is None else len(images_b64)),
+            )
 
         messages_for_api = [m.copy() for m in session.messages]
         if images_b64 is not None:
@@ -339,7 +363,14 @@ class OllamaChat:
         ollama_response_text = None
         ollama_response_thinking = None
         if api_key:
+            remote_start = time.perf_counter()
             try:
+                log_backend(
+                    "ollama_chat_remote_start",
+                    request_id=req_id,
+                    url=safe_public_url(url),
+                    model=model,
+                )
                 openai_messages = []
                 for msg in messages_for_api:
                     if "images" in msg and msg["images"]:
@@ -370,7 +401,22 @@ class OllamaChat:
                     response_data = json.loads(resp.read().decode("utf-8"))
                 ollama_response_text = response_data["choices"][0]["message"]["content"]
                 ollama_response_thinking = None
+                log_backend(
+                    "ollama_chat_remote_done",
+                    request_id=req_id,
+                    url=safe_public_url(url),
+                    model=model,
+                    mode="openai_compat",
+                    response_len=len(ollama_response_text or ""),
+                    elapsed_ms=int((time.perf_counter() - remote_start) * 1000),
+                )
             except Exception as e:
+                log_backend_exception(
+                    "ollama_chat_remote_openai_compat_failed",
+                    request_id=req_id,
+                    url=safe_public_url(url),
+                    model=model,
+                )
                 try:
                     req = urllib.request.Request(
                         url.rstrip("/") + "/api/chat",
@@ -388,11 +434,44 @@ class OllamaChat:
                         response_json = json.loads(resp.read().decode("utf-8"))
                     ollama_response_text = response_json.get("message", {}).get("content")
                     ollama_response_thinking = None
+                    log_backend(
+                        "ollama_chat_remote_done",
+                        request_id=req_id,
+                        url=safe_public_url(url),
+                        model=model,
+                        mode="ollama_api_chat",
+                        response_len=len(ollama_response_text or ""),
+                        elapsed_ms=int((time.perf_counter() - remote_start) * 1000),
+                    )
                 except Exception as e2:
-                    rn_pbar.error("远程服务调用失败，请检查 Base URL 与 API Key")
-                    raise RuntimeError("Third-party API call failed and Ollama '/api/chat' with Bearer also failed. Please verify base URL and API key are correct.")
+                    rn_pbar.error(
+                        format_user_error(
+                            "远程服务调用失败",
+                            request_id=req_id,
+                            suggestion="检查 Base URL 是否可访问，API Key 是否正确",
+                        )
+                    )
+                    log_backend_exception(
+                        "ollama_chat_remote_failed",
+                        request_id=req_id,
+                        url=safe_public_url(url),
+                        model=model,
+                    )
+                    raise RuntimeError(
+                        format_user_error(
+                            "远程服务调用失败",
+                            request_id=req_id,
+                            suggestion="检查 Base URL 是否可访问，API Key 是否正确",
+                        )
+                    )
         else:
             try:
+                log_backend(
+                    "ollama_chat_local_start",
+                    request_id=req_id,
+                    url=safe_public_url(url),
+                    model=model,
+                )
                 client = Client(host=url)
                 response_native = client.chat(
                     model=model,
@@ -404,17 +483,45 @@ class OllamaChat:
                 ollama_response_text = response_native.message.content if hasattr(response_native, "message") else None
                 ollama_response_thinking = response_native.message.thinking if hasattr(response_native, "message") and think else None
             except Exception as e:
-                fallback_url = get_config().get('base_url', "http://127.0.0.1:11434")
-                client = Client(host=fallback_url)
-                response_native = client.chat(
+                log_backend_exception(
+                    "ollama_chat_local_failed",
+                    request_id=req_id,
+                    url=safe_public_url(url),
                     model=model,
-                    messages=messages_for_api,
-                    options=request_options,
-                    keep_alive=request_keep_alive,
-                    format=ollama_format,
                 )
-                ollama_response_text = response_native.message.content if hasattr(response_native, "message") else None
-                ollama_response_thinking = response_native.message.thinking if hasattr(response_native, "message") and think else None
+                fallback_url = get_config().get("base_url", "http://127.0.0.1:11434")
+                try:
+                    client = Client(host=fallback_url)
+                    response_native = client.chat(
+                        model=model,
+                        messages=messages_for_api,
+                        options=request_options,
+                        keep_alive=request_keep_alive,
+                        format=ollama_format,
+                    )
+                    ollama_response_text = response_native.message.content if hasattr(response_native, "message") else None
+                    ollama_response_thinking = response_native.message.thinking if hasattr(response_native, "message") and think else None
+                except Exception:
+                    rn_pbar.error(
+                        format_user_error(
+                            "本地 Ollama 调用失败",
+                            request_id=req_id,
+                            suggestion="检查服务是否启动、URL 是否正确、模型是否已拉取",
+                        )
+                    )
+                    log_backend_exception(
+                        "ollama_chat_local_fallback_failed",
+                        request_id=req_id,
+                        url=safe_public_url(fallback_url),
+                        model=model,
+                    )
+                    raise RuntimeError(
+                        format_user_error(
+                            "本地 Ollama 调用失败",
+                            request_id=req_id,
+                            suggestion="检查服务是否启动、URL 是否正确、模型是否已拉取",
+                        )
+                    )
 
         try:
             rn_pbar.done(char_count=len(ollama_response_text or ""))
@@ -422,9 +529,13 @@ class OllamaChat:
             pass
 
         if debug_print:
-            print("\n--- ollama chat response:")
-            pprint({"text": (ollama_response_text or "")[:200], "thinking": ollama_response_thinking})
-            print("---------------------------------------------------------")
+            log_backend(
+                "ollama_chat_response_debug",
+                level="DEBUG",
+                request_id=req_id,
+                text_len=len(ollama_response_text or ""),
+                has_thinking=bool(ollama_response_thinking),
+            )
 
         session.messages.append(
             {

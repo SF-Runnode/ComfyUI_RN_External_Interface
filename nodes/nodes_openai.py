@@ -143,6 +143,24 @@ class Comfly_gpt_image_1_edit:
         request_id = generate_request_id("img_edit", "openai")
         log_prepare("图像编辑", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像编辑", source="RunNode/OpenAI-")
+        _rn_start = time.perf_counter()
+        log_backend(
+            "openai_image_edit_start",
+            request_id=request_id,
+            url=safe_public_url(baseurl),
+            model=model,
+            prompt_len=len(prompt or ""),
+            image_batch=(int(image.shape[0]) if hasattr(image, "shape") else None),
+            has_mask=bool(mask is not None),
+            n=int(n),
+            quality=quality,
+            size=(None if size == "auto" else size),
+            background=(None if background == "auto" else background),
+            output_compression=(None if int(output_compression) == 100 else int(output_compression)),
+            output_format=(None if output_format == "png" else output_format),
+            input_fidelity=(None if input_fidelity == "low" else input_fidelity),
+            partial_images=(None if int(partial_images) == 0 else int(partial_images)),
+        )
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -174,6 +192,14 @@ class Comfly_gpt_image_1_edit:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_api_key",
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (original_image, error_message, self.format_conversation_history())
           
             pbar = comfy.utils.ProgressBar(100)
@@ -280,10 +306,22 @@ class Comfly_gpt_image_1_edit:
             except TimeoutError as e:
                 error_message = f"API timeout error: {str(e)}"
                 rn_pbar.error(error_message)
+                log_backend_exception(
+                    "openai_image_edit_request_timeout",
+                    request_id=request_id,
+                    url=safe_public_url(baseurl),
+                    model=model,
+                )
                 return (original_image, error_message, self.format_conversation_history())
             except Exception as e:
                 error_message = f"API request error: {str(e)}"
                 rn_pbar.error(error_message)
+                log_backend_exception(
+                    "openai_image_edit_request_failed",
+                    request_id=request_id,
+                    url=safe_public_url(baseurl),
+                    model=model,
+                )
                 return (original_image, error_message, self.format_conversation_history())
 
             pbar.update_absolute(50)
@@ -292,6 +330,14 @@ class Comfly_gpt_image_1_edit:
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="empty_response_data",
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (original_image, error_message, self.format_conversation_history())
 
             edited_images = []
@@ -372,11 +418,28 @@ class Comfly_gpt_image_1_edit:
                 Comfly_gpt_image_1_edit._last_edited_image = combined_tensor
                 
                 pbar.update_absolute(100)
+                log_backend(
+                    "openai_image_edit_done",
+                    request_id=request_id,
+                    url=safe_public_url(baseurl),
+                    model=model,
+                    image_count=len(edited_images),
+                    url_count=len(image_urls),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 rn_pbar.done(char_count=len(response_info))
                 return (combined_tensor, response_info, self.format_conversation_history())
             else:
                 error_message = "No edited images in response"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="no_images_processed",
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (original_image, error_message, self.format_conversation_history())
             
         except Exception as e:
@@ -384,6 +447,12 @@ class Comfly_gpt_image_1_edit:
             import traceback
             print(traceback.format_exc())  
             rn_pbar.error(error_message)
+            log_backend_exception(
+                "openai_image_edit_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             return (original_image, error_message, self.format_conversation_history())
         
 
@@ -430,6 +499,7 @@ class Comfly_gpt_image_1:
         request_id = generate_request_id("img_gen", "openai")
         log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像生成", source="RunNode/OpenAI-")
+        _rn_start = time.perf_counter()
         
         if api_key.strip():
             self.api_key = api_key
@@ -443,6 +513,14 @@ class Comfly_gpt_image_1:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_api_key",
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -460,6 +538,20 @@ class Comfly_gpt_image_1:
 
             if size != "auto":
                 payload["size"] = size
+
+            log_backend(
+                "openai_image_generate_start",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                prompt_len=len(prompt or ""),
+                n=int(n),
+                quality=quality,
+                size=(None if size == "auto" else size),
+                background=(None if background == "auto" else background),
+                output_format=(None if output_format == "png" else output_format),
+                moderation=(None if moderation == "auto" else moderation),
+            )
             
             response = requests.post(
                 f"{baseurl}/v1/images/generations",
@@ -472,6 +564,14 @@ class Comfly_gpt_image_1:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -542,11 +642,44 @@ class Comfly_gpt_image_1:
                 combined_tensor = torch.cat(generated_images, dim=0)
                 
                 pbar.update_absolute(100)
+                try:
+                    usage = result.get("usage") if isinstance(result, dict) else None
+                except Exception:
+                    usage = None
+                b64_count = 0
+                url_count = 0
+                try:
+                    for item in (result.get("data") or []):
+                        if isinstance(item, dict) and item.get("b64_json"):
+                            b64_count += 1
+                        if isinstance(item, dict) and item.get("url"):
+                            url_count += 1
+                except Exception:
+                    pass
+                log_backend(
+                    "openai_image_generate_done",
+                    request_id=request_id,
+                    url=safe_public_url(baseurl),
+                    model=model,
+                    image_count=int(combined_tensor.shape[0]) if hasattr(combined_tensor, "shape") else len(generated_images),
+                    b64_count=b64_count,
+                    url_count=url_count,
+                    usage=usage,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 rn_pbar.done(char_count=len(response_info))
                 return (combined_tensor, response_info)
             else:
                 error_message = "No images were successfully processed"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="no_images_processed",
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -555,6 +688,12 @@ class Comfly_gpt_image_1:
         except Exception as e:
             error_message = f"Error in image generation: {str(e)}"
             rn_pbar.error(error_message)
+            log_backend_exception(
+                "openai_image_generate_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message)
@@ -688,10 +827,21 @@ class ComflyChatGPTApi:
             formatted_history += "---\n\n"
         return formatted_history.strip()
 
-    def send_request_synchronous(self, payload, pbar):
+    def send_request_synchronous(self, payload, pbar, request_id: str | None = None, model: str | None = None):
         """Send a synchronous streaming request to the API"""
         full_response = ""
         session = requests.Session()
+        _rn_start = time.perf_counter()
+        chunk_count = 0
+        content_chunk_count = 0
+        log_backend(
+            "openai_chat_stream_start",
+            request_id=request_id,
+            url=safe_public_url(self.api_endpoint),
+            model=model,
+            stream=True,
+            timeout_s=int(self.timeout),
+        )
         
         try:
             response = session.post(
@@ -713,20 +863,46 @@ class ComflyChatGPTApi:
                         try:
                             chunk = json.loads(data)
                             if 'choices' in chunk and chunk['choices']:
+                                chunk_count += 1
                                 delta = chunk['choices'][0].get('delta', {})
                                 if 'content' in delta:
                                     content = delta['content']
                                     full_response += content
+                                    content_chunk_count += 1
 
                                     pbar.update_absolute(min(40, 20 + len(full_response) // 100))
                         except json.JSONDecodeError:
                             continue
-            
+            log_backend(
+                "openai_chat_stream_done",
+                request_id=request_id,
+                url=safe_public_url(self.api_endpoint),
+                model=model,
+                response_len=len(full_response or ""),
+                chunk_count=chunk_count,
+                content_chunk_count=content_chunk_count,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return full_response
             
         except requests.exceptions.Timeout:
+            log_backend(
+                "openai_chat_stream_failed",
+                level="ERROR",
+                request_id=request_id,
+                url=safe_public_url(self.api_endpoint),
+                model=model,
+                stage="timeout",
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             raise TimeoutError(f"API request timed out after {self.timeout} seconds")
         except Exception as e:
+            log_backend_exception(
+                "openai_chat_stream_exception",
+                request_id=request_id,
+                url=safe_public_url(self.api_endpoint),
+                model=model,
+            )
             raise Exception(f"Error in streaming response: {str(e)}")
 
     def process(self, prompt, model, clear_chats=True, files=None, image_url="", images=None, temperature=0.7, 
@@ -735,6 +911,7 @@ class ComflyChatGPTApi:
         request_id = generate_request_id("chat", "openai")
         log_prepare("图文对话", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图文对话", source="RunNode/OpenAI-")
+        _rn_start = time.perf_counter()
 
         if model.lower() == "gpt-image-1":
             error_message = "不支持此模型，请使用 gpt-4o-image，gpt-4o-image-vip，sora_image，sora_image-vip 这4个模型。"
@@ -864,7 +1041,24 @@ class ComflyChatGPTApi:
                 "stream": True  
             }
 
-            response_text = self.send_request_synchronous(payload, pbar)
+            log_backend(
+                "openai_chat_start",
+                request_id=request_id,
+                url=safe_public_url(self.api_endpoint),
+                model=model,
+                prompt_len=len(prompt or ""),
+                temperature=float(temperature),
+                max_tokens=int(max_tokens),
+                top_p=float(top_p),
+                frequency_penalty=float(frequency_penalty),
+                presence_penalty=float(presence_penalty),
+                seed=int(seed),
+                has_image_url=bool(image_url),
+                image_batch=(int(images.shape[0]) if images is not None and hasattr(images, "shape") else 0),
+                file_count=(len(files) if isinstance(files, list) else (1 if files else 0)),
+            )
+
+            response_text = self.send_request_synchronous(payload, pbar, request_id=request_id, model=model)
         
             self.conversation_history.append({
                 "user": prompt,
@@ -875,6 +1069,15 @@ class ComflyChatGPTApi:
         
             image_urls = self.extract_image_urls(response_text)
             image_urls_string = "\n".join(image_urls) if image_urls else ""
+            log_backend(
+                "openai_chat_done",
+                request_id=request_id,
+                url=safe_public_url(self.api_endpoint),
+                model=model,
+                response_len=len(response_text or ""),
+                image_url_count=len(image_urls),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             
             if image_urls:
                 ComflyChatGPTApi._last_generated_image_urls = image_urls_string
@@ -916,7 +1119,13 @@ class ComflyChatGPTApi:
         except Exception as e:
             error_message = f"Error calling ChatGPT API: {str(e)}"
             rn_pbar.error(error_message)
-        
+            log_backend_exception(
+                "openai_chat_exception",
+                request_id=request_id,
+                url=safe_public_url(self.api_endpoint),
+                model=model,
+            )
+            
             if images is not None:
                 return (images, error_message, "", self.format_conversation_history())  
             else:
@@ -973,6 +1182,7 @@ class Comfly_sora2_openai:
         request_id = generate_request_id("video_gen", "openai")
         log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -984,16 +1194,44 @@ class Comfly_sora2_openai:
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
             rn_pbar.error("API key not provided or not found in config")
+            log_backend(
+                "openai_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), json.dumps(error_response), "", "0")
 
         if model == "sora-2":
             if seconds == "25":  
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_params",
+                    model=model,
+                    seconds=str(seconds),
+                    size=size,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
             if size in ["1792x1024", "1024x1792"]:
                 error_message = "The sora-2 model does not support 1080P resolution. Please use sora-2-pro for 1080P videos."
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_params",
+                    model=model,
+                    seconds=str(seconds),
+                    size=size,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
       
         pbar = comfy.utils.ProgressBar(100)
@@ -1023,6 +1261,19 @@ class Comfly_sora2_openai:
             headers = {"Authorization": f"Bearer {self.api_key}"}
             
             pbar.update_absolute(20)
+
+            log_backend(
+                "openai_video_generate_start",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                prompt_len=len(prompt or ""),
+                seconds=str(seconds),
+                size=size,
+                has_image=bool(image is not None),
+                seed=(int(seed) if int(seed) > 0 else None),
+                private=bool(private),
+            )
             
             # 请求体 暂不修改
             response = requests.post(
@@ -1036,6 +1287,15 @@ class Comfly_sora2_openai:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
                 
             result = response.json()
@@ -1043,6 +1303,14 @@ class Comfly_sora2_openai:
             if "id" not in result:
                 error_message = "No task ID in API response"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
             
             task_id = result["id"]
@@ -1096,6 +1364,16 @@ class Comfly_sora2_openai:
                         fail_reason = status_data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
+                        log_backend(
+                            "openai_video_generate_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="task_failed",
+                            model=model,
+                            task_id=task_id,
+                            fail_reason=str(fail_reason),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
                         
                 except Exception as e:
@@ -1104,6 +1382,16 @@ class Comfly_sora2_openai:
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "openai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="task_timeout",
+                    model=model,
+                    task_id=task_id,
+                    attempts=int(attempts),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
             
             video_adapter = ComflyVideoAdapter(video_url)
@@ -1123,6 +1411,15 @@ class Comfly_sora2_openai:
             }
             
             rn_pbar.done(char_count=len(json.dumps(response_data)))
+            log_backend(
+                "openai_video_generate_done",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (video_adapter, json.dumps(response_data), video_url, actual_seed)
             
         except Exception as e:
@@ -1130,6 +1427,12 @@ class Comfly_sora2_openai:
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "openai_video_generate_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
            
 
@@ -1184,6 +1487,8 @@ class Comfly_sora2:
     
     def process(self, prompt, model, aspect_ratio="16:9", duration="10", hd=False, apikey="", 
                 image1=None, image2=None, image3=None, image4=None, seed=0, private=True):
+        request_id = generate_request_id("video_gen", "openai")
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -1194,21 +1499,58 @@ class Comfly_sora2:
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            log_backend(
+                "openai_video_v2_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", json.dumps(error_response))
 
         if duration == "25" and hd == True:
             error_message = "25s and hd parameters cannot be used together. Please choose only one of them."
             print(error_message)
+            log_backend(
+                "openai_video_v2_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="invalid_params",
+                model=model,
+                aspect_ratio=aspect_ratio,
+                duration=str(duration),
+                hd=bool(hd),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
             
         if model == "sora-2":
             if duration == "25":  
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
                 print(error_message)
+                log_backend(
+                    "openai_video_v2_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_params",
+                    model=model,
+                    duration=str(duration),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
             if hd:
                 error_message = "The sora-2 model does not support HD mode. Please use sora-2-pro for HD videos or disable HD."
                 print(error_message)
+                log_backend(
+                    "openai_video_v2_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_params",
+                    model=model,
+                    hd=bool(hd),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
       
         pbar = comfy.utils.ProgressBar(100)
@@ -1216,6 +1558,20 @@ class Comfly_sora2:
         
         try:
             has_image = any(img is not None for img in [image1, image2, image3, image4])
+            log_backend(
+                "openai_video_v2_generate_start",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                prompt_len=len(prompt or ""),
+                aspect_ratio=aspect_ratio,
+                duration=str(duration),
+                hd=bool(hd),
+                private=bool(private),
+                has_images=bool(has_image),
+                image_count=int(sum(1 for img in [image1, image2, image3, image4] if img is not None)),
+                seed=(int(seed) if int(seed) > 0 else None),
+            )
             
             if has_image:
                 images = []
@@ -1228,6 +1584,14 @@ class Comfly_sora2:
                 if not images:
                     error_message = "Failed to process any of the input images"
                     print(error_message)
+                    log_backend(
+                        "openai_video_v2_generate_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        stage="no_images_processed",
+                        model=model,
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
                     return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
                 
                 payload = {
@@ -1271,6 +1635,15 @@ class Comfly_sora2:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 print(error_message)
+                log_backend(
+                    "openai_video_v2_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
                 
             result = response.json()
@@ -1278,6 +1651,14 @@ class Comfly_sora2:
             if "task_id" not in result:
                 error_message = "No task ID in API response"
                 print(error_message)
+                log_backend(
+                    "openai_video_v2_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", "", json.dumps({"status": "error", "message": error_message}))
             
             task_id = result["task_id"]
@@ -1326,6 +1707,16 @@ class Comfly_sora2:
                         fail_reason = status_data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
                         print(error_message)
+                        log_backend(
+                            "openai_video_v2_generate_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="task_failed",
+                            model=model,
+                            task_id=task_id,
+                            fail_reason=str(fail_reason),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return ("", "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
                         
                 except Exception as e:
@@ -1334,6 +1725,16 @@ class Comfly_sora2:
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
                 print(error_message)
+                log_backend(
+                    "openai_video_v2_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="task_timeout",
+                    model=model,
+                    task_id=task_id,
+                    attempts=int(attempts),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
             
             video_adapter = ComflyVideoAdapter(video_url)
@@ -1359,6 +1760,12 @@ class Comfly_sora2:
             print(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "openai_video_v2_generate_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
 
 
@@ -1409,6 +1816,8 @@ class Comfly_sora2_chat:
     
     def generate_video(self, prompt, model="sora-2", duration="15", orientation="portrait", 
                       image=None, hd=False, apikey="", seed=0):
+        request_id = generate_request_id("video_chat", "openai")
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -1419,21 +1828,57 @@ class Comfly_sora2_chat:
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            log_backend(
+                "openai_video_chat_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "", json.dumps(error_response))
 
         if duration == "25" and hd:
             error_message = "25s and hd parameters cannot be used together. Please choose only one of them."
             print(error_message)
+            log_backend(
+                "openai_video_chat_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="invalid_params",
+                model=model,
+                duration=str(duration),
+                hd=bool(hd),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
  
         if model == "sora-2":
             if duration == "25":
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
                 print(error_message)
+                log_backend(
+                    "openai_video_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_params",
+                    model=model,
+                    duration=str(duration),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
             if hd:
                 error_message = "The sora-2 model does not support HD mode. Please use sora-2-pro for HD videos or disable HD."
                 print(error_message)
+                log_backend(
+                    "openai_video_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_params",
+                    model=model,
+                    hd=bool(hd),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
       
         pbar = comfy.utils.ProgressBar(100)
@@ -1441,6 +1886,19 @@ class Comfly_sora2_chat:
         
         try:
             final_prompt = f"高清，{prompt}" if hd else prompt
+
+            log_backend(
+                "openai_video_chat_start",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                prompt_len=len(prompt or ""),
+                duration=str(duration),
+                orientation=orientation,
+                hd=bool(hd),
+                has_image=bool(image is not None),
+                seed=(int(seed) if int(seed) > 0 else None),
+            )
 
             content = [
                 {"type": "text", "text": final_prompt}
@@ -1482,6 +1940,15 @@ class Comfly_sora2_chat:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 print(error_message)
+                log_backend(
+                    "openai_video_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
 
             full_response = ""
@@ -1523,6 +1990,15 @@ class Comfly_sora2_chat:
             if not task_id:
                 error_message = "Failed to obtain task ID from the response"
                 print(error_message)
+                log_backend(
+                    "openai_video_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    model=model,
+                    response_len=len(full_response or ""),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message, "response": full_response}))
             
             pbar.update_absolute(40)
@@ -1569,6 +2045,16 @@ class Comfly_sora2_chat:
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
                 print(error_message)
+                log_backend(
+                    "openai_video_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="task_timeout",
+                    model=model,
+                    task_id=task_id,
+                    attempts=int(attempts),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
 
             video_adapter = ComflyVideoAdapter(video_url)
@@ -1587,6 +2073,17 @@ class Comfly_sora2_chat:
                 "video_url": video_url,
                 "gif_url": gif_url
             }
+
+            log_backend(
+                "openai_video_chat_done",
+                request_id=request_id,
+                url=safe_public_url("https://asyncdata.net"),
+                model=model,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                gif_url=(safe_public_url(gif_url) if gif_url else ""),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             
             return (video_adapter, video_url, gif_url, json.dumps(response_data))
             
@@ -1595,6 +2092,12 @@ class Comfly_sora2_chat:
             print(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "openai_video_chat_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
 
 
@@ -1798,13 +2301,41 @@ class OpenAISoraAPIPlus:
         超时：
           - timeout=600 秒
         """
+        request_id = generate_request_id("sora_plus", "openai")
+        _rn_start = time.perf_counter()
         if not base_url.strip():  
             base_url = f"{baseurl.rstrip('/')}/v1"
         if not api_key:
+            log_backend(
+                "openai_sora_plus_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(base_url),
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
+            log_backend(
+                "openai_sora_plus_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_base_url",
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "错误：未配置 base_url，请在节点参数中设置 base_url")
         if not user_prompt.strip():
+            log_backend(
+                "openai_sora_plus_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="empty_prompt",
+                url=safe_public_url(base_url),
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "错误：user_prompt 为空，请提供视频描述")
 
         try:
@@ -1849,6 +2380,18 @@ class OpenAISoraAPIPlus:
                 "stream": True
             }
 
+            log_backend(
+                "openai_sora_plus_start",
+                request_id=request_id,
+                url=safe_public_url(api_url),
+                model=model,
+                prompt_len=len(user_prompt or ""),
+                has_image=bool(image is not None),
+                hd=bool(hd),
+                duration=int(duration),
+                aspect_ratio=str(aspect_ratio),
+            )
+
             print(f"[OpenAISoraAPI] 请求: {api_url} (chat/completions, stream=True)")
             print(f"[OpenAISoraAPI] 模型: {model}")
             # 打印裁剪后的提示词，便于用户确认任务内容
@@ -1863,6 +2406,16 @@ class OpenAISoraAPIPlus:
             print(f"[OpenAISoraAPI] 响应状态码: {resp.status_code}")
 
             if resp.status_code != 200:
+                log_backend(
+                    "openai_sora_plus_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    url=safe_public_url(api_url),
+                    model=model,
+                    status_code=int(resp.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), f"API错误 (状态码: {resp.status_code}): {resp.text}", "")
 
             reasoning_content, answer, tokens_usage = self._parse_302_stream(resp)
@@ -1878,8 +2431,27 @@ class OpenAISoraAPIPlus:
                         rc2, answer2, tu2 = self._parse_non_stream(resp2)
                         video_url2 = self._extract_video_url(answer2)
                         video2 = self._download_and_convert_video(video_url2)
+                        log_backend(
+                            "openai_sora_plus_done",
+                            request_id=request_id,
+                            url=safe_public_url(api_url),
+                            model=model,
+                            video_url=(safe_public_url(video_url2) if video_url2 else ""),
+                            fallback_non_stream=True,
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return (video2, video_url2 or "", tu2)
                     else:
+                        log_backend(
+                            "openai_sora_plus_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="fallback_non_stream_http_error",
+                            url=safe_public_url(api_url),
+                            model=model,
+                            status_code=int(resp2.status_code),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return (EmptyVideoAdapter(), f"非流式降级失败 (状态码: {resp2.status_code}): {resp2.text}", tokens_usage)
                 except Exception as _e:
                     print(f"[OpenAISoraAPI] 非流式降级异常: {_e}")
@@ -1887,16 +2459,55 @@ class OpenAISoraAPIPlus:
             # 正常流式结果：提取视频URL并下载
             video_url = self._extract_video_url(answer)
             video_output = self._download_and_convert_video(video_url)
+            log_backend(
+                "openai_sora_plus_done",
+                request_id=request_id,
+                url=safe_public_url(api_url),
+                model=model,
+                video_url=(safe_public_url(video_url) if video_url else ""),
+                fallback_non_stream=False,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (video_output, video_url or "", tokens_usage)
         except requests.exceptions.ConnectTimeout as e:
+            log_backend_exception(
+                "openai_sora_plus_exception",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"网络连接超时: 无法连接到API服务器。请检查网络连接或代理。错误: {e}", "")
         except requests.exceptions.Timeout as e:
+            log_backend_exception(
+                "openai_sora_plus_exception",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"请求超时: API响应时间过长。请稍后重试。错误: {e}", "")
         except requests.exceptions.ConnectionError as e:
+            log_backend_exception(
+                "openai_sora_plus_exception",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"网络连接错误: 无法建立到API的连接。请检查网络设置。错误: {e}", "")
         except requests.exceptions.RequestException as e:
+            log_backend_exception(
+                "openai_sora_plus_exception",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"API请求失败: {e}", "")
         except Exception as e:
+            log_backend_exception(
+                "openai_sora_plus_exception",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"处理失败: {e}", "")
 
     def _build_headers(self, api_key: str):
@@ -2303,18 +2914,55 @@ class OpenAISoraAPI:
         超时：
           - timeout=600 秒
         """
-        if not base_url.strip():  
+        request_id = generate_request_id("sora", "openai")
+        _rn_start = time.perf_counter()
+        if not base_url.strip():
             base_url = f"{baseurl.rstrip('/')}/v1"
         if not api_key:
+            log_backend(
+                "openai_sora_stream_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(base_url),
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
+            log_backend(
+                "openai_sora_stream_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_base_url",
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "错误：未配置 base_url，请在节点参数中设置 base_url")
         if not user_prompt.strip():
+            log_backend(
+                "openai_sora_stream_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="empty_prompt",
+                url=safe_public_url(base_url),
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), "", "错误：user_prompt 为空，请提供视频描述")
 
         try:
             headers = self._build_headers(api_key)
             api_url = f"{base_url.rstrip('/')}/chat/completions"
+
+            log_backend(
+                "openai_sora_stream_start",
+                request_id=request_id,
+                url=safe_public_url(api_url),
+                model=model,
+                prompt_len=len(user_prompt or ""),
+                has_image=bool(image is not None),
+            )
 
             # 构建聊天内容：
             # - 若提供 image：按 OpenAI 多模态格式使用 content 数组，携带文本与图片
@@ -2342,6 +2990,12 @@ class OpenAISoraAPI:
                     ]
                     print(f"[OpenAISoraAPI] 图生视频模式: 已附带输入图像，尺寸={pil_image.size}, base64长度={len(image_base64)}")
                 except Exception as e:
+                    log_backend_exception(
+                        "openai_sora_stream_image_exception",
+                        request_id=request_id,
+                        url=safe_public_url(api_url),
+                        model=model,
+                    )
                     return (EmptyVideoAdapter(), f"输入图像处理失败: {e}", "")
                 messages = [{"role": "user", "content": content}]
             else:
@@ -2368,9 +3022,20 @@ class OpenAISoraAPI:
             print(f"[OpenAISoraAPI] 响应状态码: {resp.status_code}")
 
             if resp.status_code != 200:
+                log_backend(
+                    "openai_sora_stream_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    url=safe_public_url(api_url),
+                    model=model,
+                    status_code=int(resp.status_code),
+                    response_len=len(resp.text or ""),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), f"API错误 (状态码: {resp.status_code}): {resp.text}", "")
 
-            reasoning_content, answer, tokens_usage = self._parse_302_stream(resp)
+            reasoning_content, answer, tokens_usage, chunk_count = self._parse_302_stream(resp)
 
             # 若流式无内容，降级为非流式
             if not answer:
@@ -2383,25 +3048,106 @@ class OpenAISoraAPI:
                         rc2, answer2, tu2 = self._parse_non_stream(resp2)
                         video_url2 = self._extract_video_url(answer2)
                         video2 = self._download_and_convert_video(video_url2)
+                        log_backend(
+                            "openai_sora_stream_done",
+                            request_id=request_id,
+                            url=safe_public_url(api_url),
+                            model=model,
+                            mode="non_stream_fallback",
+                            response_len=len(answer2 or ""),
+                            video_url=safe_public_url(video_url2) if video_url2 else "",
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return (video2, video_url2 or "", tu2)
                     else:
+                        log_backend(
+                            "openai_sora_stream_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="non_stream_fallback_http_error",
+                            url=safe_public_url(api_url),
+                            model=model,
+                            status_code=int(resp2.status_code),
+                            response_len=len(resp2.text or ""),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return (EmptyVideoAdapter(), f"非流式降级失败 (状态码: {resp2.status_code}): {resp2.text}", tokens_usage)
                 except Exception as _e:
+                    log_backend_exception(
+                        "openai_sora_stream_non_stream_fallback_exception",
+                        request_id=request_id,
+                        url=safe_public_url(api_url),
+                        model=model,
+                    )
                     print(f"[OpenAISoraAPI] 非流式降级异常: {_e}")
 
             # 正常流式结果：提取视频URL并下载
             video_url = self._extract_video_url(answer)
             video_output = self._download_and_convert_video(video_url)
+            if not video_url:
+                log_backend(
+                    "openai_sora_stream_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_video_url",
+                    url=safe_public_url(api_url),
+                    model=model,
+                    response_len=len(answer or ""),
+                    chunk_count=int(chunk_count),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+            else:
+                log_backend(
+                    "openai_sora_stream_done",
+                    request_id=request_id,
+                    url=safe_public_url(api_url),
+                    model=model,
+                    mode="stream",
+                    response_len=len(answer or ""),
+                    chunk_count=int(chunk_count),
+                    video_url=safe_public_url(video_url),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
             return (video_output, video_url or "", tokens_usage)
         except requests.exceptions.ConnectTimeout as e:
+            log_backend_exception(
+                "openai_sora_stream_connect_timeout",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"网络连接超时: 无法连接到API服务器。请检查网络连接或代理。错误: {e}", "")
         except requests.exceptions.Timeout as e:
+            log_backend_exception(
+                "openai_sora_stream_timeout",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"请求超时: API响应时间过长。请稍后重试。错误: {e}", "")
         except requests.exceptions.ConnectionError as e:
+            log_backend_exception(
+                "openai_sora_stream_connection_error",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"网络连接错误: 无法建立到API的连接。请检查网络设置。错误: {e}", "")
         except requests.exceptions.RequestException as e:
+            log_backend_exception(
+                "openai_sora_stream_request_exception",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"API请求失败: {e}", "")
         except Exception as e:
+            log_backend_exception(
+                "openai_sora_stream_exception",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model,
+            )
             return (EmptyVideoAdapter(), f"处理失败: {e}", "")
 
     def _build_headers(self, api_key: str):
@@ -2574,9 +3320,9 @@ class OpenAISoraAPI:
 
             # 合并并做简单的编码清理
             answer = self._normalize_text("".join(answer_parts).strip())
-            return ("", answer, tokens_usage)
+            return ("", answer, tokens_usage, chunk_count)
         except Exception as e:
-            return ("", f"流式解析失败: {e}", tokens_usage)
+            return ("", f"流式解析失败: {e}", tokens_usage, chunk_count)
 
     def _parse_non_stream(self, resp):
         """
@@ -2907,7 +3653,8 @@ class Comfly_sora2_batch_32:
         aspect_ratio: str, 
         duration: int, 
         hd: bool,
-        current_base_url: str
+        current_base_url: str,
+        request_id: str | None = None
     ) -> Dict[str, Any]:
         """处理单个视频生成任务（增加current_base_url参数适配动态base_url）"""
         task_result = {
@@ -2925,16 +3672,47 @@ class Comfly_sora2_batch_32:
         if not is_valid:
             task_result["error"] = err_msg
             self.task_progress[task_idx] = 100
+            log_backend(
+                "openai_video_batch_task_failed",
+                level="ERROR",
+                request_id=request_id,
+                task_index=int(task_idx),
+                stage="invalid_params",
+                model=model,
+                duration=int(duration),
+                hd=bool(hd),
+            )
             return task_result
 
         # 2. 空Prompt处理
         if not prompt.strip():
             task_result["error"] = "Prompt不能为空"
             self.task_progress[task_idx] = 100
+            log_backend(
+                "openai_video_batch_task_failed",
+                level="ERROR",
+                request_id=request_id,
+                task_index=int(task_idx),
+                stage="empty_prompt",
+                model=model,
+            )
             return task_result
 
         try:
             self.task_progress[task_idx] = 10  # 初始化进度
+
+            log_backend(
+                "openai_video_batch_task_start",
+                request_id=request_id,
+                task_index=int(task_idx),
+                url=safe_public_url(current_base_url),
+                model=model,
+                prompt_len=len(prompt or ""),
+                aspect_ratio=str(aspect_ratio),
+                duration=int(duration),
+                hd=bool(hd),
+                has_image=bool(image is not None),
+            )
 
             # 3. 构建请求体
             payload = {
@@ -2964,12 +3742,29 @@ class Comfly_sora2_batch_32:
             if response.status_code != 200:
                 task_result["error"] = f"API请求失败：{response.status_code} - {response.text}"
                 self.task_progress[task_idx] = 100
+                log_backend(
+                    "openai_video_batch_task_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_index=int(task_idx),
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                )
                 return task_result
 
             result = response.json()
             if "task_id" not in result:
                 task_result["error"] = "API响应无任务ID"
                 self.task_progress[task_idx] = 100
+                log_backend(
+                    "openai_video_batch_task_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_index=int(task_idx),
+                    stage="missing_task_id",
+                    model=model,
+                )
                 return task_result
 
             task_id = result["task_id"]
@@ -3019,11 +3814,30 @@ class Comfly_sora2_batch_32:
                             task_result["video_url"] = video_url
                             task_result["video"] = ComflyVideoAdapter(video_url)
                             self.task_progress[task_idx] = 100
+                            log_backend(
+                                "openai_video_batch_task_done",
+                                request_id=request_id,
+                                task_index=int(task_idx),
+                                url=safe_public_url(current_base_url),
+                                model=model,
+                                task_id=task_id,
+                                video_url=safe_public_url(video_url),
+                            )
                             return task_result
                     elif status == "FAILURE":
                         fail_reason = status_data.get("fail_reason", "未知错误")
                         task_result["error"] = f"生成失败：{fail_reason}"
                         self.task_progress[task_idx] = 100
+                        log_backend(
+                            "openai_video_batch_task_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            task_index=int(task_idx),
+                            stage="task_failed",
+                            model=model,
+                            task_id=task_id,
+                            fail_reason=str(fail_reason),
+                        )
                         return task_result
 
                 except Exception as e:
@@ -3033,11 +3847,28 @@ class Comfly_sora2_batch_32:
             # 超时未完成
             task_result["error"] = f"任务超时（{TIMEOUT}秒）未生成完成"
             self.task_progress[task_idx] = 100
+            log_backend(
+                "openai_video_batch_task_failed",
+                level="ERROR",
+                request_id=request_id,
+                task_index=int(task_idx),
+                stage="task_timeout",
+                model=model,
+                task_id=task_id,
+                attempts=int(attempts),
+            )
             return task_result
 
         except Exception as e:
             task_result["error"] = f"任务执行异常：{str(e)}\n{traceback.format_exc()}"
             self.task_progress[task_idx] = 100
+            log_backend_exception(
+                "openai_video_batch_task_exception",
+                request_id=request_id,
+                task_index=int(task_idx),
+                url=safe_public_url(current_base_url),
+                model=model,
+            )
             return task_result
 
     def update_global_progress(self):
@@ -3074,6 +3905,15 @@ class Comfly_sora2_batch_32:
                 
         if not self.api_key:
             rn_pbar.error("API Key未配置")
+            log_backend(
+                "openai_video_batch_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(current_base_url),
+                model=model_for_log,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             log = json.dumps({
                 "error": "API Key未配置",
                 "tips": "请在节点中输入api_key或配置文件中设置"
@@ -3088,6 +3928,18 @@ class Comfly_sora2_batch_32:
         hd = kwargs.get("hd")
         max_concurrent = kwargs.get("max_concurrent", 1)
         global_prompt = kwargs.get("global_prompt", "").strip()
+
+        log_backend(
+            "openai_video_batch_start",
+            request_id=request_id,
+            url=safe_public_url(current_base_url),
+            model=model,
+            aspect_ratio=aspect_ratio,
+            duration=int(duration) if isinstance(duration, int) else duration,
+            hd=bool(hd),
+            max_concurrent=int(max_concurrent),
+            global_prompt_used=bool(global_prompt),
+        )
 
         # 4. 收集任务列表（按max_concurrent限制，最多32个）
         tasks = []
@@ -3127,7 +3979,8 @@ class Comfly_sora2_batch_32:
                     aspect_ratio=aspect_ratio,
                     duration=duration,
                     hd=hd,
-                    current_base_url=current_base_url  # 传递动态base_url
+                    current_base_url=current_base_url,  # 传递动态base_url
+                    request_id=request_id
                 )
                 future_to_idx[future] = task["idx"]
                 # 仅当Prompt不为空时才进行流控等待
@@ -3196,6 +4049,27 @@ class Comfly_sora2_batch_32:
             pass
 
         # 返回32个视频 + 日志
+        try:
+            ok_count = 0
+            fail_count = 0
+            for idx in range(1, 33):
+                st = (task_results.get(idx, {}) or {}).get("status")
+                if st == "success":
+                    ok_count += 1
+                elif st == "failed":
+                    fail_count += 1
+            log_backend(
+                "openai_video_batch_done",
+                request_id=request_id,
+                url=safe_public_url(current_base_url),
+                model=model,
+                task_count=len(tasks),
+                success_count=int(ok_count),
+                failed_count=int(fail_count),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+        except Exception:
+            pass
         return (*output_videos, log)
 
 
@@ -3293,7 +4167,7 @@ class _ComflySora2BatchRunner:
         if duration < 1 or duration > 60:
             return False, f"时长必须在1-60秒之间（当前值：{duration}）"
         return True, ""
-    def _process(self, idx, payload, base_url, api_key):
+    def _process(self, idx, payload, base_url, api_key, request_id: str | None = None):
         res = {
             "index": idx,
             "status": "failed",
@@ -3307,13 +4181,41 @@ class _ComflySora2BatchRunner:
         if not ok:
             res["error"] = msg
             self.task_progress[idx] = 100
+            log_backend(
+                "openai_video_group_batch_task_failed",
+                level="ERROR",
+                request_id=request_id,
+                task_index=int(idx),
+                stage="invalid_params",
+                model=payload.get("model", "sora-2"),
+            )
             return res
         if not str(payload.get("prompt", "")).strip():
             res["error"] = "Prompt不能为空"
             self.task_progress[idx] = 100
+            log_backend(
+                "openai_video_group_batch_task_failed",
+                level="ERROR",
+                request_id=request_id,
+                task_index=int(idx),
+                stage="empty_prompt",
+                model=payload.get("model", "sora-2"),
+            )
             return res
         try:
             self.task_progress[idx] = 10
+            log_backend(
+                "openai_video_group_batch_task_start",
+                request_id=request_id,
+                task_index=int(idx),
+                url=safe_public_url(base_url),
+                model=payload.get("model", "sora-2"),
+                prompt_len=len(str(payload.get("prompt", "") or "")),
+                aspect_ratio=payload.get("aspect_ratio", "16:9"),
+                duration=int(payload.get("duration", 15)),
+                hd=bool(payload.get("hd", False)),
+                image_count=(len(payload.get("images", [])) if isinstance(payload.get("images", []), list) else 0),
+            )
             body = {
                 "prompt": payload.get("prompt", ""),
                 "model": payload.get("model", "sora-2"),
@@ -3335,12 +4237,29 @@ class _ComflySora2BatchRunner:
             if resp.status_code != 200:
                 res["error"] = f"API请求失败：{resp.status_code} - {resp.text}"
                 self.task_progress[idx] = 100
+                log_backend(
+                    "openai_video_group_batch_task_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_index=int(idx),
+                    stage="http_error",
+                    model=payload.get("model", "sora-2"),
+                    status_code=int(resp.status_code),
+                )
                 return res
             data = resp.json()
             task_id = data.get("task_id", "")
             if not task_id:
                 res["error"] = "API响应无任务ID"
                 self.task_progress[idx] = 100
+                log_backend(
+                    "openai_video_group_batch_task_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_index=int(idx),
+                    stage="missing_task_id",
+                    model=payload.get("model", "sora-2"),
+                )
                 return res
             res["task_id"] = task_id
             self.task_progress[idx] = 30
@@ -3376,21 +4295,56 @@ class _ComflySora2BatchRunner:
                             res["video_url"] = url
                             res["video"] = ComflyVideoAdapter(url)
                             self.task_progress[idx] = 100
+                            log_backend(
+                                "openai_video_group_batch_task_done",
+                                request_id=request_id,
+                                task_index=int(idx),
+                                url=safe_public_url(base_url),
+                                model=payload.get("model", "sora-2"),
+                                task_id=task_id,
+                                video_url=safe_public_url(url),
+                            )
                             return res
                     elif st == "FAILURE":
                         fr = sd.get("fail_reason", "未知错误")
                         res["error"] = f"生成失败：{fr}"
                         self.task_progress[idx] = 100
+                        log_backend(
+                            "openai_video_group_batch_task_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            task_index=int(idx),
+                            stage="task_failed",
+                            model=payload.get("model", "sora-2"),
+                            task_id=task_id,
+                            fail_reason=str(fr),
+                        )
                         return res
                 except Exception as e:
                     res["error"] = f"轮询状态异常：{str(e)}"
                     continue
             res["error"] = f"任务超时（{_timeout_sec}秒）未生成完成"
             self.task_progress[idx] = 100
+            log_backend(
+                "openai_video_group_batch_task_failed",
+                level="ERROR",
+                request_id=request_id,
+                task_index=int(idx),
+                stage="task_timeout",
+                model=payload.get("model", "sora-2"),
+                task_id=task_id,
+            )
             return res
         except Exception as e:
             res["error"] = f"任务执行异常：{str(e)}\n{traceback.format_exc()}"
             self.task_progress[idx] = 100
+            log_backend_exception(
+                "openai_video_group_batch_task_exception",
+                request_id=request_id,
+                task_index=int(idx),
+                url=safe_public_url(base_url),
+                model=payload.get("model", "sora-2"),
+            )
             return res
     def _update_bar(self):
         if not self.global_pbar or not self.task_progress:
@@ -3417,6 +4371,15 @@ class _ComflySora2BatchRunner:
         if not self.api_key:
             if self.rn_pbar:
                 self.rn_pbar.error("API Key未配置")
+            log_backend(
+                "openai_video_group_batch_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(base_url),
+                model=model_name,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty = [EmptyVideoAdapter()] * max_workers
             log = json.dumps({"error": "API Key未配置"}, ensure_ascii=False, indent=2)
             return (*empty, log)
@@ -3450,11 +4413,19 @@ class _ComflySora2BatchRunner:
             })
         self.task_progress = {t["idx"]: 0 for t in tasks}
         self.global_pbar = comfy.utils.ProgressBar(100)
+        log_backend(
+            "openai_video_group_batch_start",
+            request_id=request_id,
+            url=safe_public_url(base_url),
+            model=model_name,
+            task_count=len(tasks),
+            max_workers=int(max_workers),
+        )
         results = {}
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futmap = {}
             for t in tasks:
-                f = ex.submit(self._process, t["idx"], t["payload"], t["base_url"], t["api_key"])
+                f = ex.submit(self._process, t["idx"], t["payload"], t["base_url"], t["api_key"], request_id)
                 futmap[f] = t["idx"]
                 # 仅当Prompt不为空时才进行流控等待（空Prompt不会发起请求）
                 if t["payload"]["prompt"]:

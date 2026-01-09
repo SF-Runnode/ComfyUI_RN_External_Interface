@@ -171,6 +171,9 @@ import sys
 import io
 import time
 import threading
+import json
+import logging
+from urllib.parse import urlsplit, urlunsplit
 
 if sys.platform == 'win32' and sys.stdout.encoding != 'utf-8':
     try:
@@ -178,6 +181,16 @@ if sys.platform == 'win32' and sys.stdout.encoding != 'utf-8':
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
     except Exception:
         pass
+
+
+_RN_LOGGER = logging.getLogger("RunNode")
+_RN_LOG_LEVEL = os.environ.get("RUNNODE_LOG_LEVEL", "INFO").upper()
+if not _RN_LOGGER.handlers:
+    _handler = logging.StreamHandler(sys.stderr)
+    _handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
+    _RN_LOGGER.addHandler(_handler)
+_RN_LOGGER.setLevel(getattr(logging, _RN_LOG_LEVEL, logging.INFO))
+_RN_LOGGER.propagate = False
 
 PREFIX = "✨"
 ERROR_PREFIX = "✨-❌"
@@ -229,8 +242,92 @@ def generate_request_id(req_type: str, service_type: str = None, node_id: str = 
     parts.append(ts)
     return "_".join(parts)
 
+
+def safe_public_url(url: str) -> str:
+    if not url:
+        return ""
+    try:
+        s = urlsplit(url)
+        host = s.hostname or ""
+        if not host:
+            return url
+        netloc = host
+        if s.port:
+            netloc = f"{host}:{s.port}"
+        return urlunsplit((s.scheme, netloc, "", "", ""))
+    except Exception:
+        return url
+
+
+def url_hostport(url: str) -> str:
+    if not url:
+        return ""
+    try:
+        s = urlsplit(url)
+        host = s.hostname or ""
+        if not host:
+            return ""
+        if s.port:
+            return f"{host}:{s.port}"
+        return host
+    except Exception:
+        return ""
+
+
+def format_service_label(base: str, url: str, is_remote: bool) -> str:
+    base = (base or "").strip() or "服务"
+    hp = url_hostport(url)
+    if is_remote:
+        return f"{base}(远程API {hp})" if hp else f"{base}(远程API)"
+    return f"{base}(本地 {hp})" if hp else f"{base}(本地)"
+
+
+def _to_json(obj: dict) -> str:
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), default=str)
+
+
+def log_backend(event: str, level: str = "INFO", **fields) -> None:
+    payload = {"event": event, "ts_ms": int(time.time() * 1000)}
+    for k, v in fields.items():
+        if v is None:
+            continue
+        payload[k] = v
+    msg = _to_json(payload)
+    lvl = (level or "INFO").upper()
+    if lvl == "DEBUG":
+        _RN_LOGGER.debug(msg)
+    elif lvl == "WARNING" or lvl == "WARN":
+        _RN_LOGGER.warning(msg)
+    elif lvl == "ERROR":
+        _RN_LOGGER.error(msg)
+    else:
+        _RN_LOGGER.info(msg)
+
+
+def log_backend_exception(event: str, **fields) -> None:
+    payload = {"event": event, "ts_ms": int(time.time() * 1000)}
+    for k, v in fields.items():
+        if v is None:
+            continue
+        payload[k] = v
+    _RN_LOGGER.exception(_to_json(payload))
+
+
+def format_user_error(message: str, request_id: str | None = None, suggestion: str | None = None) -> str:
+    msg = (message or "").strip() or "发生错误"
+    sug = (suggestion or "").strip()
+    rid = (request_id or "").strip()
+    parts = []
+    if rid:
+        parts.append(f"[{rid}]")
+    parts.append(msg)
+    if sug:
+        parts.append(f"建议：{sug}")
+    return " ".join(parts)
+
 def log_prepare(task_type: str, request_id: str, source: str, service_name: str, model_name: str = None, rule_name: str = None, extra: dict = None) -> None:
-    print(f"\r{_ANSI_CLEAR_EOL}", end="")
+    if bool(getattr(sys.stdout, "isatty", lambda: False)()):
+        print(f"\r{_ANSI_CLEAR_EOL}", end="")
     parts = [f"{PREFIX} 🟡 {source}{task_type}准备", f"服务:{service_name}"]
     if model_name:
         parts.append(f"模型:{model_name}")
@@ -241,17 +338,48 @@ def log_prepare(task_type: str, request_id: str, source: str, service_name: str,
         for k, v in extra.items():
             parts.append(f"{k}:{v}")
     print(f"{parts[0]} | {' | '.join(parts[1:])}", flush=True)
+    log_backend(
+        "task_prepare",
+        level="INFO",
+        task_type=task_type,
+        request_id=request_id,
+        source=source,
+        service=service_name,
+        model=model_name,
+        rule=rule_name,
+        extra=extra,
+    )
 
 def log_complete(task_type: str, request_id: str, service_name: str, char_count: int, elapsed_ms: int, source: str = None) -> None:
-    print(f"\r{_ANSI_CLEAR_EOL}", end="")
+    if bool(getattr(sys.stdout, "isatty", lambda: False)()):
+        print(f"\r{_ANSI_CLEAR_EOL}", end="")
     src = source if source else ""
     parts = [f"{PREFIX} ✅ {src}{task_type}完成", f"服务:{service_name}", f"ID:{request_id}", f"字符:{char_count}", f"耗时:{format_elapsed_time(elapsed_ms)}"]
     print(f"{parts[0]} | {' | '.join(parts[1:])}", flush=True)
+    log_backend(
+        "task_complete",
+        level="INFO",
+        task_type=task_type,
+        request_id=request_id,
+        source=source,
+        service=service_name,
+        char_count=char_count,
+        elapsed_ms=elapsed_ms,
+    )
 
 def log_error(task_type: str, request_id: str, error_msg: str, source: str = None) -> None:
-    print(f"\r{_ANSI_CLEAR_EOL}", end="")
+    if bool(getattr(sys.stdout, "isatty", lambda: False)()):
+        print(f"\r{_ANSI_CLEAR_EOL}", end="")
     src = source if source else ""
     print(f"{PREFIX} ❌ {src}{task_type}失败 | ID:{request_id} | 错误:{error_msg}", flush=True)
+    log_backend(
+        "task_error",
+        level="ERROR",
+        task_type=task_type,
+        request_id=request_id,
+        source=source,
+        error=error_msg,
+    )
 
 class ProgressBar:
     STATE_WAITING = "waiting"
@@ -261,7 +389,13 @@ class ProgressBar:
         self._request_id = request_id
         self._service_name = service_name
         self._extra_info = extra_info
-        self._streaming = streaming
+        enabled = is_streaming_progress_enabled()
+        isatty = bool(getattr(sys.stdout, "isatty", lambda: False)())
+        self._interactive = bool(enabled and isatty)
+        self._streaming = bool(streaming and self._interactive)
+        self._heartbeat = bool(enabled and (not isatty) and bool(streaming))
+        self._heartbeat_interval_sec = 15.0
+        self._last_heartbeat = 0.0
         self._task_type = task_type
         self._source = source
         self._state = self.STATE_WAITING
@@ -274,7 +408,7 @@ class ProgressBar:
             global _global_last_output_len
             _global_last_output_len = 0
         self._refresh()
-        if self._streaming:
+        if self._streaming or self._heartbeat:
             self._timer_thread = threading.Thread(target=self._timer_loop, daemon=True)
             self._timer_thread.start()
     def _format_elapsed(self) -> str:
@@ -289,6 +423,10 @@ class ProgressBar:
         if self._state == self.STATE_WAITING:
             base = f"{PREFIX} 🟠 等待{self._service_name}响应..."
             if not self._streaming:
+                if self._heartbeat:
+                    if self._extra_info:
+                        return f"{base} | {self._extra_info} | {e}"
+                    return f"{base} | {e}"
                 return base
             if self._extra_info:
                 return f"{base} | {self._extra_info} | {e}"
@@ -296,9 +434,13 @@ class ProgressBar:
         if self._state == self.STATE_GENERATING:
             if self._streaming:
                 return f"{PREFIX} 🔵 生成中 | {self._char_count}字符 | {e}"
+            if self._heartbeat:
+                return f"{PREFIX} 🔵 生成中 | {self._char_count}字符 | {e}"
             return f"{PREFIX} 🔵 生成中..."
         return ""
     def _refresh(self) -> None:
+        if not self._interactive:
+            return
         if self._closed:
             return
         out = self._render()
@@ -314,8 +456,24 @@ class ProgressBar:
             _global_last_output_len = w + len(pad)
     def _timer_loop(self):
         while not self._stop_event.is_set() and not self._closed:
-            self._refresh()
-            if self._stop_event.wait(0.1):
+            if self._interactive:
+                self._refresh()
+                if self._stop_event.wait(0.1):
+                    break
+                continue
+
+            if self._heartbeat:
+                now = time.perf_counter()
+                if (now - self._last_heartbeat) >= self._heartbeat_interval_sec:
+                    self._last_heartbeat = now
+                    out = self._render()
+                    if out:
+                        print(out, flush=True)
+                if self._stop_event.wait(1.0):
+                    break
+                continue
+
+            if self._stop_event.wait(0.5):
                 break
     def set_generating(self, char_count: int = 0) -> None:
         if self._closed or self._state == self.STATE_GENERATING:

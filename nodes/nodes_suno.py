@@ -38,6 +38,8 @@ class Comfly_suno_description:
         request_id = generate_request_id("music_gen", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="description")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -49,6 +51,14 @@ class Comfly_suno_description:
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
+            log_backend(
+                "suno_music_description_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(baseurl),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
         
@@ -72,6 +82,18 @@ class Comfly_suno_description:
             }
             if seed > 0:
                 payload["seed"] = seed
+
+            log_backend(
+                "suno_music_description_start",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate/description-mode"),
+                mv=str(mv),
+                version=str(version),
+                seed=(int(seed) if isinstance(seed, int) and seed > 0 else None),
+                make_instrumental=bool(make_instrumental),
+                title_len=len(title or ""),
+                prompt_len=len(description_prompt or ""),
+            )
             
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
@@ -88,6 +110,15 @@ class Comfly_suno_description:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_description_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    url=safe_public_url(f"{baseurl}/suno/generate/description-mode"),
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
                 
@@ -96,6 +127,14 @@ class Comfly_suno_description:
             if "id" not in result:
                 error_message = "No task ID in response"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_description_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    url=safe_public_url(f"{baseurl}/suno/generate/description-mode"),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
                 
@@ -104,6 +143,15 @@ class Comfly_suno_description:
             if "clips" not in result or len(result["clips"]) < 2:
                 error_message = "Expected at least 2 clips in the response"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_description_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="insufficient_clips",
+                    task_id=str(task_id),
+                    clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
                 
@@ -111,6 +159,14 @@ class Comfly_suno_description:
             if len(clip_ids) < 2:
                 error_message = "Expected at least 2 clip IDs"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_description_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_clip_ids",
+                    task_id=str(task_id),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
                 
@@ -121,6 +177,14 @@ class Comfly_suno_description:
             generated_prompt = ""
             extracted_tags = ""
             generated_title = ""  
+
+            log_backend(
+                "suno_music_description_poll_start",
+                request_id=request_id,
+                task_id=str(task_id),
+                clip_ids_count=int(len(clip_ids)),
+                max_attempts=int(max_attempts),
+            )
            
             while attempts < max_attempts and len(final_clips) < 2:
                 time.sleep(5)
@@ -159,10 +223,26 @@ class Comfly_suno_description:
                         
                 except Exception as e:
                     rn_pbar.error(f"Error checking clip status: {str(e)}")
+                    log_backend_exception(
+                        "suno_music_description_poll_exception",
+                        request_id=request_id,
+                        task_id=str(task_id),
+                        attempt=int(attempts),
+                    )
             
             if len(final_clips) < 2:
                 error_message = f"Only received {len(final_clips)} complete clips after {max_attempts} attempts"
                 rn_pbar.error(error_message)
+
+                log_backend(
+                    "suno_music_description_poll_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_id=str(task_id),
+                    attempts=int(attempts),
+                    complete_count=int(len(final_clips)),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 
                 if not final_clips:
                     empty_audio = create_audio_object("")
@@ -218,7 +298,17 @@ class Comfly_suno_description:
                 "clips_generated": len(final_clips),
                 "tags": extracted_tags
             }
-            rn_pbar.done(char_count=len(json.dumps(response_info)))
+            log_backend(
+                "suno_music_description_done",
+                request_id=request_id,
+                task_id=str(task_id),
+                url=safe_public_url(f"{baseurl}/suno/feed/{','.join(clip_ids)}"),
+                clips_generated=int(len(final_clips)),
+                has_audio_url1=bool(audio_urls[0] if len(audio_urls) > 0 else ""),
+                has_audio_url2=bool(audio_urls[1] if len(audio_urls) > 1 else ""),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
             return (
                 audio_objects[0],
                 audio_objects[1],
@@ -238,6 +328,12 @@ class Comfly_suno_description:
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "suno_music_description_exception",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate/description-mode"),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
 
@@ -272,6 +368,11 @@ class Comfly_suno_lyrics:
         }
         
     def generate_lyrics(self, prompt, seed=0, apikey=""):
+        request_id = generate_request_id("lyrics_gen", "suno")
+        log_prepare("歌词生成", request_id, "RunNode/Suno-", "Suno", rule_name="lyrics")
+        rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="歌词生成", source="RunNode/Suno-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -282,7 +383,15 @@ class Comfly_suno_lyrics:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "suno_lyrics_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(baseurl),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return ("", json.dumps({"status": "error", "message": error_message}), "", "")
             
         try:
@@ -290,6 +399,14 @@ class Comfly_suno_lyrics:
             
             if seed > 0:
                 payload["seed"] = seed
+
+            log_backend(
+                "suno_lyrics_start",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate/lyrics/"),
+                prompt_len=len(prompt or ""),
+                seed=(int(seed) if isinstance(seed, int) and seed > 0 else None),
+            )
 
             response = requests.post(
                 f"{baseurl}/suno/generate/lyrics/",
@@ -300,14 +417,31 @@ class Comfly_suno_lyrics:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_lyrics_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    url=safe_public_url(f"{baseurl}/suno/generate/lyrics/"),
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", json.dumps({"status": "error", "message": error_message}), "", "")
                 
             result = response.json()
             
             if "id" not in result:
                 error_message = "No task ID in response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_lyrics_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    url=safe_public_url(f"{baseurl}/suno/generate/lyrics/"),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", json.dumps({"status": "error", "message": error_message}), "", "")
                 
             task_id = result.get("id")
@@ -317,6 +451,13 @@ class Comfly_suno_lyrics:
             lyrics_text = ""
             generated_title = ""  
             tags = ""
+
+            log_backend(
+                "suno_lyrics_poll_start",
+                request_id=request_id,
+                task_id=str(task_id),
+                max_attempts=int(max_attempts),
+            )
             
             while attempts < max_attempts:
                 time.sleep(2)
@@ -341,11 +482,24 @@ class Comfly_suno_lyrics:
                         break
                         
                 except Exception as e:
-                    print(f"Error checking lyrics status: {str(e)}")
+                    log_backend_exception(
+                        "suno_lyrics_poll_exception",
+                        request_id=request_id,
+                        task_id=str(task_id),
+                        attempt=int(attempts),
+                    )
             
             if not lyrics_text:
                 error_message = f"Failed to generate lyrics after {max_attempts} attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_lyrics_poll_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_id=str(task_id),
+                    attempts=int(attempts),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", json.dumps({"status": "error", "message": error_message}), "", "")
             
             success_response = {
@@ -355,12 +509,28 @@ class Comfly_suno_lyrics:
                 "seed": seed if seed > 0 else "auto",
                 "tags": tags
             }
-            
-            return (lyrics_text, json.dumps(success_response), generated_title, tags)  
+
+            log_backend(
+                "suno_lyrics_done",
+                request_id=request_id,
+                task_id=str(task_id),
+                lyrics_len=int(len(lyrics_text or "")),
+                title_len=int(len(generated_title or "")),
+                tags_len=int(len(tags or "")),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(success_response, ensure_ascii=False)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+            return (lyrics_text, json.dumps(success_response), generated_title, tags)
                 
         except Exception as e:
             error_message = f"Error generating lyrics: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend_exception(
+                "suno_lyrics_exception",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate/lyrics/"),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return ("", json.dumps({"status": "error", "message": error_message}), "", "")
 
 
@@ -399,6 +569,11 @@ class Comfly_suno_custom:
         }
     
     def generate_music(self, title, version="v4.5", prompt="", tags="", seed=0, apikey=""):
+        request_id = generate_request_id("music_custom", "suno")
+        log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="custom")
+        rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -409,7 +584,15 @@ class Comfly_suno_custom:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "suno_music_custom_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(baseurl),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", error_message, 
                 "", "", "", "", "", "")
@@ -434,6 +617,18 @@ class Comfly_suno_custom:
             }
             if seed > 0:
                 payload["seed"] = seed
+
+            log_backend(
+                "suno_music_custom_start",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate"),
+                mv=str(mv),
+                version=str(version),
+                seed=(int(seed) if isinstance(seed, int) and seed > 0 else None),
+                title_len=len(title or ""),
+                prompt_len=len(prompt or ""),
+                tags_len=len(tags or ""),
+            )
             
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
@@ -449,7 +644,16 @@ class Comfly_suno_custom:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_custom_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    url=safe_public_url(f"{baseurl}/suno/generate"),
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", error_message, 
                     "", "", "", "", "", "")
@@ -458,7 +662,15 @@ class Comfly_suno_custom:
             
             if "id" not in result:
                 error_message = "No task ID in response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_custom_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    url=safe_public_url(f"{baseurl}/suno/generate"),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", error_message, 
                     "", "", "", "", "", "")
@@ -467,7 +679,16 @@ class Comfly_suno_custom:
             
             if "clips" not in result or len(result["clips"]) < 2:
                 error_message = "Expected at least 2 clips in the response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_custom_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="insufficient_clips",
+                    task_id=str(task_id),
+                    clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", task_id, error_message, 
                     "", "", "", "", "", "")
@@ -475,7 +696,15 @@ class Comfly_suno_custom:
             clip_ids = [clip["id"] for clip in result["clips"]]
             if len(clip_ids) < 2:
                 error_message = "Expected at least 2 clip IDs"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_custom_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_clip_ids",
+                    task_id=str(task_id),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", task_id, error_message, 
                     "", "", "", "", "", "")
@@ -486,6 +715,14 @@ class Comfly_suno_custom:
             final_clips = []
             final_tags = tags  
             generated_title = ""  
+
+            log_backend(
+                "suno_music_custom_poll_start",
+                request_id=request_id,
+                task_id=str(task_id),
+                clip_ids_count=int(len(clip_ids)),
+                max_attempts=int(max_attempts),
+            )
             
             while attempts < max_attempts and len(final_clips) < 2:
                 time.sleep(5)
@@ -522,11 +759,25 @@ class Comfly_suno_custom:
                         break
                         
                 except Exception as e:
-                    print(f"[Custom Debug] Error checking clip status: {str(e)}")
+                    log_backend_exception(
+                        "suno_music_custom_poll_exception",
+                        request_id=request_id,
+                        task_id=str(task_id),
+                        attempt=int(attempts),
+                    )
             
             if len(final_clips) < 2:
                 error_message = f"Only received {len(final_clips)} complete clips after {max_attempts} attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_music_custom_poll_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_id=str(task_id),
+                    attempts=int(attempts),
+                    complete_count=int(len(final_clips)),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 
                 if not final_clips:
                     empty_audio = create_audio_object("")
@@ -574,6 +825,18 @@ class Comfly_suno_custom:
                 "clips_generated": len(final_clips),
                 "tags": final_tags
             }
+
+            log_backend(
+                "suno_music_custom_done",
+                request_id=request_id,
+                task_id=str(task_id),
+                url=safe_public_url(f"{baseurl}/suno/feed/{','.join(clip_ids)}"),
+                clips_generated=int(len(final_clips)),
+                has_audio_url1=bool(audio_urls[0] if len(audio_urls) > 0 else ""),
+                has_audio_url2=bool(audio_urls[1] if len(audio_urls) > 1 else ""),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
             return (
                 audio_objects[0],  
                 audio_objects[1],  
@@ -591,9 +854,15 @@ class Comfly_suno_custom:
                 
         except Exception as e:
             error_message = f"Error generating music: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "suno_music_custom_exception",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate"),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "", "", "")
         
@@ -629,6 +898,11 @@ class Comfly_suno_upload:
         }
 
     def upload_audio(self, audio, api_key="", upload_filename="audio.mp3", seed=0):
+        request_id = generate_request_id("audio_upload", "suno")
+        log_prepare("音频上传", request_id, "RunNode/Suno-", "Suno", rule_name="upload")
+        rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音频上传", source="RunNode/Suno-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -639,7 +913,15 @@ class Comfly_suno_upload:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "suno_audio_upload_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(baseurl),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return ("", "", "", "", error_message)
             
         try:
@@ -651,6 +933,28 @@ class Comfly_suno_upload:
 
             if seed > 0:
                 payload["seed"] = seed
+
+            waveform = audio.get("waveform") if isinstance(audio, dict) else None
+            sample_rate = audio.get("sample_rate") if isinstance(audio, dict) else None
+            audio_seconds = None
+            try:
+                if waveform is not None and sample_rate:
+                    sr = int(sample_rate)
+                    total_samples = int(getattr(waveform, "shape", [0])[-1])
+                    if sr > 0 and total_samples > 0:
+                        audio_seconds = round(total_samples / sr, 3)
+            except Exception:
+                audio_seconds = None
+
+            log_backend(
+                "suno_audio_upload_start",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/uploads/audio"),
+                upload_filename=str(upload_filename),
+                extension=str(extension),
+                seed=(int(seed) if isinstance(seed, int) and seed > 0 else None),
+                audio_seconds=audio_seconds,
+            )
             
             response = requests.post(
                 f"{baseurl}/suno/uploads/audio",
@@ -661,13 +965,29 @@ class Comfly_suno_upload:
             
             if response.status_code != 200:
                 error_message = f"Failed to get upload URL: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_audio_upload_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="get_upload_url_http_error",
+                    url=safe_public_url(f"{baseurl}/suno/uploads/audio"),
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", "", "", "", error_message)
                 
             upload_data = response.json()
             upload_id = upload_data["id"]
             upload_url = upload_data["url"]
             fields = upload_data["fields"]
+
+            log_backend(
+                "suno_audio_upload_got_url",
+                request_id=request_id,
+                upload_id=str(upload_id),
+                upload_url=safe_public_url(str(upload_url)),
+            )
             
             pbar.update_absolute(30)
 
@@ -695,7 +1015,17 @@ class Comfly_suno_upload:
             
             if upload_response.status_code != 204:
                 error_message = f"Failed to upload audio: {upload_response.status_code}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_audio_upload_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="upload_http_error",
+                    upload_id=str(upload_id),
+                    upload_url=safe_public_url(str(upload_url)),
+                    status_code=int(upload_response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", "", "", "", error_message)
                 
             pbar.update_absolute(50)
@@ -714,7 +1044,17 @@ class Comfly_suno_upload:
             
             if finish_response.status_code != 200:
                 error_message = f"Failed to finish upload: {finish_response.status_code}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_audio_upload_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="upload_finish_http_error",
+                    upload_id=str(upload_id),
+                    url=safe_public_url(f"{baseurl}/suno/uploads/audio/{upload_id}/upload-finish"),
+                    status_code=int(finish_response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", "", "", "", error_message)
                 
             pbar.update_absolute(60)
@@ -725,6 +1065,13 @@ class Comfly_suno_upload:
             title = ""
             tags = ""
             lyrics = ""
+
+            log_backend(
+                "suno_audio_upload_poll_start",
+                request_id=request_id,
+                upload_id=str(upload_id),
+                max_attempts=int(max_attempts),
+            )
             
             while attempts < max_attempts:
                 time.sleep(2)
@@ -776,7 +1123,12 @@ class Comfly_suno_upload:
                                     lyrics = clip_info.get("metadata", {}).get("prompt", "") or clip_info.get("prompt", "")
                                     
                             except Exception as e:
-                                print(f"Error fetching clip details: {str(e)}")
+                                log_backend_exception(
+                                    "suno_audio_upload_clip_detail_exception",
+                                    request_id=request_id,
+                                    upload_id=str(upload_id),
+                                    clip_id=str(clip_id),
+                                )
                         
                         pbar.update_absolute(100)
                         
@@ -790,26 +1142,71 @@ class Comfly_suno_upload:
                             "seed": seed if seed > 0 else "auto",
                             "upload_filename": upload_filename
                         }
-                        
-                        print(f"Audio uploaded successfully. Clip ID: {clip_id}")
+
+                        log_backend(
+                            "suno_audio_upload_done",
+                            request_id=request_id,
+                            upload_id=str(upload_id),
+                            clip_id=str(clip_id),
+                            title_len=int(len(title or "")),
+                            tags_len=int(len(tags or "")),
+                            lyrics_len=int(len(lyrics or "")),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
+                        rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
                         return (clip_id, title, tags, lyrics, json.dumps(response_info))
                     else:
                         error_message = f"Failed to initialize clip: {init_response.status_code}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
+                        log_backend(
+                            "suno_audio_upload_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="initialize_clip_http_error",
+                            upload_id=str(upload_id),
+                            url=safe_public_url(f"{baseurl}/suno/uploads/audio/{upload_id}/initialize-clip"),
+                            status_code=int(init_response.status_code),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return ("", "", "", "", error_message)
                         
                 elif status in ["failed", "error"]:
                     error_message = f"Upload failed with status: {status}"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_backend(
+                        "suno_audio_upload_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        stage="upload_failed",
+                        upload_id=str(upload_id),
+                        status=str(status),
+                        attempts=int(attempts),
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
                     return ("", "", "", "", error_message)
             
             error_message = "Upload timeout - status check exceeded maximum attempts"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "suno_audio_upload_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="timeout",
+                upload_id=str(upload_id),
+                attempts=int(attempts),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return ("", "", "", "", error_message)
             
         except Exception as e:
             error_message = f"Error uploading audio: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend_exception(
+                "suno_audio_upload_exception",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/uploads/audio"),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return ("", "", "", "", error_message)
 
 
@@ -848,6 +1245,11 @@ class Comfly_suno_upload_extend:
         }
 
     def extend_audio(self, clip_id, prompt, tags="", title="", continue_at=28, version="v5", api_key="", seed=0):
+        request_id = generate_request_id("upload_extend", "suno")
+        log_prepare("音频续写", request_id, "RunNode/Suno-", "Suno", rule_name="upload_extend")
+        rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音频续写", source="RunNode/Suno-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -858,7 +1260,15 @@ class Comfly_suno_upload_extend:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "suno_upload_extend_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(baseurl),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
 
@@ -890,6 +1300,20 @@ class Comfly_suno_upload_extend:
             if seed > 0:
                 payload["seed"] = seed
 
+            log_backend(
+                "suno_upload_extend_start",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate"),
+                mv=str(mv),
+                version=str(version),
+                seed=(int(seed) if isinstance(seed, int) and seed > 0 else None),
+                continue_at=(int(continue_at) if isinstance(continue_at, int) else continue_at),
+                original_clip_id=str(clip_id),
+                title_len=len(title or ""),
+                prompt_len=len(prompt or ""),
+                tags_len=len(tags or ""),
+            )
+
             response = requests.post(
                 f"{baseurl}/suno/generate",
                 headers=self.get_headers(),
@@ -901,7 +1325,16 @@ class Comfly_suno_upload_extend:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_upload_extend_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    url=safe_public_url(f"{baseurl}/suno/generate"),
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
                 
@@ -909,7 +1342,15 @@ class Comfly_suno_upload_extend:
             
             if "id" not in result:
                 error_message = "No task ID in response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_upload_extend_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    url=safe_public_url(f"{baseurl}/suno/generate"),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
                 
@@ -917,7 +1358,16 @@ class Comfly_suno_upload_extend:
             
             if "clips" not in result or len(result["clips"]) < 2:
                 error_message = "Expected at least 2 clips in the response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_upload_extend_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="insufficient_clips",
+                    task_id=str(task_id),
+                    clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", task_id, error_message, "", "", "")
                 
@@ -928,6 +1378,14 @@ class Comfly_suno_upload_extend:
             max_attempts = 40
             attempts = 0
             final_clips = []
+
+            log_backend(
+                "suno_upload_extend_poll_start",
+                request_id=request_id,
+                task_id=str(task_id),
+                clip_ids_count=int(len(clip_ids)),
+                max_attempts=int(max_attempts),
+            )
             
             while attempts < max_attempts and len(final_clips) < 2:
                 time.sleep(5)
@@ -964,11 +1422,25 @@ class Comfly_suno_upload_extend:
                         break
                         
                 except Exception as e:
-                    print(f"Error checking clip status: {str(e)}")
+                    log_backend_exception(
+                        "suno_upload_extend_poll_exception",
+                        request_id=request_id,
+                        task_id=str(task_id),
+                        attempt=int(attempts),
+                    )
             
             if len(final_clips) < 2:
                 error_message = f"Only received {len(final_clips)} complete clips after {max_attempts} attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_upload_extend_poll_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_id=str(task_id),
+                    attempts=int(attempts),
+                    complete_count=int(len(final_clips)),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 
                 if not final_clips:
                     empty_audio = create_audio_object("")
@@ -1022,6 +1494,17 @@ class Comfly_suno_upload_extend:
             }
 
             duration_info = durations[0] if durations[0] != "0" else (durations[1] if len(durations) > 1 else "0")
+
+            log_backend(
+                "suno_upload_extend_done",
+                request_id=request_id,
+                task_id=str(task_id),
+                url=safe_public_url(f"{baseurl}/suno/feed/{','.join(clip_ids)}"),
+                clips_generated=int(len(final_clips)),
+                duration=str(duration_info),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
             
             return (
                 audio_objects[0],  
@@ -1037,9 +1520,15 @@ class Comfly_suno_upload_extend:
                 
         except Exception as e:
             error_message = f"Error extending audio: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "suno_upload_extend_exception",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/generate"),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
 
@@ -1082,6 +1571,11 @@ class Comfly_suno_cover:
     
     def generate_cover(self, cover_clip_id, prompt, title="", tags="", version="v5", 
                     make_instrumental=False, api_key="", negative_tags="", seed=0):
+        request_id = generate_request_id("cover", "suno")
+        log_prepare("翻唱生成", request_id, "RunNode/Suno-", "Suno", rule_name="cover")
+        rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="翻唱生成", source="RunNode/Suno-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -1092,7 +1586,15 @@ class Comfly_suno_cover:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "suno_cover_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                url=safe_public_url(baseurl),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
         mv_mapping = {
@@ -1128,6 +1630,21 @@ class Comfly_suno_cover:
             
             if seed > 0:
                 payload["seed"] = seed
+
+            log_backend(
+                "suno_cover_start",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/submit/music"),
+                mv=str(mv),
+                version=str(version),
+                seed=(int(seed) if isinstance(seed, int) and seed > 0 else None),
+                make_instrumental=bool(make_instrumental),
+                cover_clip_id=str(cover_clip_id),
+                title_len=int(len(title or "")),
+                prompt_len=int(len(prompt or "")),
+                tags_len=int(len(tags or "")),
+                negative_tags_len=int(len(negative_tags or "")),
+            )
            
             response = requests.post(
                 f"{baseurl}/suno/submit/music",
@@ -1140,7 +1657,16 @@ class Comfly_suno_cover:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_cover_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    url=safe_public_url(f"{baseurl}/suno/submit/music"),
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
                 
@@ -1152,7 +1678,7 @@ class Comfly_suno_cover:
                 if result.get("code") == "success" and "data" in result:
                     task_id = result["data"]
                     if isinstance(task_id, str):
-                        clips = self.wait_for_task_completion(task_id, pbar)
+                        clips = self.wait_for_task_completion(task_id, pbar, request_id=request_id)
                     elif isinstance(task_id, list):
                         clips = task_id
                     elif isinstance(task_id, dict) and "clips" in task_id:
@@ -1162,7 +1688,6 @@ class Comfly_suno_cover:
                 elif "status" in result and result.get("status") == "SUCCESS" and "data" in result:
                     clips = result["data"]
                     task_id = result.get("task_id", "")
-                    print(f"Found completed response with {len(clips)} clips")
                     pbar.update_absolute(80)
                 elif "clips" in result:
                     clips = result["clips"]
@@ -1173,7 +1698,7 @@ class Comfly_suno_cover:
                 elif "id" in result:
                     task_id = result["id"]
                     clips = []
-                    clips = self.wait_for_task_completion(task_id, pbar)
+                    clips = self.wait_for_task_completion(task_id, pbar, request_id=request_id)
                 else:
                     task_id = str(result)[:50]
                     clips = []
@@ -1182,13 +1707,28 @@ class Comfly_suno_cover:
                 task_id = "direct_response"
             else:
                 error_message = f"Unexpected response format: {result}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_cover_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="unexpected_response_format",
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
             
             if len(clips) == 0:
                 error_message = f"No clips found in response. Task ID: {task_id}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "suno_cover_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="no_clips",
+                    task_id=str(task_id),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 empty_audio = create_audio_object("")
                 return (empty_audio, empty_audio, "", "", task_id, error_message, "", "", "", "")
             if len(clips) < 2:
@@ -1203,7 +1743,6 @@ class Comfly_suno_cover:
                 audio_url = ""
                 if "audio_url" in clip and clip["audio_url"]:
                     audio_url = clip["audio_url"]
-                    print(f"Found audio_url: {audio_url}")
                 
                 audio_urls.append(audio_url)
                 
@@ -1236,6 +1775,17 @@ class Comfly_suno_cover:
                 "clip_ids": clip_id_values
             }
 
+            log_backend(
+                "suno_cover_done",
+                request_id=request_id,
+                task_id=str(task_id),
+                clips_generated=int(len(clips)),
+                has_audio_url1=bool(audio_urls[0] if len(audio_urls) > 0 else ""),
+                has_audio_url2=bool(audio_urls[1] if len(audio_urls) > 1 else ""),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+
             return (
                 audio_objects[0],  
                 audio_objects[1],  
@@ -1251,15 +1801,28 @@ class Comfly_suno_cover:
                 
         except Exception as e:
             error_message = f"Error generating cover: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "suno_cover_exception",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/suno/submit/music"),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             empty_audio = create_audio_object("")
             return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
         
-    def wait_for_task_completion(self, task_id, pbar):
+    def wait_for_task_completion(self, task_id, pbar, request_id=None):
         max_attempts = 50
         attempts = 0
+
+        log_backend(
+            "suno_cover_poll_start",
+            request_id=(str(request_id) if request_id else None),
+            task_id=str(task_id),
+            max_attempts=int(max_attempts),
+        )
         
         while attempts < max_attempts:
             time.sleep(3)
@@ -1304,7 +1867,19 @@ class Comfly_suno_cover:
                 pbar.update_absolute(progress)
                 
             except Exception as e:
-                print(f"Error checking task status: {str(e)}")
+                log_backend_exception(
+                    "suno_cover_poll_exception",
+                    request_id=(str(request_id) if request_id else None),
+                    task_id=str(task_id),
+                    attempt=int(attempts),
+                )
         
-        print(f"Task {task_id} did not complete within {max_attempts} attempts")
+        log_backend(
+            "suno_cover_poll_failed",
+            level="ERROR",
+            request_id=(str(request_id) if request_id else None),
+            task_id=str(task_id),
+            attempts=int(attempts),
+            stage="timeout",
+        )
         return []

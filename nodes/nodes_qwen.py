@@ -51,6 +51,8 @@ class Comfly_qwen_image:
         request_id = generate_request_id("image_gen", "qwen")
         log_prepare("图像生成", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像生成", source="RunNode/Qwen-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -63,6 +65,14 @@ class Comfly_qwen_image:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_api_key",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -75,6 +85,15 @@ class Comfly_qwen_image:
             if size == "Custom" and (Custom_size == "Enter custom size (e.g. 1280x720)" or "x" not in Custom_size):
                 error_message = "Please enter a valid custom size in the format 'widthxheight' (e.g. 1280x720)"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_custom_size",
+                    model=model,
+                    size=str(Custom_size),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -104,6 +123,22 @@ class Comfly_qwen_image:
             if output_format != "png":
                 payload["output_format"] = output_format
             
+            log_backend(
+                "qwen_image_generate_start",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                prompt_len=len(prompt or ""),
+                size=str(actual_size),
+                n=int(num_images),
+                num_inference_steps=(None if int(num_inference_steps) == 30 else int(num_inference_steps)),
+                seed=(None if int(seed) == 0 else int(seed)),
+                guidance_scale=(None if float(guidance_scale) == 2.5 else float(guidance_scale)),
+                enable_safety_checker=(None if bool(enable_safety_checker) else bool(enable_safety_checker)),
+                negative_prompt_len=(len(negative_prompt) if isinstance(negative_prompt, str) and negative_prompt.strip() else None),
+                output_format=(None if output_format == "png" else output_format),
+            )
+
             pbar.update_absolute(30)
             
             response = requests.post(
@@ -118,6 +153,15 @@ class Comfly_qwen_image:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -155,9 +199,23 @@ class Comfly_qwen_image:
                             generated_images.append(generated_tensor)
                         except Exception as e:
                             rn_pbar.error(f"Error downloading image from URL: {str(e)}")
+                            log_backend_exception(
+                                "qwen_image_generate_download_failed",
+                                request_id=request_id,
+                                url=safe_public_url(image_url),
+                                model=model,
+                            )
             else:
                 error_message = "No generated images in response"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="empty_response_data",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -167,11 +225,39 @@ class Comfly_qwen_image:
                 combined_tensor = torch.cat(generated_images, dim=0)
                 
                 pbar.update_absolute(100)
+                b64_count = 0
+                url_count = 0
+                try:
+                    for item in (result.get("data") or []):
+                        if isinstance(item, dict) and item.get("b64_json"):
+                            b64_count += 1
+                        if isinstance(item, dict) and item.get("url"):
+                            url_count += 1
+                except Exception:
+                    pass
+                log_backend(
+                    "qwen_image_generate_done",
+                    request_id=request_id,
+                    url=safe_public_url(baseurl),
+                    model=model,
+                    image_count=int(combined_tensor.shape[0]) if hasattr(combined_tensor, "shape") else len(generated_images),
+                    b64_count=b64_count,
+                    url_count=url_count,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 rn_pbar.done(char_count=len(response_info))
                 return (combined_tensor, response_info, image_urls[0] if image_urls else "")
             else:
                 error_message = "No images were successfully processed"
                 rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="no_images_processed",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -180,6 +266,12 @@ class Comfly_qwen_image:
         except Exception as e:
             error_message = f"Error in image generation: {str(e)}"
             rn_pbar.error(error_message)
+            log_backend_exception(
+                "qwen_image_generate_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
@@ -237,6 +329,8 @@ class Comfly_qwen_image_edit:
         request_id = generate_request_id("image_edit", "qwen")
         log_prepare("图像编辑", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像编辑", source="RunNode/Qwen-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -248,7 +342,15 @@ class Comfly_qwen_image_edit:
         try:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_api_key",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (image, error_message, "")
                 
             pbar = comfy.utils.ProgressBar(100)
@@ -258,7 +360,16 @@ class Comfly_qwen_image_edit:
 
             if size == "Custom" and (Custom_size == "Enter custom size (e.g. 1280x720)" or "x" not in Custom_size):
                 error_message = "Please enter a valid custom size in the format 'widthxheight' (e.g. 1280x720)"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="invalid_custom_size",
+                    model=model,
+                    size=str(Custom_size),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (image, error_message, "")
 
             pil_image = tensor2pil(image)[0]
@@ -299,6 +410,23 @@ class Comfly_qwen_image_edit:
             if acceleration != "none":
                 data["acceleration"] = acceleration
             
+            log_backend(
+                "qwen_image_edit_start",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                prompt_len=len(prompt or ""),
+                size=str(actual_size),
+                n=int(num_images),
+                num_inference_steps=(None if int(num_inference_steps) == 30 else int(num_inference_steps)),
+                seed=(None if int(seed) == 0 else int(seed)),
+                guidance_scale=(None if float(guidance_scale) == 4.0 else float(guidance_scale)),
+                enable_safety_checker=(None if bool(enable_safety_checker) else bool(enable_safety_checker)),
+                negative_prompt_len=(len(negative_prompt) if isinstance(negative_prompt, str) and negative_prompt.strip() else None),
+                output_format=(None if output_format == "png" else output_format),
+                acceleration=(None if acceleration == "none" else acceleration),
+            )
+
             pbar.update_absolute(30)
 
             headers = {"Authorization": f"Bearer {self.api_key}"}
@@ -315,7 +443,16 @@ class Comfly_qwen_image_edit:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (image, error_message, "")
                 
             result = response.json()
@@ -351,10 +488,24 @@ class Comfly_qwen_image_edit:
                             edited_tensor = pil2tensor(edited_image)
                             edited_images.append(edited_tensor)
                         except Exception as e:
-                            print(f"Error downloading image from URL: {str(e)}")
+                            rn_pbar.error(f"Error downloading image from URL: {str(e)}")
+                            log_backend_exception(
+                                "qwen_image_edit_download_failed",
+                                request_id=request_id,
+                                url=safe_public_url(image_url),
+                                model=model,
+                            )
             else:
                 error_message = "No edited images in response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="empty_response_data",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 response_info += f"Error: {error_message}\n"
                 return (image, response_info, "")
                 
@@ -362,16 +513,51 @@ class Comfly_qwen_image_edit:
                 combined_tensor = torch.cat(edited_images, dim=0)
                 
                 pbar.update_absolute(100)
+                b64_count = 0
+                url_count = 0
+                try:
+                    for item in (result.get("data") or []):
+                        if isinstance(item, dict) and item.get("b64_json"):
+                            b64_count += 1
+                        if isinstance(item, dict) and item.get("url"):
+                            url_count += 1
+                except Exception:
+                    pass
+                log_backend(
+                    "qwen_image_edit_done",
+                    request_id=request_id,
+                    url=safe_public_url(baseurl),
+                    model=model,
+                    image_count=int(combined_tensor.shape[0]) if hasattr(combined_tensor, "shape") else len(edited_images),
+                    b64_count=b64_count,
+                    url_count=url_count,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                rn_pbar.done(char_count=len(response_info))
                 return (combined_tensor, response_info, image_urls[0] if image_urls else "")
             else:
                 error_message = "No images were successfully processed"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_image_edit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="no_images_processed",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 response_info += f"Error: {error_message}\n"
                 return (image, response_info, "")
                 
         except Exception as e:
             error_message = f"Error in image editing: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend_exception(
+                "qwen_image_edit_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             return (image, error_message, "")
 
 
@@ -418,6 +604,11 @@ class Comfly_Z_image_turbo:
     def generate_image(self, prompt, model="z-image-turbo", size="1024x1024", output_format="jpg",
                       custom_size="1024x1024", apikey="", guidance_scale=0.0, num_inference_steps=8,
                       output_quality=80, seed=0):
+        request_id = generate_request_id("z_img_gen", "qwen")
+        log_prepare("图像生成", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像生成", source="RunNode/Qwen-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -428,7 +619,15 @@ class Comfly_Z_image_turbo:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "qwen_z_image_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, "", error_message)
@@ -442,7 +641,16 @@ class Comfly_Z_image_turbo:
             if size == "Custom":
                 if "x" not in custom_size:
                     error_message = "Custom size must be in format 'widthxheight' (e.g. 1280x720)"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_backend(
+                        "qwen_z_image_generate_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        stage="invalid_custom_size",
+                        model=model,
+                        size=str(custom_size),
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, "", error_message)
@@ -457,7 +665,16 @@ class Comfly_Z_image_turbo:
                         return (blank_tensor, "", error_message)
                 except ValueError:
                     error_message = "Invalid custom size format. Use 'widthxheight' (e.g. 1280x720)"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_backend(
+                        "qwen_z_image_generate_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        stage="invalid_custom_size",
+                        model=model,
+                        size=str(custom_size),
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, "", error_message)
@@ -480,6 +697,20 @@ class Comfly_Z_image_turbo:
             if seed > 0:
                 payload["seed"] = seed
             
+            log_backend(
+                "qwen_z_image_generate_start",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                prompt_len=len(prompt or ""),
+                size=str(actual_size),
+                output_format=str(output_format),
+                guidance_scale=(None if float(guidance_scale) == 0.0 else float(guidance_scale)),
+                num_inference_steps=(None if int(num_inference_steps) == 8 else int(num_inference_steps)),
+                output_quality=(None if int(output_quality) == 80 else int(output_quality)),
+                seed=(None if int(seed) <= 0 else int(seed)),
+            )
+
             pbar.update_absolute(30)
 
             response = requests.post(
@@ -493,7 +724,16 @@ class Comfly_Z_image_turbo:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_z_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 blank_image = Image.new('RGB', (width, height), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, "", error_message)
@@ -529,11 +769,25 @@ class Comfly_Z_image_turbo:
                         img_response.raise_for_status()
                         generated_image = Image.open(BytesIO(img_response.content))
                     except Exception as e:
-                        print(f"Error downloading image from URL: {str(e)}")
+                        rn_pbar.error(f"Error downloading image from URL: {str(e)}")
+                        log_backend_exception(
+                            "qwen_z_image_generate_download_failed",
+                            request_id=request_id,
+                            url=safe_public_url(image_url),
+                            model=model,
+                        )
                         response_info += f"Error: {str(e)}\n"
             else:
                 error_message = "No image data in response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_z_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="empty_response_data",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (width, height), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -544,10 +798,27 @@ class Comfly_Z_image_turbo:
             if generated_image:
                 generated_tensor = pil2tensor(generated_image)
                 pbar.update_absolute(100)
+                log_backend(
+                    "qwen_z_image_generate_done",
+                    request_id=request_id,
+                    url=safe_public_url(baseurl),
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    has_url=bool(image_url),
+                )
+                rn_pbar.done(char_count=len(response_info))
                 return (generated_tensor, image_url, response_info)
             else:
                 error_message = "Failed to process image"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "qwen_z_image_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="no_images_processed",
+                    model=model,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (width, height), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -555,9 +826,15 @@ class Comfly_Z_image_turbo:
                 
         except Exception as e:
             error_message = f"Error in image generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
+            log_backend_exception(
+                "qwen_z_image_generate_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, "", error_message)
@@ -691,6 +968,11 @@ class Comfly_wan2_6_API:
             return None
 
     def generate_video(self, prompt, api_key, resolution, duration, image=None, audio_url="", prompt_extend=True, shot_type="multi", audio_enabled=True):
+        request_id = generate_request_id("wan_video", "qwen")
+        log_prepare("视频生成", request_id, "RunNode/Qwen-", "WanX")
+        rn_pbar = ProgressBar(request_id, "WanX", streaming=True, task_type="视频生成", source="RunNode/Qwen-")
+        rn_pbar.set_generating(0)
+        _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -701,23 +983,73 @@ class Comfly_wan2_6_API:
             
         if not self.api_key:
             error_msg = "API key not found. Please provide an API key."
-            print(error_msg)
+            rn_pbar.error(error_msg)
+            log_backend(
+                "qwen_wan_video_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (EmptyVideoAdapter(), error_msg, "")
         
         try:
             # Validate prompt
             if not prompt or prompt.strip() == "":
-                raise ValueError("Prompt cannot be empty")
+                error_msg = "Prompt cannot be empty"
+                rn_pbar.error(error_msg)
+                log_backend(
+                    "qwen_wan_video_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="empty_prompt",
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return (EmptyVideoAdapter(), error_msg, "")
             
             if len(prompt) > 1500:
-                raise ValueError(f"Prompt too long ({len(prompt)} chars). Max 1500 characters")
+                error_msg = f"Prompt too long ({len(prompt)} chars). Max 1500 characters"
+                rn_pbar.error(error_msg)
+                log_backend(
+                    "qwen_wan_video_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="prompt_too_long",
+                    prompt_len=int(len(prompt)),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return (EmptyVideoAdapter(), error_msg, "")
             
             # Convert image to base64 (exactly as wan.py)
             image_url = None
             if image is not None:
+                log_backend(
+                    "qwen_wan_video_image_encode_start",
+                    request_id=request_id,
+                )
                 image_url = self.convert_image_to_base64(image)
                 if not image_url:
-                    raise ValueError("Failed to convert image to base64")
+                    error_msg = "Failed to convert image to base64"
+                    rn_pbar.error(error_msg)
+                    log_backend(
+                        "qwen_wan_video_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        stage="image_encode_failed",
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
+                    return (EmptyVideoAdapter(), error_msg, "")
+                base64_len = None
+                try:
+                    if isinstance(image_url, str) and "," in image_url:
+                        base64_len = len(image_url.split(",", 1)[1])
+                except Exception:
+                    base64_len = None
+                log_backend(
+                    "qwen_wan_video_image_encode_done",
+                    request_id=request_id,
+                    base64_len=base64_len,
+                )
                 print(f"[Zhenzhen_Wan26_I2V INFO] Image converted to base64 successfully")
             
             # Prepare request body (exactly matching wan.py structure)
@@ -753,6 +1085,21 @@ class Comfly_wan2_6_API:
             base_url = cfg.get('base_url', '').strip() or "https://dashscope.aliyuncs.com"
             url_primary = f"{base_url}/api/v1/services/aigc/video-generation/video-synthesis"
             url_fallback = "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
+
+            log_backend(
+                "qwen_wan_video_start",
+                request_id=request_id,
+                url=safe_public_url(url_primary),
+                model="wan2.6-i2v",
+                prompt_len=len(prompt or ""),
+                resolution=str(resolution),
+                duration=int(duration) if isinstance(duration, int) else duration,
+                prompt_extend=bool(prompt_extend),
+                shot_type=str(shot_type),
+                has_image=bool(image is not None),
+                has_audio_url=bool(isinstance(audio_url, str) and audio_url.strip()),
+                audio_enabled=bool(audio_enabled),
+            )
             
             headers = {
                 'Authorization': f'Bearer {self.api_key}',
@@ -775,17 +1122,37 @@ class Comfly_wan2_6_API:
             
             response = None
             try:
+                log_backend(
+                    "qwen_wan_video_submit_start",
+                    request_id=request_id,
+                    url=safe_public_url(url_primary),
+                )
                 response = requests.post(url_primary, headers=headers, json=request_body, timeout=60)
             except Exception as e:
                 print(f"[Zhenzhen_WanVideo WARNING] Primary request error: {str(e)}")
+                log_backend_exception(
+                    "qwen_wan_video_submit_primary_failed",
+                    request_id=request_id,
+                    url=safe_public_url(url_primary),
+                )
                 response = None
             
             if (response is None or response.status_code != 200) and (base_url.rstrip('/') != "https://dashscope.aliyuncs.com"):
                 print(f"[Zhenzhen_WanVideo INFO] Fallback to DashScope: {url_fallback}")
                 try:
+                    log_backend(
+                        "qwen_wan_video_submit_fallback_start",
+                        request_id=request_id,
+                        url=safe_public_url(url_fallback),
+                    )
                     response = requests.post(url_fallback, headers=headers, json=request_body, timeout=60)
                 except Exception as e:
                     print(f"[Zhenzhen_WanVideo ERROR] Fallback request error: {str(e)}")
+                    log_backend_exception(
+                        "qwen_wan_video_submit_fallback_failed",
+                        request_id=request_id,
+                        url=safe_public_url(url_fallback),
+                    )
                     response = None
             
             if response is not None and response.status_code == 200:
@@ -793,20 +1160,52 @@ class Comfly_wan2_6_API:
                 task_id = result.get('output', {}).get('task_id')
                 if task_id:
                     print(f"[Zhenzhen_WanVideo INFO] Task created. Task ID: {task_id}")
+                    log_backend(
+                        "qwen_wan_video_submit_done",
+                        request_id=request_id,
+                        url=safe_public_url(url_primary),
+                        task_id=str(task_id),
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
                     
                     # Poll for result
-                    video_url = self.poll_task_status(task_id)
+                    video_url = self.poll_task_status(task_id, request_id=request_id)
                     
                     if video_url:
                         print(f"[Zhenzhen_WanVideo INFO] Downloading video from: {video_url}")
                         video_adapter = ComflyVideoAdapter(video_url)
+                        log_backend(
+                            "qwen_wan_video_done",
+                            request_id=request_id,
+                            url=safe_public_url(video_url),
+                            task_id=str(task_id),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
+                        rn_pbar.done(char_count=len(video_url or ""), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
                         return (video_adapter, video_url, task_id)
                     else:
                         error_msg = "Failed to generate video"
                         print(error_msg)
+                        rn_pbar.error(error_msg)
+                        log_backend(
+                            "qwen_wan_video_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="poll_no_video_url",
+                            task_id=str(task_id),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
                         return (EmptyVideoAdapter(), error_msg, task_id)
                 else:
                     print(f"[Zhenzhen_WanVideo ERROR] No task ID: {result}")
+                    rn_pbar.error("No task ID in response")
+                    log_backend(
+                        "qwen_wan_video_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        stage="missing_task_id",
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
                     return (EmptyVideoAdapter(), "No task ID in response", "")
             else:
                 # Error handling
@@ -832,13 +1231,27 @@ class Comfly_wan2_6_API:
                     error_message = response.text[:200] if (response is not None and response.text) else "No details"
                 
                 print(f"[Zhenzhen_WanVideo ERROR] API error ({status_code}): {error_message}")
+                rn_pbar.error(f"API error: {status_code} - {error_message}")
+                log_backend(
+                    "qwen_wan_video_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    status_code=int(status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return (EmptyVideoAdapter(), f"API error: {status_code} - {error_message}", "")
                 
         except Exception as e:
             print(f"[Zhenzhen_WanVideo ERROR] Video generation error: {str(e)}")
+            rn_pbar.error(str(e))
+            log_backend_exception(
+                "qwen_wan_video_exception",
+                request_id=request_id,
+            )
             return (EmptyVideoAdapter(), str(e), "")
 
-    def poll_task_status(self, task_id):
+    def poll_task_status(self, task_id, request_id: str = None):
         """Poll task status (exactly as wan.py)"""
         cfg = get_config()
         base_url = cfg.get('base_url', '').strip() or "https://dashscope.aliyuncs.com"
@@ -849,6 +1262,16 @@ class Comfly_wan2_6_API:
         max_poll_time = 300
         poll_interval = 10
         start_time = time.time()
+
+        log_backend(
+            "qwen_wan_video_poll_start",
+            request_id=request_id,
+            url=safe_public_url(query_url_primary),
+            task_id=str(task_id),
+        )
+
+        last_status = None
+        last_progress_log_sec = 0
         
         while time.time() - start_time < max_poll_time:
             try:
@@ -871,23 +1294,65 @@ class Comfly_wan2_6_API:
                 if response is not None and response.status_code == 200:
                     result = response.json()
                     task_status = result.get('output', {}).get('task_status')
+
+                    if task_status and task_status != last_status:
+                        last_status = task_status
+                        log_backend(
+                            "qwen_wan_video_poll_status",
+                            request_id=request_id,
+                            task_id=str(task_id),
+                            status=str(task_status),
+                        )
                     
                     if task_status == 'SUCCEEDED':
                         video_url = result.get('output', {}).get('video_url')
                         if video_url:
                             print(f"[Zhenzhen_WanVideo INFO] Video ready: {video_url}")
+                            log_backend(
+                                "qwen_wan_video_poll_done",
+                                request_id=request_id,
+                                url=safe_public_url(video_url),
+                                task_id=str(task_id),
+                            )
                             return video_url
                         else:
                             print(f"[Zhenzhen_WanVideo ERROR] No video URL: {result}")
+                            log_backend(
+                                "qwen_wan_video_poll_failed",
+                                level="ERROR",
+                                request_id=request_id,
+                                task_id=str(task_id),
+                                stage="missing_video_url",
+                            )
                             return None
                     elif task_status == 'FAILED':
                         error_msg = result.get('output', {}).get('message', 'Unknown error')
                         print(f"[Zhenzhen_WanVideo ERROR] Task failed: {error_msg}")
+                        log_backend(
+                            "qwen_wan_video_poll_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            task_id=str(task_id),
+                            stage="task_failed",
+                        )
                         return None
                     elif task_status in ['PENDING', 'RUNNING']:
                         elapsed = time.time() - start_time
                         remaining = max_poll_time - elapsed
                         print(f"[Zhenzhen_WanVideo INFO] Status: {task_status} ({elapsed:.1f}s elapsed, {remaining:.1f}s remaining)")
+                        try:
+                            now_sec = int(elapsed)
+                            if now_sec - last_progress_log_sec >= 30:
+                                last_progress_log_sec = now_sec
+                                log_backend(
+                                    "qwen_wan_video_poll_progress",
+                                    request_id=request_id,
+                                    task_id=str(task_id),
+                                    status=str(task_status),
+                                    elapsed_sec=int(now_sec),
+                                )
+                        except Exception:
+                            pass
                         time.sleep(poll_interval)
                         continue
                     else:
@@ -897,11 +1362,31 @@ class Comfly_wan2_6_API:
                 else:
                     status = response.status_code if response is not None else -1
                     print(f"[Zhenzhen_WanVideo ERROR] Query failed: {status}")
+                    log_backend(
+                        "qwen_wan_video_poll_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        task_id=str(task_id),
+                        stage="http_error",
+                        status_code=int(status),
+                    )
                     return None
                     
             except Exception as e:
                 print(f"[Zhenzhen_WanVideo ERROR] Query error: {str(e)}")
+                log_backend_exception(
+                    "qwen_wan_video_poll_exception",
+                    request_id=request_id,
+                    task_id=str(task_id),
+                )
                 return None
         
         print("[Zhenzhen_WanVideo ERROR] Polling timeout")
+        log_backend(
+            "qwen_wan_video_poll_failed",
+            level="ERROR",
+            request_id=request_id,
+            task_id=str(task_id),
+            stage="timeout",
+        )
         return None
