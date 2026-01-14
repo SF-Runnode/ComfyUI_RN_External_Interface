@@ -473,7 +473,7 @@ class Comfly_Googel_Veo3:
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
                         log_error("生成失败", request_id, fail_reason, "RunNode/Google-", "Google")
-                        return ("", "", json.dumps({"code": "error", "message": error_message}))
+                        raise Exception(error_message)
                         
                 except Exception as e:
                     log_backend_exception(f"Error checking generation status: {str(e)}", request_id=request_id)
@@ -483,7 +483,7 @@ class Comfly_Googel_Veo3:
                 error_message = "Failed to retrieve video URL after multiple attempts"
                 rn_pbar.error(error_message)
                 log_error("生成超时", request_id, error_message, "RunNode/Google-", "Google")
-                return ("", "", json.dumps({"code": "error", "message": error_message}))
+                raise Exception(error_message)
             
             if video_url:
                 pbar.update_absolute(95)
@@ -512,7 +512,7 @@ class Comfly_Googel_Veo3:
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
             rn_pbar.error(error_message)
-            return ("", "", json.dumps({"code": "error", "message": error_message}))
+            raise
 
 
 class Comfly_nano_banana:

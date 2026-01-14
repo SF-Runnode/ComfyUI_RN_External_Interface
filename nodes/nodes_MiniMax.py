@@ -80,8 +80,7 @@ class Comfly_MiniMax_video:
         if not self.api_key:
             error_message = "API key not provided or not found in config"
             log_error("配置错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-            error_response = {"status": "error", "message": error_message}
-            return (None, "", json.dumps(error_response))
+            raise Exception(error_message)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -237,7 +236,7 @@ class Comfly_MiniMax_video:
                         error_message = f"Video generation failed: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
                         rn_pbar.error(error_message)
                         log_error("视频生成失败", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                        return (None, task_id, json.dumps({"status": "error", "message": error_message}))
+                        raise Exception(error_message)
                     
                 except Exception as e:
                     rn_pbar.error(f"Error checking generation status: {str(e)}")
@@ -247,7 +246,7 @@ class Comfly_MiniMax_video:
                 error_message = "Failed to retrieve file_id after multiple attempts"
                 rn_pbar.error(error_message)
                 log_error("视频生成超时", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                return (None, task_id, json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             if not video_url:
                 video_url = f"{baseurl}/minimax/v1/file?file_id={file_id}"
@@ -275,4 +274,4 @@ class Comfly_MiniMax_video:
             error_message = f"Error generating video: {str(e)}"
             rn_pbar.error(error_message)
             log_error("未捕获异常", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-            return (None, "", json.dumps({"status": "error", "message": error_message}))
+            raise

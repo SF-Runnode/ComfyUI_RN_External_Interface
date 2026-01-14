@@ -1323,7 +1323,7 @@ class ComflyJimengVideoApi:
             
         if not self.api_key:
             error_response = {"code": "error", "message": "API key not found in Comflyapi.json"}
-            return ("", "", json.dumps(error_response), "")
+            raise Exception(error_response["message"])
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -1348,7 +1348,7 @@ class ComflyJimengVideoApi:
                 else:
                     error_message = "Failed to upload image. Please check your image and try again."
                     print(error_message)
-                    return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+                    raise Exception(error_message)
 
             pbar.update_absolute(30)
             response = requests.post(
@@ -1361,20 +1361,20 @@ class ComflyJimengVideoApi:
             if response.status_code != 200:
                 error_message = f"API error: {response.status_code} - {response.text}"
                 print(error_message)
-                return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+                raise Exception(error_message)
                 
             result = response.json()
             
             if result.get("code") != "success":
                 error_message = f"API returned error: {result.get('message', 'Unknown error')}"
                 print(error_message)
-                return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+                raise Exception(error_message)
                 
             task_id = result.get("data")
             if not task_id:
                 error_message = "No task ID returned from API"
                 print(error_message)
-                return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+                raise Exception(error_message)
             
             pbar.update_absolute(40)
             video_url = None
@@ -1390,7 +1390,7 @@ class ComflyJimengVideoApi:
                 if elapsed_time > max_wait_time:
                     error_message = f"Video generation timeout after {elapsed_time:.1f} seconds (max: {max_wait_time}s)"
                     print(error_message)
-                    return ("", task_id, json.dumps({"code": "error", "message": error_message}), "")
+                    raise Exception(error_message)
                 
                 time.sleep(5)  
                 attempts += 1
@@ -1452,7 +1452,7 @@ class ComflyJimengVideoApi:
                         fail_reason = data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
                         print(error_message)
-                        return ("", task_id, json.dumps({"code": "error", "message": error_message}), "")
+                        raise Exception(error_message)
                     
                     elif status in ["PENDING", "PROCESSING", "RUNNING"]:
                         continue
@@ -1467,7 +1467,7 @@ class ComflyJimengVideoApi:
             if not video_url:
                 error_message = f"Video generation timeout or failed to retrieve video URL after {attempts} attempts, elapsed time: {elapsed_time:.1f}s"
                 print(error_message)
-                return ("", task_id, json.dumps({"code": "error", "message": error_message}), "")
+                raise Exception(error_message)
 
             if video_url:
                 pbar.update_absolute(95)
@@ -1481,7 +1481,7 @@ class ComflyJimengVideoApi:
             print(error_message)
             import traceback
             traceback.print_exc()
-            return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+            raise
 
 
 class ComflySeededit:

@@ -991,7 +991,7 @@ class Comfly_wan2_6_API:
                 stage="missing_api_key",
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), error_msg, "")
+            raise Exception(error_msg)
         
         try:
             # Validate prompt
@@ -1005,7 +1005,7 @@ class Comfly_wan2_6_API:
                     stage="empty_prompt",
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), error_msg, "")
+                raise Exception(error_msg)
             
             if len(prompt) > 1500:
                 error_msg = f"Prompt too long ({len(prompt)} chars). Max 1500 characters"
@@ -1018,7 +1018,7 @@ class Comfly_wan2_6_API:
                     prompt_len=int(len(prompt)),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), error_msg, "")
+                raise Exception(error_msg)
             
             # Convert image to base64 (exactly as wan.py)
             image_url = None
@@ -1038,7 +1038,7 @@ class Comfly_wan2_6_API:
                         stage="image_encode_failed",
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
-                    return (EmptyVideoAdapter(), error_msg, "")
+                    raise Exception(error_msg)
                 base64_len = None
                 try:
                     if isinstance(image_url, str) and "," in image_url:
@@ -1195,7 +1195,7 @@ class Comfly_wan2_6_API:
                             task_id=str(task_id),
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                        return (EmptyVideoAdapter(), error_msg, task_id)
+                        raise Exception(error_msg)
                 else:
                     print(f"[Zhenzhen_WanVideo ERROR] No task ID: {result}")
                     rn_pbar.error("No task ID in response")
@@ -1206,7 +1206,7 @@ class Comfly_wan2_6_API:
                         stage="missing_task_id",
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
-                    return (EmptyVideoAdapter(), "No task ID in response", "")
+                    raise Exception("No task ID in response")
             else:
                 # Error handling
                 status_code = response.status_code if response is not None else -1
@@ -1240,7 +1240,7 @@ class Comfly_wan2_6_API:
                     status_code=int(status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), f"API error: {status_code} - {error_message}", "")
+                raise Exception(f"API error: {status_code} - {error_message}")
                 
         except Exception as e:
             print(f"[Zhenzhen_WanVideo ERROR] Video generation error: {str(e)}")
@@ -1249,7 +1249,7 @@ class Comfly_wan2_6_API:
                 "qwen_wan_video_exception",
                 request_id=request_id,
             )
-            return (EmptyVideoAdapter(), str(e), "")
+            raise
 
     def poll_task_status(self, task_id, request_id: str = None):
         """Poll task status (exactly as wan.py)"""

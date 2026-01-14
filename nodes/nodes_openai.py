@@ -1202,7 +1202,7 @@ class Comfly_sora2_openai:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), json.dumps(error_response), "", "0")
+            raise Exception(error_response["message"])
 
         if model == "sora-2":
             if seconds == "25":  
@@ -1218,7 +1218,7 @@ class Comfly_sora2_openai:
                     size=size,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
+                raise Exception(error_message)
             if size in ["1792x1024", "1024x1792"]:
                 error_message = "The sora-2 model does not support 1080P resolution. Please use sora-2-pro for 1080P videos."
                 rn_pbar.error(error_message)
@@ -1232,7 +1232,7 @@ class Comfly_sora2_openai:
                     size=size,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
+                raise Exception(error_message)
       
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1296,7 +1296,7 @@ class Comfly_sora2_openai:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -1311,7 +1311,7 @@ class Comfly_sora2_openai:
                     model=model,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
+                raise Exception(error_message)
             
             task_id = result["id"]
             
@@ -1332,7 +1332,7 @@ class Comfly_sora2_openai:
                     status_response = requests.get(
                         f"{baseurl.rstrip('/')}/v1/videos/{task_id}",
                         headers=self.get_headers(),
-                        timeout=self.timeout
+                        timeout=min(self.timeout, 30)
                     )
                     
                     if status_response.status_code != 200:
@@ -1374,10 +1374,11 @@ class Comfly_sora2_openai:
                             fail_reason=str(fail_reason),
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                        return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
+                        raise Exception(error_message)
                         
                 except Exception as e:
                     rn_pbar.error(f"Error checking task status: {str(e)}")
+                    raise
             
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
@@ -1392,7 +1393,7 @@ class Comfly_sora2_openai:
                     attempts=int(attempts),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message, "task_id": task_id}), "", actual_seed)
+                raise Exception(error_message)
             
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -1433,7 +1434,7 @@ class Comfly_sora2_openai:
                 url=safe_public_url(baseurl),
                 model=model,
             )
-            return (EmptyVideoAdapter(), json.dumps({"status": "error", "message": error_message}), "", "0")
+            raise
            
 
 class Comfly_sora2:
@@ -1512,7 +1513,7 @@ class Comfly_sora2:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", json.dumps(error_response))
+            raise Exception(error_response["message"])
 
         if duration == "25" and hd == True:
             error_message = "25s and hd parameters cannot be used together. Please choose only one of them."
@@ -1528,7 +1529,7 @@ class Comfly_sora2:
                 hd=bool(hd),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
+            raise Exception(error_message)
             
         if model == "sora-2":
             if duration == "25":  
@@ -1543,7 +1544,7 @@ class Comfly_sora2:
                     duration=str(duration),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
             if hd:
                 error_message = "The sora-2 model does not support HD mode. Please use sora-2-pro for HD videos or disable HD."
                 print(error_message)
@@ -1556,7 +1557,7 @@ class Comfly_sora2:
                     hd=bool(hd),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
       
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1597,7 +1598,7 @@ class Comfly_sora2:
                         model=model,
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
-                    return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
+                    raise Exception(error_message)
                 
                 payload = {
                     "prompt": prompt,
@@ -1649,7 +1650,7 @@ class Comfly_sora2:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -1664,7 +1665,7 @@ class Comfly_sora2:
                     model=model,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
             
             task_id = result["task_id"]
             print(f"Task ID: {task_id}")
@@ -1683,7 +1684,7 @@ class Comfly_sora2:
                     status_response = requests.get(
                         f"{baseurl}/v2/videos/generations/{task_id}",
                         headers=self.get_headers(),
-                        timeout=self.timeout
+                        timeout=min(self.timeout, 30)
                     )
                     
                     if status_response.status_code != 200:
@@ -1722,10 +1723,11 @@ class Comfly_sora2:
                             fail_reason=str(fail_reason),
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                        return ("", "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
+                        raise Exception(error_message)
                         
                 except Exception as e:
                     print(f"Error checking task status: {str(e)}")
+                    raise
             
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
@@ -1740,7 +1742,7 @@ class Comfly_sora2:
                     attempts=int(attempts),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
+                raise Exception(error_message)
             
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -1771,7 +1773,7 @@ class Comfly_sora2:
                 url=safe_public_url(baseurl),
                 model=model,
             )
-            return (EmptyVideoAdapter(), "", json.dumps({"status": "error", "message": error_message}))
+            raise
 
 
 class Comfly_sora2_chat:
@@ -1954,7 +1956,7 @@ class Comfly_sora2_chat:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
 
             full_response = ""
             task_id = None
@@ -2004,7 +2006,7 @@ class Comfly_sora2_chat:
                     response_len=len(full_response or ""),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message, "response": full_response}))
+                raise Exception(error_message)
             
             pbar.update_absolute(40)
 
@@ -2020,7 +2022,7 @@ class Comfly_sora2_chat:
                 try:
                     status_response = requests.get(
                         f"https://asyncdata.net/api/share/{task_id}",
-                        timeout=self.timeout
+                        timeout=min(self.timeout, 30)
                     )
                     
                     if status_response.status_code != 200:
@@ -2046,6 +2048,7 @@ class Comfly_sora2_chat:
                         
                 except Exception as e:
                     print(f"Error checking task status: {str(e)}")
+                    raise
             
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
@@ -2060,7 +2063,7 @@ class Comfly_sora2_chat:
                     attempts=int(attempts),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message, "task_id": task_id}))
+                raise Exception(error_message)
 
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -2103,7 +2106,7 @@ class Comfly_sora2_chat:
                 url=safe_public_url(baseurl),
                 model=model,
             )
-            return (EmptyVideoAdapter(), "", "", json.dumps({"status": "error", "message": error_message}))
+            raise
 
 
 class Comfly_sora2_character:

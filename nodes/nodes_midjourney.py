@@ -1999,8 +1999,7 @@ class Comfly_mj_video(ComflyBaseNode):
                             "status": "error", 
                             "message": error_message
                         })
-                        empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                        return (*empty_adapters, task_id, error_response)
+                        raise Exception(error_message)
 
                     progress = task_result.get("progress", "0%")
                     try:
@@ -2041,8 +2040,7 @@ class Comfly_mj_video(ComflyBaseNode):
                     "task_id": task_id,
                     "response_data": task_result
                 })
-                empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                return (*empty_adapters, task_id, error_response)
+                raise Exception(error_message)
 
             video_adapters = []
             for url in video_urls:

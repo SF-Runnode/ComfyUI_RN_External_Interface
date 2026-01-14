@@ -302,8 +302,7 @@ class Comfly_vidu_img2video:
         if not self.api_key:
             error_response = "API key not provided or not found in config"
             log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
-            empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps({"status": "error", "message": error_response}))
+            raise Exception(error_response)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -314,8 +313,7 @@ class Comfly_vidu_img2video:
                 error_message = "Failed to convert image to base64"
                 rn_pbar.error(error_message)
                 log_error("图像处理失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
 
             payload = {
                 "model": model,
@@ -359,8 +357,7 @@ class Comfly_vidu_img2video:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -368,8 +365,7 @@ class Comfly_vidu_img2video:
                 error_message = f"No task_id in response: {result}"
                 rn_pbar.error(error_message)
                 log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result.get("task_id")
             pbar.update_absolute(40)
@@ -483,8 +479,7 @@ class Comfly_vidu_text2video:
         if not self.api_key:
             error_response = "API key not provided or not found in config"
             log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
-            empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps({"status": "error", "message": error_response}))
+            raise Exception(error_response)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -686,8 +681,7 @@ class Comfly_vidu_ref2video:
         if not self.api_key:
             error_response = "API key not provided or not found in config"
             log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
-            empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps({"status": "error", "message": error_response}))
+            raise Exception(error_response)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -706,8 +700,7 @@ class Comfly_vidu_ref2video:
                 error_message = "No images provided. At least one image is required."
                 rn_pbar.error(error_message)
                 log_error("参数错误", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
 
             payload = {
                 "model": model,
@@ -771,8 +764,7 @@ class Comfly_vidu_ref2video:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -780,8 +772,7 @@ class Comfly_vidu_ref2video:
                 error_message = f"No task_id in response: {result}"
                 rn_pbar.error(error_message)
                 log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result.get("task_id")
             pbar.update_absolute(40)
@@ -922,8 +913,7 @@ class Comfly_vidu_start_end2video:
                 error_message = "Failed to convert start or end image to base64"
                 rn_pbar.error(error_message)
                 log_error("图像处理失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
 
             payload = {
                 "model": model,
@@ -963,8 +953,7 @@ class Comfly_vidu_start_end2video:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -972,8 +961,7 @@ class Comfly_vidu_start_end2video:
                 error_message = f"No task_id in response: {result}"
                 rn_pbar.error(error_message)
                 log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result.get("task_id")
             pbar.update_absolute(40)
@@ -1006,5 +994,4 @@ class Comfly_vidu_start_end2video:
             log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
             traceback.print_exc()
-            empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
+            raise

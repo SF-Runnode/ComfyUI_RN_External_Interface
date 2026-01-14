@@ -59,8 +59,7 @@ class Comfly_suno_description:
                 url=safe_public_url(baseurl),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
+            raise Exception(error_message)
         
         mv_mapping = {
             "v3.0": "chirp-v3.0",
@@ -119,8 +118,7 @@ class Comfly_suno_description:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
+                raise Exception(error_message)
                 
             result = response.json()
            
@@ -135,8 +133,7 @@ class Comfly_suno_description:
                     url=safe_public_url(f"{baseurl}/suno/generate/description-mode"),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
+                raise Exception(error_message)
                 
             task_id = result.get("id")
             
@@ -245,8 +242,7 @@ class Comfly_suno_description:
                 )
                 
                 if not final_clips:
-                    empty_audio = create_audio_object("")
-                    return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
+                    raise Exception(error_message)
                 
             final_title = generated_title if generated_title else title
             for clip in final_clips:
@@ -334,8 +330,7 @@ class Comfly_suno_description:
                 url=safe_public_url(f"{baseurl}/suno/generate/description-mode"),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", "", error_message, "", "", "", "")
+            raise Exception(error_message)
 
 
 class Comfly_suno_lyrics:
@@ -392,7 +387,7 @@ class Comfly_suno_lyrics:
                 url=safe_public_url(baseurl),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return ("", json.dumps({"status": "error", "message": error_message}), "", "")
+            raise Exception(error_message)
             
         try:
             payload = {"prompt": prompt}
@@ -427,7 +422,7 @@ class Comfly_suno_lyrics:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", json.dumps({"status": "error", "message": error_message}), "", "")
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -442,7 +437,7 @@ class Comfly_suno_lyrics:
                     url=safe_public_url(f"{baseurl}/suno/generate/lyrics/"),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", json.dumps({"status": "error", "message": error_message}), "", "")
+                raise Exception(error_message)
                 
             task_id = result.get("id")
 
@@ -500,7 +495,7 @@ class Comfly_suno_lyrics:
                     attempts=int(attempts),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", json.dumps({"status": "error", "message": error_message}), "", "")
+                raise Exception(error_message)
             
             success_response = {
                 "status": "success",
@@ -531,7 +526,7 @@ class Comfly_suno_lyrics:
                 url=safe_public_url(f"{baseurl}/suno/generate/lyrics/"),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return ("", json.dumps({"status": "error", "message": error_message}), "", "")
+            raise Exception(error_message)
 
 
 class Comfly_suno_custom:
@@ -593,9 +588,7 @@ class Comfly_suno_custom:
                 url=safe_public_url(baseurl),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", error_message, 
-                "", "", "", "", "", "")
+            raise Exception(error_message)
         
         mv_mapping = {
             "v3.0": "chirp-v3.0",
@@ -654,9 +647,7 @@ class Comfly_suno_custom:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", error_message, 
-                    "", "", "", "", "", "")
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -671,9 +662,7 @@ class Comfly_suno_custom:
                     url=safe_public_url(f"{baseurl}/suno/generate"),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", error_message, 
-                    "", "", "", "", "", "")
+                raise Exception(error_message)
                 
             task_id = result.get("id")
             
@@ -689,9 +678,7 @@ class Comfly_suno_custom:
                     clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", task_id, error_message, 
-                    "", "", "", "", "", "")
+                raise Exception(error_message)
                 
             clip_ids = [clip["id"] for clip in result["clips"]]
             if len(clip_ids) < 2:
@@ -780,9 +767,7 @@ class Comfly_suno_custom:
                 )
                 
                 if not final_clips:
-                    empty_audio = create_audio_object("")
-                    return (empty_audio, empty_audio, "", "", task_id, error_message, 
-                        "", "", "", "", "", "")
+                    raise Exception(error_message)
             final_title = generated_title if generated_title else title
                     
             audio_urls = []
@@ -863,8 +848,7 @@ class Comfly_suno_custom:
                 url=safe_public_url(f"{baseurl}/suno/generate"),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "", "", "")
+            raise Exception(error_message)
         
 
 class Comfly_suno_upload:
@@ -922,7 +906,7 @@ class Comfly_suno_upload:
                 url=safe_public_url(baseurl),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return ("", "", "", "", error_message)
+            raise Exception(error_message)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -975,7 +959,7 @@ class Comfly_suno_upload:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", "", "", "", error_message)
+                raise Exception(error_message)
                 
             upload_data = response.json()
             upload_id = upload_data["id"]
@@ -1026,7 +1010,7 @@ class Comfly_suno_upload:
                     status_code=int(upload_response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", "", "", "", error_message)
+                raise Exception(error_message)
                 
             pbar.update_absolute(50)
 
@@ -1055,7 +1039,7 @@ class Comfly_suno_upload:
                     status_code=int(finish_response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", "", "", "", error_message)
+                raise Exception(error_message)
                 
             pbar.update_absolute(60)
 
@@ -1168,7 +1152,7 @@ class Comfly_suno_upload:
                             status_code=int(init_response.status_code),
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                        return ("", "", "", "", error_message)
+                        raise Exception(error_message)
                         
                 elif status in ["failed", "error"]:
                     error_message = f"Upload failed with status: {status}"
@@ -1183,7 +1167,7 @@ class Comfly_suno_upload:
                         attempts=int(attempts),
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
-                    return ("", "", "", "", error_message)
+                    raise Exception(error_message)
             
             error_message = "Upload timeout - status check exceeded maximum attempts"
             rn_pbar.error(error_message)
@@ -1196,7 +1180,7 @@ class Comfly_suno_upload:
                 attempts=int(attempts),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return ("", "", "", "", error_message)
+            raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error uploading audio: {str(e)}"
@@ -1207,7 +1191,7 @@ class Comfly_suno_upload:
                 url=safe_public_url(f"{baseurl}/suno/uploads/audio"),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return ("", "", "", "", error_message)
+            raise Exception(error_message)
 
 
 class Comfly_suno_upload_extend:
@@ -1269,8 +1253,7 @@ class Comfly_suno_upload_extend:
                 url=safe_public_url(baseurl),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
+            raise Exception(error_message)
 
         mv_mapping = {
             "v3.0": "chirp-v3.0",
@@ -1335,8 +1318,7 @@ class Comfly_suno_upload_extend:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -1351,8 +1333,7 @@ class Comfly_suno_upload_extend:
                     url=safe_public_url(f"{baseurl}/suno/generate"),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
+                raise Exception(error_message)
                 
             task_id = result.get("id")
             
@@ -1368,8 +1349,7 @@ class Comfly_suno_upload_extend:
                     clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", task_id, error_message, "", "", "")
+                raise Exception(error_message)
                 
             clip_ids = [clip["id"] for clip in result["clips"]]
             
@@ -1443,8 +1423,7 @@ class Comfly_suno_upload_extend:
                 )
                 
                 if not final_clips:
-                    empty_audio = create_audio_object("")
-                    return (empty_audio, empty_audio, "", "", task_id, error_message, "", "", "")
+                    raise Exception(error_message)
 
             audio_urls = []
             clip_id_values = []
@@ -1529,8 +1508,7 @@ class Comfly_suno_upload_extend:
                 url=safe_public_url(f"{baseurl}/suno/generate"),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", error_message, "", "", "")
+            raise Exception(error_message)
 
 
 class Comfly_suno_cover:
@@ -1595,8 +1573,7 @@ class Comfly_suno_cover:
                 url=safe_public_url(baseurl),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
+            raise Exception(error_message)
         mv_mapping = {
             "v3.0": "chirp-v3.0",
             "v3.5": "chirp-v3.5", 
@@ -1667,8 +1644,7 @@ class Comfly_suno_cover:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
+                raise Exception(error_message)
                 
             result = response.json()
             clips = []
@@ -1715,8 +1691,7 @@ class Comfly_suno_cover:
                     stage="unexpected_response_format",
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
+                raise Exception(error_message)
             
             if len(clips) == 0:
                 error_message = f"No clips found in response. Task ID: {task_id}"
@@ -1729,8 +1704,7 @@ class Comfly_suno_cover:
                     task_id=str(task_id),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", task_id, error_message, "", "", "", "")
+                raise Exception(error_message)
             if len(clips) < 2:
                 while len(clips) < 2:
                     clips.append(clips[0] if clips else {})
@@ -1810,8 +1784,7 @@ class Comfly_suno_cover:
                 url=safe_public_url(f"{baseurl}/suno/submit/music"),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty_audio = create_audio_object("")
-            return (empty_audio, empty_audio, "", "", "", error_message, "", "", "", "")
+            raise Exception(error_message)
         
     def wait_for_task_completion(self, task_id, pbar, request_id=None):
         max_attempts = 50
