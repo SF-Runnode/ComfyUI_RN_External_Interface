@@ -1454,6 +1454,11 @@ class Comfly_sora2:
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
                 "image4": ("IMAGE",),
+                "image5": ("IMAGE",),
+                "image6": ("IMAGE",),
+                "image7": ("IMAGE",),
+                "image8": ("IMAGE",),
+                "image9": ("IMAGE",),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
                 "private": ("BOOLEAN", {"default": True})
             }
