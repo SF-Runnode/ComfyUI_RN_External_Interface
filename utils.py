@@ -131,7 +131,78 @@ class ComflyVideoAdapter:
             self.is_url = False
             self.video_path = video_path_or_url
             self.video_url = None
+        self._cached_path = None
+
+    def _ensure_local_file(self):
+        if not self.is_url and self.video_path:
+             return self.video_path
         
+        if self._cached_path and os.path.exists(self._cached_path):
+             return self._cached_path
+             
+        if self.is_url:
+             try:
+                 import folder_paths
+                 temp_dir = os.path.join(folder_paths.get_temp_directory(), "runnode_video_cache")
+                 os.makedirs(temp_dir, exist_ok=True)
+                 ext = self.video_url.split('.')[-1] if '.' in self.video_url else 'mp4'
+                 if len(ext) > 4: ext = 'mp4'
+                 filename = f"cached_{str(uuid.uuid4())[:8]}.{ext}"
+                 temp_path = os.path.join(temp_dir, filename)
+                 
+                 response = requests.get(self.video_url, stream=True)
+                 response.raise_for_status()
+                 with open(temp_path, "wb") as f:
+                     for chunk in response.iter_content(chunk_size=8192):
+                         f.write(chunk)
+                 self._cached_path = temp_path
+                 return temp_path
+             except Exception as e:
+                 print(f"Error downloading video for components: {e}")
+                 return None
+        return None
+
+    def get_components(self):
+        local_path = self._ensure_local_file()
+        if not local_path:
+            return EmptyVideoAdapter().get_components()
+            
+        try:
+            import comfy_api.latest as comfy_io
+            return comfy_io.InputImpl.VideoFromFile(local_path).get_components()
+        except ImportError:
+            # Fallback for when comfy_api is not available (e.g. older ComfyUI)
+            # We try to use load_video from nodes_video if possible or manual
+            print("Warning: comfy_api not found, falling back to basic component extraction")
+            # Minimal fallback
+            cap = cv2.VideoCapture(local_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            if fps <= 0: fps = 30.0
+            
+            # Read all frames (memory intensive but consistent with get_components)
+            frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frames.append(Image.fromarray(frame))
+            cap.release()
+            
+            if not frames:
+                return EmptyVideoAdapter().get_components()
+                
+            images = pil2tensor(frames)
+            
+            # Simple dummy object
+            class ManualVideoComponents:
+                def __init__(self, img, fps):
+                    self.images = img
+                    self.frame_rate = fps
+                    self.audio = None
+            
+            return ManualVideoComponents(images, fps)
+
     def get_dimensions(self):
         if self.is_url:
             return 1280, 720

@@ -2,6 +2,67 @@ from ..comfly_config import *
 from .__init__ import *
 
 
+def vidu_wait_for_task(task_id, rn_pbar, pbar, headers, timeout, request_id=None):
+    max_attempts = 120
+    attempts = 0
+    video_url = None
+    
+    log_backend("vidu_poll_start", request_id=request_id, task_id=task_id)
+
+    while attempts < max_attempts:
+        time.sleep(10)
+        attempts += 1
+        
+        try:
+            log_backend("vidu_poll_check", request_id=request_id, task_id=task_id, attempt=attempts)
+            
+            status_response = requests.get(
+                f"{baseurl}/vidu/v2/tasks/{task_id}/creations",
+                headers=headers,
+                timeout=timeout
+            )
+            
+            if status_response.status_code != 200:
+                msg = f"Status check failed: {status_response.status_code} - {status_response.text}"
+                rn_pbar.error(msg)
+                log_backend_exception(msg, request_id=request_id)
+                continue
+                
+            status_result = status_response.json()
+            state = status_result.get("state", "")
+
+            progress_value = min(90, 40 + (attempts * 50 // max_attempts))
+            pbar.update_absolute(progress_value)
+            
+            if state == "success":
+                creations = status_result.get("creations", [])
+                if creations and len(creations) > 0:
+                    video_url = creations[0].get("url", "")
+                    if video_url:
+                        log_backend("vidu_poll_success", request_id=request_id, video_url=safe_public_url(video_url))
+                        break
+            elif state == "failed":
+                err_code = status_result.get("err_code", "Unknown error")
+                error_message = f"Video generation failed: {err_code}"
+                rn_pbar.error(error_message)
+                log_error("视频生成失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                raise Exception(error_message)
+                
+        except Exception as e:
+            if "Video generation failed" in str(e):
+                raise e
+            rn_pbar.error(f"Error checking generation status (attempt {attempts}): {str(e)}")
+            log_backend_exception(f"Error checking generation status: {str(e)}", request_id=request_id)
+    
+    if not video_url:
+        error_message = f"Failed to retrieve video URL after {max_attempts} attempts"
+        rn_pbar.error(error_message)
+        log_error("视频生成超时", request_id, error_message, "RunNode/Vidu-", "Vidu")
+        raise Exception(error_message)
+        
+    return video_url
+
+
 class Comfly_vidu_img2video:
 
     VOICE_OPTIONS = {
@@ -204,27 +265,45 @@ class Comfly_vidu_img2video:
         base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{base64_str}"
     
+
+
     def generate_video(self, image, model="viduq2-pro", prompt="", api_key="", 
                       audio=False, voice_language="中文(普通话)", voice_id="male-qn-jingying", 
                       is_rec=False, duration=5, seed=0, resolution="720p", 
                       movement_amplitude="auto", bgm=False, off_peak=False, 
                       watermark=False, wm_position=3):
         request_id = generate_request_id("video_gen", "vidu")
-        log_prepare("视频生成", request_id, "RunNode/Vidu-", "Vidu", model_name=model)
+        
+        log_params = {
+            "model_name": model,
+            "duration": duration,
+            "resolution": resolution,
+            "movement_amplitude": movement_amplitude,
+        }
+        if seed != 0: log_params["seed"] = seed
+        if audio:
+            log_params["audio"] = True
+            log_params["voice_language"] = voice_language
+            log_params["voice_id"] = voice_id
+        if is_rec: log_params["is_rec"] = True
+        if bgm: log_params["bgm"] = True
+        if off_peak: log_params["off_peak"] = True
+        if watermark: log_params["watermark"] = True
+        
+        log_prepare("视频生成", request_id, "RunNode/Vidu-", "Vidu", **log_params)
         rn_pbar = ProgressBar(request_id, "Vidu", streaming=True, task_type="视频生成", source="RunNode/Vidu-")
+        rn_pbar.set_generating(0)
         
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            error_response = "API key not provided or not found in config"
+            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
             empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps(error_response))
+            return (empty_video, "", "", json.dumps({"status": "error", "message": error_response}))
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -234,6 +313,7 @@ class Comfly_vidu_img2video:
             if not image_base64:
                 error_message = "Failed to convert image to base64"
                 rn_pbar.error(error_message)
+                log_error("图像处理失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
 
@@ -278,6 +358,7 @@ class Comfly_vidu_img2video:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
@@ -286,60 +367,14 @@ class Comfly_vidu_img2video:
             if "task_id" not in result:
                 error_message = f"No task_id in response: {result}"
                 rn_pbar.error(error_message)
+                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
             task_id = result.get("task_id")
-            
             pbar.update_absolute(40)
 
-            max_attempts = 120
-            attempts = 0
-            video_url = None
-            
-            while attempts < max_attempts:
-                time.sleep(10)
-                attempts += 1
-                
-                try:
-                    status_response = requests.get(
-                        f"{baseurl}/vidu/v2/tasks/{task_id}/creations",
-                        headers=self.get_headers(),
-                        timeout=self.timeout
-                    )
-                    
-                    if status_response.status_code != 200:
-                        rn_pbar.error(f"Status check failed: {status_response.status_code} - {status_response.text}")
-                        continue
-                        
-                    status_result = status_response.json()
-                    
-                    state = status_result.get("state", "")
-
-                    progress_value = min(90, 40 + (attempts * 50 // max_attempts))
-                    pbar.update_absolute(progress_value)
-                    
-                    if state == "success":
-                        creations = status_result.get("creations", [])
-                        if creations and len(creations) > 0:
-                            video_url = creations[0].get("url", "")
-                            if video_url:
-                                break
-                    elif state == "failed":
-                        err_code = status_result.get("err_code", "Unknown error")
-                        error_message = f"Video generation failed: {err_code}"
-                        rn_pbar.error(error_message)
-                        empty_video = ComflyVideoAdapter("")
-                        return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
-                        
-                except Exception as e:
-                    rn_pbar.error(f"Error checking generation status (attempt {attempts}): {str(e)}")
-            
-            if not video_url:
-                error_message = f"Failed to retrieve video URL after {max_attempts} attempts"
-                rn_pbar.error(error_message)
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
+            video_url = vidu_wait_for_task(task_id, rn_pbar, pbar, self.get_headers(), self.timeout, request_id)
             
             pbar.update_absolute(95)
 
@@ -358,12 +393,14 @@ class Comfly_vidu_img2video:
             }
             
             pbar.update_absolute(100)
+            log_complete(request_id, "RunNode/Vidu-", "视频生成", video_url=safe_public_url(video_url))
             rn_pbar.done(char_count=len(json.dumps(response_data)))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
             rn_pbar.error(error_message)
+            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
             traceback.print_exc()
             empty_video = ComflyVideoAdapter("")
@@ -413,26 +450,41 @@ class Comfly_vidu_text2video:
             "Authorization": f"Bearer {self.api_key}"
         }
     
+
+
     def generate_video(self, prompt, model="viduq2", api_key="", style="general",
                       duration=5, seed=0, aspect_ratio="16:9", resolution="720p",
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
         request_id = generate_request_id("video_gen", "vidu")
-        log_prepare("视频生成", request_id, "RunNode/Vidu-", "Vidu", model_name=model)
+        
+        log_params = {
+            "model_name": model,
+            "duration": duration,
+            "resolution": resolution,
+            "aspect_ratio": aspect_ratio,
+            "movement_amplitude": movement_amplitude,
+        }
+        if seed != 0: log_params["seed"] = seed
+        if style != "general": log_params["style"] = style
+        if bgm: log_params["bgm"] = True
+        if off_peak: log_params["off_peak"] = True
+        if watermark: log_params["watermark"] = True
+        
+        log_prepare("视频生成", request_id, "RunNode/Vidu-", "Vidu", **log_params)
         rn_pbar = ProgressBar(request_id, "Vidu", streaming=True, task_type="视频生成", source="RunNode/Vidu-")
+        rn_pbar.set_generating(0)
         
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            error_response = "API key not provided or not found in config"
+            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
             empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps(error_response))
+            return (empty_video, "", "", json.dumps({"status": "error", "message": error_response}))
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -473,6 +525,7 @@ class Comfly_vidu_text2video:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
@@ -481,60 +534,14 @@ class Comfly_vidu_text2video:
             if "task_id" not in result:
                 error_message = f"No task_id in response: {result}"
                 rn_pbar.error(error_message)
+                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
             task_id = result.get("task_id")
-            
             pbar.update_absolute(40)
 
-            max_attempts = 120
-            attempts = 0
-            video_url = None
-            
-            while attempts < max_attempts:
-                time.sleep(10)
-                attempts += 1
-                
-                try:
-                    status_response = requests.get(
-                        f"{baseurl}/vidu/v2/tasks/{task_id}/creations",
-                        headers=self.get_headers(),
-                        timeout=self.timeout
-                    )
-                    
-                    if status_response.status_code != 200:
-                        rn_pbar.error(f"Status check failed: {status_response.status_code} - {status_response.text}")
-                        continue
-                        
-                    status_result = status_response.json()
-                    
-                    state = status_result.get("state", "")
-
-                    progress_value = min(90, 40 + (attempts * 50 // max_attempts))
-                    pbar.update_absolute(progress_value)
-                    
-                    if state == "success":
-                        creations = status_result.get("creations", [])
-                        if creations and len(creations) > 0:
-                            video_url = creations[0].get("url", "")
-                            if video_url:
-                                break
-                    elif state == "failed":
-                        err_code = status_result.get("err_code", "Unknown error")
-                        error_message = f"Video generation failed: {err_code}"
-                        rn_pbar.error(error_message)
-                        empty_video = ComflyVideoAdapter("")
-                        return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
-                        
-                except Exception as e:
-                    rn_pbar.error(f"Error checking generation status (attempt {attempts}): {str(e)}")
-            
-            if not video_url:
-                error_message = f"Failed to retrieve video URL after {max_attempts} attempts"
-                rn_pbar.error(error_message)
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
+            video_url = vidu_wait_for_task(task_id, rn_pbar, pbar, self.get_headers(), self.timeout, request_id)
             
             pbar.update_absolute(95)
 
@@ -552,12 +559,14 @@ class Comfly_vidu_text2video:
             }
             
             pbar.update_absolute(100)
+            log_complete(request_id, "RunNode/Vidu-", "视频生成", video_url=safe_public_url(video_url))
             rn_pbar.done(char_count=len(json.dumps(response_data)))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
             rn_pbar.error(error_message)
+            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
             traceback.print_exc()
             empty_video = ComflyVideoAdapter("")
@@ -638,6 +647,8 @@ class Comfly_vidu_ref2video:
         base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{base64_str}"
     
+
+
     def generate_video(self, prompt, model="viduq2", api_key="",
                       image1=None, image2=None, image3=None, image4=None,
                       image5=None, image6=None, image7=None,
@@ -648,18 +659,35 @@ class Comfly_vidu_ref2video:
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
         
+        request_id = generate_request_id("video_gen", "vidu")
+        
+        log_params = {
+            "model_name": model,
+            "duration": duration,
+            "resolution": resolution,
+            "aspect_ratio": aspect_ratio,
+            "movement_amplitude": movement_amplitude,
+        }
+        if seed != 0: log_params["seed"] = seed
+        if audio: log_params["audio"] = True
+        if bgm: log_params["bgm"] = True
+        if off_peak: log_params["off_peak"] = True
+        if watermark: log_params["watermark"] = True
+        
+        log_prepare("视频生成", request_id, "RunNode/Vidu-", "Vidu", **log_params)
+        rn_pbar = ProgressBar(request_id, "Vidu", streaming=True, task_type="视频生成", source="RunNode/Vidu-")
+        rn_pbar.set_generating(0)
+        
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            error_response = "API key not provided or not found in config"
+            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
             empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps(error_response))
+            return (empty_video, "", "", json.dumps({"status": "error", "message": error_response}))
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -676,7 +704,8 @@ class Comfly_vidu_ref2video:
             
             if not image_base64_list:
                 error_message = "No images provided. At least one image is required."
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("参数错误", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
 
@@ -740,7 +769,8 @@ class Comfly_vidu_ref2video:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
@@ -748,65 +778,18 @@ class Comfly_vidu_ref2video:
             
             if "task_id" not in result:
                 error_message = f"No task_id in response: {result}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
             task_id = result.get("task_id")
-            
             pbar.update_absolute(40)
 
-            max_attempts = 120
-            attempts = 0
-            video_url = None
-            
-            while attempts < max_attempts:
-                time.sleep(10)
-                attempts += 1
-                
-                try:
-                    status_response = requests.get(
-                        f"{baseurl}/vidu/v2/tasks/{task_id}/creations",
-                        headers=self.get_headers(),
-                        timeout=self.timeout
-                    )
-                    
-                    if status_response.status_code != 200:
-                        print(f"Status check failed: {status_response.status_code} - {status_response.text}")
-                        continue
-                        
-                    status_result = status_response.json()
-                    
-                    state = status_result.get("state", "")
-
-                    progress_value = min(90, 40 + (attempts * 50 // max_attempts))
-                    pbar.update_absolute(progress_value)
-                    
-                    if state == "success":
-                        creations = status_result.get("creations", [])
-                        if creations and len(creations) > 0:
-                            video_url = creations[0].get("url", "")
-                            if video_url:
-                                print(f"Video URL found: {video_url}")
-                                break
-                    elif state == "failed":
-                        err_code = status_result.get("err_code", "Unknown error")
-                        error_message = f"Video generation failed: {err_code}"
-                        print(error_message)
-                        empty_video = ComflyVideoAdapter("")
-                        return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
-                        
-                except Exception as e:
-                    print(f"Error checking generation status (attempt {attempts}): {str(e)}")
-            
-            if not video_url:
-                error_message = f"Failed to retrieve video URL after {max_attempts} attempts"
-                print(error_message)
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
+            video_url = vidu_wait_for_task(task_id, rn_pbar, pbar, self.get_headers(), self.timeout, request_id)
             
             pbar.update_absolute(95)
-            print(f"Video generation completed. URL: {video_url}")
+            log_complete(request_id, "RunNode/Vidu-", "视频生成", video_url=safe_public_url(video_url))
 
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -824,11 +807,13 @@ class Comfly_vidu_ref2video:
             }
             
             pbar.update_absolute(100)
+            rn_pbar.done(char_count=len(json.dumps(response_data)))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
             traceback.print_exc()
             empty_video = ComflyVideoAdapter("")
@@ -891,26 +876,40 @@ class Comfly_vidu_start_end2video:
         base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{base64_str}"
     
+
+
     def generate_video(self, start_image, end_image, model="viduq2-pro", prompt="", api_key="",
                       is_rec=False, duration=5, seed=0, resolution="720p",
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
         request_id = generate_request_id("video_gen", "vidu")
-        log_prepare("视频生成", request_id, "RunNode/Vidu-", "Vidu", model_name=model)
+        
+        log_params = {
+            "model_name": model,
+            "duration": duration,
+            "resolution": resolution,
+            "movement_amplitude": movement_amplitude,
+        }
+        if seed != 0: log_params["seed"] = seed
+        if is_rec: log_params["is_rec"] = True
+        if bgm: log_params["bgm"] = True
+        if off_peak: log_params["off_peak"] = True
+        if watermark: log_params["watermark"] = True
+        
+        log_prepare("视频生成", request_id, "RunNode/Vidu-", "Vidu", **log_params)
         rn_pbar = ProgressBar(request_id, "Vidu", streaming=True, task_type="视频生成", source="RunNode/Vidu-")
+        rn_pbar.set_generating(0)
         
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            error_response = "API key not provided or not found in config"
+            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
             empty_video = ComflyVideoAdapter("")
-            return (empty_video, "", "", json.dumps(error_response))
+            return (empty_video, "", "", json.dumps({"status": "error", "message": error_response}))
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -922,6 +921,7 @@ class Comfly_vidu_start_end2video:
             if not start_image_base64 or not end_image_base64:
                 error_message = "Failed to convert start or end image to base64"
                 rn_pbar.error(error_message)
+                log_error("图像处理失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
 
@@ -962,6 +962,7 @@ class Comfly_vidu_start_end2video:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
@@ -970,63 +971,17 @@ class Comfly_vidu_start_end2video:
             if "task_id" not in result:
                 error_message = f"No task_id in response: {result}"
                 rn_pbar.error(error_message)
+                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
                 return (empty_video, "", "", json.dumps({"status": "error", "message": error_message}))
                 
             task_id = result.get("task_id")
-            
             pbar.update_absolute(40)
 
-            max_attempts = 120
-            attempts = 0
-            video_url = None
-            
-            while attempts < max_attempts:
-                time.sleep(10)
-                attempts += 1
-                
-                try:
-                    status_response = requests.get(
-                        f"{baseurl}/vidu/v2/tasks/{task_id}/creations",
-                        headers=self.get_headers(),
-                        timeout=self.timeout
-                    )
-                    
-                    if status_response.status_code != 200:
-                        rn_pbar.error(f"Status check failed: {status_response.status_code} - {status_response.text}")
-                        continue
-                        
-                    status_result = status_response.json()
-                    
-                    state = status_result.get("state", "")
-
-                    progress_value = min(90, 40 + (attempts * 50 // max_attempts))
-                    pbar.update_absolute(progress_value)
-                    
-                    if state == "success":
-                        creations = status_result.get("creations", [])
-                        if creations and len(creations) > 0:
-                            video_url = creations[0].get("url", "")
-                            if video_url:
-                                break
-                    elif state == "failed":
-                        err_code = status_result.get("err_code", "Unknown error")
-                        error_message = f"Video generation failed: {err_code}"
-                        rn_pbar.error(error_message)
-                        empty_video = ComflyVideoAdapter("")
-                        return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
-                        
-                except Exception as e:
-                    rn_pbar.error(f"Error checking generation status (attempt {attempts}): {str(e)}")
-            
-            if not video_url:
-                error_message = f"Failed to retrieve video URL after {max_attempts} attempts"
-                rn_pbar.error(error_message)
-                empty_video = ComflyVideoAdapter("")
-                return (empty_video, "", task_id, json.dumps({"status": "error", "message": error_message}))
+            video_url = vidu_wait_for_task(task_id, rn_pbar, pbar, self.get_headers(), self.timeout, request_id)
             
             pbar.update_absolute(95)
-
+            
             video_adapter = ComflyVideoAdapter(video_url)
             
             response_data = {
@@ -1041,12 +996,14 @@ class Comfly_vidu_start_end2video:
             }
             
             pbar.update_absolute(100)
+            log_complete(request_id, "RunNode/Vidu-", "视频生成", video_url=safe_public_url(video_url))
             rn_pbar.done(char_count=len(json.dumps(response_data)))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
             rn_pbar.error(error_message)
+            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
             traceback.print_exc()
             empty_video = ComflyVideoAdapter("")

@@ -348,7 +348,10 @@ class Comfly_Googel_Veo3:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"code": "error", "message": "API key not found in Comflyapi.json"}
+            error_msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_msg)
+            log_error("配置缺失", request_id, error_msg, "RunNode/Google-", "Google")
+            error_response = {"code": "error", "message": error_msg}
             return ("", "", json.dumps(error_response))
             
         try:
@@ -386,6 +389,7 @@ class Comfly_Googel_Veo3:
                 if images_base64:
                     payload["images"] = images_base64
 
+            log_backend("google_submit_start", request_id=request_id)
             response = requests.post(
                 f"{baseurl}/google/v1/models/veo/videos",
                 headers=self.get_headers(),
@@ -396,6 +400,7 @@ class Comfly_Googel_Veo3:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_error("API提交失败", request_id, error_message, "RunNode/Google-", "Google")
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
                 
             result = response.json()
@@ -403,22 +408,32 @@ class Comfly_Googel_Veo3:
             if result.get("code") != "success":
                 error_message = f"API returned error: {result.get('message', 'Unknown error')}"
                 rn_pbar.error(error_message)
+                log_error("API提交异常", request_id, error_message, "RunNode/Google-", "Google")
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
                 
             task_id = result.get("data")
             if not task_id:
                 error_message = "No task ID returned from API"
                 rn_pbar.error(error_message)
+                log_error("任务ID缺失", request_id, error_message, "RunNode/Google-", "Google")
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
             
             pbar.update_absolute(30)
+            log_backend("google_poll_start", request_id=request_id, task_id=task_id)
 
-            max_attempts = 60  
+            max_attempts = 300 # 300 * 2s = 600s
             attempts = 0
             video_url = None
+            start_time = time.time()
+            last_log_time = start_time
             
             while attempts < max_attempts:
-                time.sleep(10)
+                current_time = time.time()
+                if current_time - last_log_time >= 15:
+                    log_backend("google_poll_heartbeat", request_id=request_id, attempts=attempts, elapsed=int(current_time - start_time))
+                    last_log_time = current_time
+                
+                time.sleep(2)
                 attempts += 1
                 
                 try:
@@ -457,14 +472,17 @@ class Comfly_Googel_Veo3:
                         fail_reason = data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
+                        log_error("生成失败", request_id, fail_reason, "RunNode/Google-", "Google")
                         return ("", "", json.dumps({"code": "error", "message": error_message}))
                         
                 except Exception as e:
+                    log_backend_exception(f"Error checking generation status: {str(e)}", request_id=request_id)
                     rn_pbar.error(f"Error checking generation status: {str(e)}")
             
             if not video_url:
                 error_message = "Failed to retrieve video URL after multiple attempts"
                 rn_pbar.error(error_message)
+                log_error("生成超时", request_id, error_message, "RunNode/Google-", "Google")
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
             
             if video_url:
@@ -482,6 +500,11 @@ class Comfly_Googel_Veo3:
                     "images_count": len([img for img in [image1, image2, image3] if img is not None])
                 }
                 
+                safe_url = safe_public_url(video_url)
+                log_complete(request_id, "RunNode/Google-", "Google", 
+                            video_url=safe_url,
+                            task_id=task_id)
+
                 video_adapter = ComflyVideoAdapter(video_url)
                 rn_pbar.done(char_count=len(json.dumps(response_data)))
                 return (video_adapter, video_url, json.dumps(response_data))

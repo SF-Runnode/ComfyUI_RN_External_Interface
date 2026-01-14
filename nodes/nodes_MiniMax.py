@@ -55,8 +55,20 @@ class Comfly_MiniMax_video:
                prompt_optimizer=True, fast_pretreatment=False, first_frame_image=None, last_frame_image=None,
                subject_reference=None, api_key="", seed=0):
         request_id = generate_request_id("video_gen", "minimax")
-        log_prepare("视频生成", request_id, "RunNode/MiniMax-", "MiniMax", model_name=model)
+        
+        log_params = {
+            "model_name": model,
+            "duration": duration,
+            "resolution": resolution,
+            "prompt_optimizer": prompt_optimizer,
+        }
+        if seed != 0: log_params["seed"] = seed
+        if fast_pretreatment: log_params["fast_pretreatment"] = True
+        
+        log_prepare("视频生成", request_id, "RunNode/MiniMax-", "MiniMax", **log_params)
         rn_pbar = ProgressBar(request_id, "MiniMax", streaming=True, task_type="视频生成", source="RunNode/MiniMax-")
+        rn_pbar.set_generating(0)
+        
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -66,7 +78,9 @@ class Comfly_MiniMax_video:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            error_message = "API key not provided or not found in config"
+            log_error("配置错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
+            error_response = {"status": "error", "message": error_message}
             return (None, "", json.dumps(error_response))
             
         try:
@@ -83,6 +97,8 @@ class Comfly_MiniMax_video:
 
             if seed > 0:
                 payload["seed"] = seed
+                
+            log_backend("minimax_start", request_id=request_id, model=model)
 
             if model == "MiniMax-Hailuo-02":
                 payload["fast_pretreatment"] = fast_pretreatment
@@ -131,6 +147,7 @@ class Comfly_MiniMax_video:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
                 return (None, "", json.dumps({"status": "error", "message": error_message}))
                 
             result = response.json()
@@ -138,12 +155,14 @@ class Comfly_MiniMax_video:
             if "base_resp" not in result or result["base_resp"]["status_code"] != 0:
                 error_message = f"API returned error: {result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
                 rn_pbar.error(error_message)
+                log_error("API返回错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
                 return (None, "", json.dumps({"status": "error", "message": error_message}))
                 
             task_id = result.get("task_id")
             if not task_id:
                 error_message = "No task ID returned from API"
                 rn_pbar.error(error_message)
+                log_error("缺失TaskID", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
                 return (None, "", json.dumps({"status": "error", "message": error_message}))
             
             pbar.update_absolute(40)
@@ -154,11 +173,15 @@ class Comfly_MiniMax_video:
             file_id = None
             video_url = None
             
+            log_backend("minimax_poll_start", request_id=request_id, task_id=task_id)
+
             while attempts < max_attempts:
                 time.sleep(10)  
                 attempts += 1
                 
                 try:
+                    log_backend("minimax_poll_check", request_id=request_id, task_id=task_id, attempt=attempts)
+                    
                     status_response = requests.get(
                         f"{self.query_endpoint}?task_id={task_id}",
                         headers=self.get_headers(),
@@ -166,13 +189,17 @@ class Comfly_MiniMax_video:
                     )
                     
                     if status_response.status_code != 200:
-                        rn_pbar.error(f"Error checking status: {status_response.status_code} - {status_response.text}")
+                        msg = f"Error checking status: {status_response.status_code} - {status_response.text}"
+                        rn_pbar.error(msg)
+                        log_backend_exception(msg, request_id=request_id)
                         continue
                         
                     status_result = status_response.json()
                     
                     if "base_resp" not in status_result or status_result["base_resp"]["status_code"] != 0:
-                        rn_pbar.error(f"Error in status response: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}")
+                        msg = f"Error in status response: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
+                        rn_pbar.error(msg)
+                        log_backend_exception(msg, request_id=request_id)
                         continue
                     
                     status = status_result.get("status", "")
@@ -194,24 +221,32 @@ class Comfly_MiniMax_video:
                                 file_data = file_response.json()
                                 if "file" in file_data and "download_url" in file_data["file"]:
                                     video_url = file_data["file"]["download_url"]
-                                    break
                                 else:
                                     video_url = f"{baseurl}/minimax/v1/file?file_id={file_id}"
-                                    break
                             else:
                                 video_url = f"{baseurl}/minimax/v1/file?file_id={file_id}"
-                                break
+                                
+                            log_backend("minimax_poll_success", request_id=request_id, video_url=safe_public_url(video_url))
+                            break
+                        else:
+                            # Success but no file_id? weird.
+                            log_backend("minimax_poll_success_no_fileid", request_id=request_id)
+                            break
+                            
                     elif status == "Failed":
                         error_message = f"Video generation failed: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
                         rn_pbar.error(error_message)
+                        log_error("视频生成失败", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
                         return (None, task_id, json.dumps({"status": "error", "message": error_message}))
                     
                 except Exception as e:
                     rn_pbar.error(f"Error checking generation status: {str(e)}")
+                    log_backend_exception(f"Error checking generation status: {str(e)}", request_id=request_id)
             
-            if not file_id:
+            if not file_id and not video_url:
                 error_message = "Failed to retrieve file_id after multiple attempts"
                 rn_pbar.error(error_message)
+                log_error("视频生成超时", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
                 return (None, task_id, json.dumps({"status": "error", "message": error_message}))
                 
             if not video_url:
@@ -226,18 +261,18 @@ class Comfly_MiniMax_video:
                 "status": "success",
                 "task_id": task_id,
                 "file_id": file_id,
-                "video_url": video_url,
+                "video_url": safe_public_url(video_url),
                 "width": status_result.get("video_width", 0),
                 "height": status_result.get("video_height", 0)
             }
             
             pbar.update_absolute(100)
+            log_complete("视频生成完成", request_id, "RunNode/MiniMax-", "MiniMax", video_url=safe_public_url(video_url))
             rn_pbar.done(char_count=len(json.dumps(response_data)))
             return (video_adapter, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
             rn_pbar.error(error_message)
-            import traceback
-            traceback.print_exc()
+            log_error("未捕获异常", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
             return (None, "", json.dumps({"status": "error", "message": error_message}))

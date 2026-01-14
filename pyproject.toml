@@ -1,0 +1,9 @@
+[project]
+name = "comfyui-rn-external-interface"
+description = "RunNode external interface nodes for ComfyUI"
+version = "1.17.5"
+
+[tool.comfy]
+PublisherId = "SF-Runnode"
+DisplayName = "RunNode External Interface"
+Icon = ""

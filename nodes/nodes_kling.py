@@ -115,8 +115,10 @@ class Comfly_kling_text2video:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
-            rn_pbar.error("API key not found in Comflyapi.json")
+            error_msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_msg)
+            log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
+            error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
             
         camera_json = {}
@@ -143,7 +145,9 @@ class Comfly_kling_text2video:
             payload["mode"] = mode
 
         try:
-            pbar = comfy.utils.ProgressBar(100)  
+            pbar = comfy.utils.ProgressBar(100)
+            log_backend("kling_submit_start", request_id=request_id)
+            
             response = requests.post(
                 f"{baseurl}/kling/v1/videos/text2video",
                 headers=self.get_headers(),
@@ -153,53 +157,35 @@ class Comfly_kling_text2video:
             response.raise_for_status()
             result = response.json()
             if result["code"] != 0:
-                error_response = {"task_status": "failed", "task_status_msg": f"API Error: {result['message']}"}
-                rn_pbar.error(f"API Error: {result['message']}")
+                error_msg = f"API Error: {result['message']}"
+                rn_pbar.error(error_msg)
+                log_error("API提交失败", request_id, error_msg, "RunNode/Kling-", "Kling")
+                error_response = {"task_status": "failed", "task_status_msg": error_msg}
                 return ("", "", "", "", json.dumps(error_response))
             
             task_id = result["data"]["task_id"]
-            pbar.update_absolute(5)  
+            pbar.update_absolute(5)
             
-            last_status = {}
-            while True:
-                time.sleep(2)
-                status_response = requests.get(
-                    f"{baseurl}/kling/v1/videos/text2video/{task_id}",
-                    headers=self.get_headers()
-                )
-                status_response.raise_for_status()
-                status_result = status_response.json()
-                last_status = status_result["data"]
-                
-                progress = status_result["data"].get("progress", 0)
-                pbar.update_absolute(progress)
-                
-                if status_result["data"]["task_status"] == "succeed":
-                    pbar.update_absolute(100) 
-                    video_url = status_result["data"]["task_result"]["videos"][0]["url"]
-                    video_id = status_result["data"]["task_result"]["videos"][0]["id"]
+            video_url, video_id, last_data = kling_wait_for_task("text2video", task_id, self.get_headers(), rn_pbar, pbar, request_id)
+            
+            response_data = {
+                "task_status": "succeed",
+                "task_status_msg": "Video generated successfully",
+                "progress": 100,
+                "video_url": video_url  
+            }
+            
+            rn_pbar.done(char_count=len(video_url))
+            video_adapter = ComflyVideoAdapter(video_url)
+            return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
 
-                    response_data = {
-                        "task_status": "succeed",
-                        "task_status_msg": "Video generated successfully",
-                        "progress": 100,
-                        "video_url": video_url  
-                    }
-                    
-                    video_adapter = ComflyVideoAdapter(video_url)
-                    return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
-                
-                elif status_result["data"]["task_status"] == "failed":
-                    error_msg = status_result["data"].get("task_status_msg", "Unknown error")
-                    error_response = {
-                        "task_status": "failed", 
-                        "task_status_msg": error_msg,
-                    }
-                    rn_pbar.error(f"Task failed: {error_msg}")
-                    return ("", "", task_id, "", json.dumps(error_response))
         except Exception as e:
-            error_response = {"task_status": "failed", "task_status_msg": f"Error generating video: {str(e)}"}
-            rn_pbar.error(f"Error generating video: {str(e)}")
+            error_msg = f"Error generating video: {str(e)}"
+            if "Task failed" not in str(e): # Already logged in wait_for_task
+                 rn_pbar.error(error_msg)
+                 log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
+                 
+            error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
 
 
@@ -278,6 +264,10 @@ class Comfly_kling_image2video:
 
     def generate_video(self, image, prompt, model_name, imagination, aspect_ratio, mode, duration, 
                   num_videos, negative_prompt="", camera="none", camera_value=0, seed=0, image_tail=None, api_key=""):
+        request_id = generate_request_id("video_gen_img", "kling")
+        log_prepare("图生视频", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
+        rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="图生视频", source="RunNode/Kling-")
+
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -287,7 +277,10 @@ class Comfly_kling_image2video:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
+            error_msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_msg)
+            log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
+            error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
 
         has_tail_image = image_tail is not None
@@ -297,13 +290,15 @@ class Comfly_kling_image2video:
             tail_compatible = self.check_tail_image_compatibility(model_name, check_mode, duration)
             if not tail_compatible:
                 warning_message = f"Warning: model/mode/duration({model_name}/{mode if model_name != 'kling-v2-master' else 'N/A'}/{duration}) does not support using both image and image_tail."
-                print(warning_message)
+                log_backend("kling_warning", request_id=request_id, message=warning_message)
 
                 if model_name == "kling-v1-5" or model_name == "kling-v1-6":
                     if mode == "std":
                         suggestion = "\nSuggestion: Try switching to 'pro' mode which supports tail images."
                         warning_message += suggestion
                 
+                rn_pbar.error(warning_message)
+                log_error("参数不兼容", request_id, warning_message, "RunNode/Kling-", "Kling")
                 error_response = {
                     "task_status": "failed", 
                     "task_status_msg": warning_message
@@ -350,15 +345,7 @@ class Comfly_kling_image2video:
             if model_name != "kling-v2-master":
                 payload["mode"] = mode
 
-            print(f"Sending request with parameters: model={model_name}, duration={duration}, aspect_ratio={aspect_ratio}")
-            if model_name != "kling-v2-master":
-                print(f"Mode: {mode}")
-            else:
-                print("Note: kling-v2-master model doesn't use mode parameter")
-                
-            print(f"Image base64 length: {len(image_base64)}")
-            if has_tail_image:
-                print(f"Image tail base64 length: {len(image_tail_base64)}")
+            log_backend("kling_submit_start", request_id=request_id, model=model_name, duration=duration)
             
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(5)  
@@ -369,67 +356,44 @@ class Comfly_kling_image2video:
                 timeout=self.timeout
             )
 
-            print(f"Response status: {response.status_code}")
             if response.status_code != 200:
                 error_message = f"Error: {response.status_code} {response.reason} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Kling-", "Kling")
                 error_response = {"task_status": "failed", "task_status_msg": error_message}
                 return ("", "", "", "", json.dumps(error_response))
             
             result = response.json()
             if result["code"] != 0:
-                error_response = {"task_status": "failed", "task_status_msg": f"API Error: {result['message']}"}
+                error_msg = f"API Error: {result['message']}"
+                rn_pbar.error(error_msg)
+                log_error("API提交失败", request_id, error_msg, "RunNode/Kling-", "Kling")
+                error_response = {"task_status": "failed", "task_status_msg": error_msg}
                 return ("", "", "", "", json.dumps(error_response))
                 
             task_id = result["data"]["task_id"]
             pbar.update_absolute(10) 
             
-            last_status = {}
-            while True:
-                time.sleep(2)
-                status_response = requests.get(
-                    f"{baseurl}/kling/v1/videos/image2video/{task_id}",
-                    headers=self.get_headers(),
-                    timeout=self.timeout
-                )
-                status_response.raise_for_status()
-                status_result = status_response.json()
-                last_status = status_result["data"]
+            video_url, video_id, last_data = kling_wait_for_task("image2video", task_id, self.get_headers(), rn_pbar, pbar, request_id)
+            
+            response_data = {
+                "task_status": "succeed",
+                "task_status_msg": "Video generated successfully",
+                "progress": 100,
+                "video_url": video_url
+            }
+            
+            rn_pbar.done(char_count=len(video_url))
+            video_adapter = ComflyVideoAdapter(video_url)
+            return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
 
-                progress = 0
-                if status_result["data"]["task_status"] == "processing":
-                    progress = status_result["data"].get("progress", 50)
-                elif status_result["data"]["task_status"] == "succeed":
-                    progress = 100
-                
-                pbar.update_absolute(progress)
-                
-                if status_result["data"]["task_status"] == "succeed":
-                    pbar.update_absolute(100) 
-                    video_url = status_result["data"]["task_result"]["videos"][0]["url"]
-                    video_id = status_result["data"]["task_result"]["videos"][0]["id"]
-                    
-                    response_data = {
-                        "task_status": "succeed",
-                        "task_status_msg": "Video generated successfully",
-                        "progress": 100,
-                        "video_url": video_url
-                    }
-                    
-                    video_adapter = ComflyVideoAdapter(video_url)
-                    return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
-                
-                elif status_result["data"]["task_status"] == "failed":
-                    error_msg = status_result["data"].get("task_status_msg", "Unknown error")
-                    error_response = {
-                        "task_status": "failed", 
-                        "task_status_msg": error_msg,
-                    }
-                    print(f"Task failed: {error_msg}")
-                    return ("", "", task_id, "", json.dumps(error_response))
         except Exception as e:
-            error_response = {"task_status": "failed", "task_status_msg": f"Error generating video: {str(e)}"}
-            print(f"Error generating video: {str(e)}")
+            error_msg = f"Error generating video: {str(e)}"
+            if "Task failed" not in str(e):
+                 rn_pbar.error(error_msg)
+                 log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
+                 
+            error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
 
     def get_camera_json(self, camera, camera_value=0):
@@ -510,12 +474,13 @@ class Comfly_kling_multi_image2video:
             pil_image.save(buffered, format="PNG")
             return base64.b64encode(buffered.getvalue()).decode('utf-8')
         except Exception as e:
-            print(f"Error converting image to base64: {str(e)}")
+            # print(f"Error converting image to base64: {str(e)}")
             return None
     
     def make_request_with_retry(self, method, url, **kwargs):
         max_retries = kwargs.pop('max_retries', 10)
         initial_timeout = kwargs.pop('initial_timeout', self.timeout)
+        request_id = kwargs.pop('request_id', None)
         
         for attempt in range(1, max_retries + 1):
             current_timeout = min(initial_timeout * (2 ** (attempt - 1)), 900)  
@@ -533,7 +498,9 @@ class Comfly_kling_multi_image2video:
             except requests.exceptions.Timeout as e:
                 if attempt == max_retries:
                     raise
-                wait_time = min(2 ** (attempt - 1), 60)  
+                wait_time = min(2 ** (attempt - 1), 60)
+                if request_id:
+                     log_backend("retry_wait", request_id=request_id, reason="timeout", wait_time=wait_time, attempt=attempt)
                 time.sleep(wait_time)
             
             except requests.exceptions.ConnectionError as e:
@@ -544,7 +511,7 @@ class Comfly_kling_multi_image2video:
             
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code in (400, 401, 403):
-                    print(f"Client error: {str(e)}")
+                    # print(f"Client error: {str(e)}")
                     raise
                 if attempt == max_retries:
                     raise
@@ -556,62 +523,6 @@ class Comfly_kling_multi_image2video:
                     raise
                 wait_time = min(2 ** (attempt - 1), 60)
                 time.sleep(wait_time)
-    
-    def poll_task_status(self, task_id, max_attempts=100, initial_interval=2, max_interval=60, headers=None, pbar=None):
-        attempt = 0
-        interval = initial_interval
-        last_status = None
-        
-        while attempt < max_attempts:
-            attempt += 1
-            
-            try:
-                status_response = self.make_request_with_retry(
-                    'get',
-                    f"{baseurl}/kling/v1/videos/multi-image2video/{task_id}",
-                    headers=headers
-                )
-                
-                status_result = status_response.json()
-                
-                if status_result["code"] != 0:
-                    print(f"API returned error code: {status_result['code']} - {status_result['message']}")
-                    if status_result["code"] in (400, 401, 403): 
-                        return {"task_status": "failed", "task_status_msg": status_result["message"]}
-                    time.sleep(interval)
-                    interval = min(interval * 1.5, max_interval)
-                    continue
-                
-                last_status = status_result["data"]
-
-                if pbar:
-                    progress = 0
-                    if last_status["task_status"] == "processing":
-                        progress = 50
-                    elif last_status["task_status"] == "succeed":
-                        progress = 100
-                    pbar.update_absolute(progress)
-
-                if last_status["task_status"] == "succeed":
-                    return last_status
-                elif last_status["task_status"] == "failed":
-                    return last_status
-
-                if last_status["task_status"] == "processing":
-                    interval = min(interval * 1.2, max_interval) 
-                else:
-                    interval = max(interval * 0.8, initial_interval)  
-                    
-                time.sleep(interval)
-                
-            except Exception as e:
-                time.sleep(interval)
-                interval = min(interval * 2, max_interval)
-
-        if last_status:
-            return last_status
-        else:
-            return {"task_status": "failed", "task_status_msg": "Maximum polling attempts reached without getting a valid status"}
     
     def generate_video(self, prompt, model_name, mode, duration, aspect_ratio, negative_prompt="", 
                  image1=None, image2=None, image3=None, image4=None, api_key="", 
@@ -628,8 +539,10 @@ class Comfly_kling_multi_image2video:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
-            rn_pbar.error("API key not found in Comflyapi.json")
+            error_msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_msg)
+            log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
+            error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
             
         pbar = comfy.utils.ProgressBar(100)
@@ -644,7 +557,10 @@ class Comfly_kling_multi_image2video:
                         image_list.append({"image": base64_str})
                     
             if not image_list:
-                error_response = {"task_status": "failed", "task_status_msg": "No valid images provided"}
+                error_msg = "No valid images provided"
+                rn_pbar.error(error_msg)
+                log_error("输入缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
+                error_response = {"task_status": "failed", "task_status_msg": error_msg}
                 return ("", "", "", "", json.dumps(error_response))
 
             payload = {
@@ -663,6 +579,7 @@ class Comfly_kling_multi_image2video:
             headers = self.get_headers()
             pbar.update_absolute(30)
             
+            log_backend("kling_submit_start", request_id=request_id, image_count=len(image_list))
             
             response = self.make_request_with_retry(
                 'post',
@@ -670,7 +587,8 @@ class Comfly_kling_multi_image2video:
                 headers=headers,
                 json=payload,
                 max_retries=max_retries,
-                initial_timeout=initial_timeout
+                initial_timeout=initial_timeout,
+                request_id=request_id
             )
             
             result = response.json()
@@ -678,59 +596,35 @@ class Comfly_kling_multi_image2video:
             if result["code"] != 0:
                 error_message = f"API Error: {result['message']}"
                 rn_pbar.error(error_message)
+                log_error("API提交失败", request_id, error_message, "RunNode/Kling-", "Kling")
                 error_response = {"task_status": "failed", "task_status_msg": error_message}
                 return ("", "", "", "", json.dumps(error_response))
                 
             task_id = result["data"]["task_id"]
             pbar.update_absolute(40)
-            last_status = self.poll_task_status(
-                task_id, 
-                max_attempts=100,
-                initial_interval=2, 
-                max_interval=60,
-                headers=headers,
-                pbar=pbar
-            )
             
-            if last_status["task_status"] == "succeed":
-                pbar.update_absolute(100)
-                video_url = last_status["task_result"]["videos"][0]["url"]
-                video_id = last_status["task_result"]["videos"][0]["id"]
-                
-                response_data = {
-                    "task_status": "succeed",
-                    "task_status_msg": "Video generated successfully",
-                    "progress": 100,
-                    "video_url": video_url
-                }
-                
-                video_adapter = ComflyVideoAdapter(video_url)
-                rn_pbar.done(char_count=len(json.dumps(response_data)))
-                return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
+            video_url, video_id, last_data = kling_wait_for_task("multi-image2video", task_id, headers, rn_pbar, pbar, request_id)
             
-            elif last_status["task_status"] == "failed":
-                error_msg = last_status.get("task_status_msg", "Unknown error")
-                error_response = {
-                    "task_status": "failed", 
-                    "task_status_msg": error_msg,
-                }
-                rn_pbar.error(f"Task failed: {error_msg}")
-                return ("", "", task_id, "", json.dumps(error_response))
+            response_data = {
+                "task_status": "succeed",
+                "task_status_msg": "Video generated successfully",
+                "progress": 100,
+                "video_url": video_url
+            }
             
-            else:
-                error_msg = f"Unexpected task status: {last_status.get('task_status', 'unknown')}"
-                error_response = {
-                    "task_status": "failed", 
-                    "task_status_msg": error_msg,
-                }
-                rn_pbar.error(f"Task error: {error_msg}")
-                return ("", "", task_id, "", json.dumps(error_response))
+            rn_pbar.done(char_count=len(video_url))
+            video_adapter = ComflyVideoAdapter(video_url)
+            return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
         
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            error_response = {"task_status": "failed", "task_status_msg": f"Error generating video: {str(e)}"}
-            rn_pbar.error(f"Error generating video: {str(e)}")
+            # import traceback
+            # traceback.print_exc()
+            error_msg = f"Error generating video: {str(e)}"
+            if "Task failed" not in str(e):
+                 rn_pbar.error(error_msg)
+                 log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
+                 
+            error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
 
 

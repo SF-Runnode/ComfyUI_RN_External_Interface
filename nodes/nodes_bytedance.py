@@ -315,6 +315,7 @@ class Comfly_Doubao_Seedream_4:
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Doubao")
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
@@ -367,6 +368,8 @@ class Comfly_Doubao_Seedream_4:
             if image_urls:
                 payload["image"] = image_urls
             
+            log_backend("doubao_submit_start", request_id=request_id)
+            
             response = requests.post(
                 f"{baseurl}/v1/images/generations",
                 headers=self.get_headers(),
@@ -379,6 +382,7 @@ class Comfly_Doubao_Seedream_4:
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
+                log_error("API提交失败", request_id, error_message, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -390,6 +394,7 @@ class Comfly_Doubao_Seedream_4:
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
+                log_error("响应异常", request_id, error_message, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -416,6 +421,7 @@ class Comfly_Doubao_Seedream_4:
                         generated_images.append(tensor_image)
                     except Exception as e:
                         rn_pbar.error(f"下载图片失败: {str(e)}")
+                        log_backend_exception(f"下载图片失败: {str(e)}", request_id=request_id)
                 else:
                     b64_data = item.get("b64_json")
                     if not b64_data:
@@ -431,6 +437,7 @@ class Comfly_Doubao_Seedream_4:
             if not generated_images:
                 error_message = "Failed to process any images"
                 rn_pbar.error(error_message)
+                log_error("生成异常", request_id, error_message, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -460,11 +467,14 @@ class Comfly_Doubao_Seedream_4:
             pbar.update_absolute(100)
             rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
             first_image_url = image_urls[0] if image_urls else ""
+            log_complete("Doubao任务完成", request_id, "RunNode/Doubao-", "Doubao", 
+                       image_count=len(generated_images), first_url=safe_public_url(first_image_url))
             return (combined_tensor, json.dumps(response_info, indent=2), first_image_url)
                 
         except Exception as e:
             error_message = f"Error generating image: {str(e)}"
             rn_pbar.error(error_message)
+            log_error("生成失败", request_id, error_message, "RunNode/Doubao-", "Doubao")
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
