@@ -288,6 +288,152 @@ class ComflyGeminiAPI:
             return (default_tensor, error_message, "")
 
 
+class ComflyGeminiTextOnly:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+                "model": (["gemini-2.5-pro"], {"default": "gemini-2.5-pro"}),
+            },
+            "optional": {
+                "image": ("IMAGE",),
+                "video": ("VIDEO",),
+                "api_key": ("STRING", {"default": ""}),
+                "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "max_tokens": ("INT", {"default": 4096, "min": 1, "max": 8192}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("response",)
+    FUNCTION = "generate_text"
+    CATEGORY = "RunNode/Google"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 120
+
+    def get_headers(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def tensor_to_base64(self, tensor):
+        if tensor is None:
+            return None
+        if tensor.dtype != torch.uint8:
+            tensor = (tensor * 255).clamp(0, 255).byte()
+        tensor = tensor.cpu()
+        if tensor.shape[-1] == 3:
+            img = Image.fromarray(tensor.numpy(), 'RGB')
+        else:
+            img = Image.fromarray(tensor.numpy(), 'RGBA')
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    def generate_text(self, prompt, model, temperature, top_p, max_tokens, seed, image=None, video=None, api_key=""):
+        request_id = generate_request_id("chat", "google")
+        log_prepare("图文对话", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图文对话", source="RunNode/Google-")
+        _rn_start = time.perf_counter()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        if not self.api_key:
+            error_message = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
+            return (error_message,)
+
+        try:
+            content = [{"type": "text", "text": prompt}]
+
+            if video is not None:
+                video_url = getattr(video, 'video_url', None)
+                if video_url:
+                    content.append({
+                        "type": "video_url",
+                        "video_url": {"url": video_url}
+                    })
+            elif image is not None:
+                if len(image.shape) == 4:
+                    image = image[0]
+                img_b64 = self.tensor_to_base64(image)
+                if img_b64:
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{img_b64}"}
+                    })
+
+            messages = [{"role": "user", "content": content}]
+
+            payload = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_tokens": max_tokens,
+                "seed": seed if seed > 0 else None
+            }
+
+            rn_pbar.set_generating()
+
+            api_url = f"{baseurl}/v1/chat/completions"
+            log_backend(
+                "google_gemini_chat_start",
+                request_id=request_id,
+                url=safe_public_url(api_url),
+                model=model,
+                prompt_len=len(prompt or ""),
+                temperature=float(temperature),
+                top_p=float(top_p),
+                max_tokens=int(max_tokens),
+                seed=int(seed) if seed else 0,
+                has_image=bool(image is not None),
+                has_video=bool(video is not None),
+            )
+
+            response = requests.post(
+                api_url,
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            text = result["choices"][0]["message"]["content"]
+
+            log_backend(
+                "google_gemini_chat_done",
+                request_id=request_id,
+                url=safe_public_url(api_url),
+                model=model,
+                response_len=len(text or ""),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(text))
+            return (text,)
+
+        except Exception as e:
+            error_message = f"Error calling Gemini API: {str(e)}"
+            rn_pbar.error(error_message)
+            log_backend_exception(
+                "google_gemini_chat_exception",
+                request_id=request_id,
+                url=safe_public_url(f"{baseurl}/v1/chat/completions"),
+                model=model,
+            )
+            return (error_message,)
+
+
 class Comfly_Googel_Veo3:
     @classmethod
     def INPUT_TYPES(cls):
@@ -341,6 +487,7 @@ class Comfly_Googel_Veo3:
         request_id = generate_request_id("video_gen", "google")
         log_prepare("视频生成", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="视频生成", source="RunNode/Google-")
+        _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -355,7 +502,9 @@ class Comfly_Googel_Veo3:
             log_error("配置缺失", request_id, error_msg, "RunNode/Google-", "Google")
             error_response = {"code": "error", "message": error_msg}
             return ("", "", json.dumps(error_response))
-            
+
+        rn_pbar.set_generating()
+
         try:
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
@@ -371,10 +520,16 @@ class Comfly_Googel_Veo3:
             if seed > 0:
                 payload["seed"] = seed
 
-            if model in ["veo3", "veo3-fast", "veo3-pro", "veo3.1", "veo3.1-pro"] and aspect_ratio:
+            supported_models = [
+                "veo3", "veo3-fast", "veo3-pro", 
+                "veo3.1", "veo3.1-pro", "veo3.1-components", 
+                "veo3.1-4k", "veo3.1-pro-4k", "veo3.1-components-4k"
+            ]
+            
+            if model in supported_models and aspect_ratio:
                 payload["aspect_ratio"] = aspect_ratio
 
-            if model in ["veo3", "veo3-fast", "veo3-pro", "veo3.1", "veo3.1-pro"] and enable_upsample:
+            if model in supported_models and enable_upsample:
                 payload["enable_upsample"] = enable_upsample
 
             if has_images:
@@ -387,33 +542,47 @@ class Comfly_Googel_Veo3:
                             image_base64 = self.image_to_base64(single_image)
                             if image_base64:
                                 images_base64.append(f"data:image/png;base64,{image_base64}")
-                
+
                 if images_base64:
                     payload["images"] = images_base64
 
-            log_backend("google_submit_start", request_id=request_id)
+            api_url = f"{baseurl}/v2/videos/generations"
+            log_backend(
+                "google_submit_start",
+                request_id=request_id,
+                url=safe_public_url(api_url),
+                model=model,
+                has_images=bool(has_images),
+                seed=int(seed) if seed else 0,
+                enhance_prompt=bool(enhance_prompt),
+                aspect_ratio=aspect_ratio,
+                enable_upsample=bool(enable_upsample),
+            )
             response = requests.post(
-                f"{baseurl}/google/v1/models/veo/videos",
+                api_url,
                 headers=self.get_headers(),
                 json=payload,
                 timeout=self.timeout
             )
-            
+
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
                 log_error("API提交失败", request_id, error_message, "RunNode/Google-", "Google")
+                log_backend(
+                    "google_submit_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    url=safe_public_url(api_url),
+                    model=model,
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 return ("", "", json.dumps({"code": "error", "message": error_message}))
                 
             result = response.json()
-            
-            if result.get("code") != "success":
-                error_message = f"API returned error: {result.get('message', 'Unknown error')}"
-                rn_pbar.error(error_message)
-                log_error("API提交异常", request_id, error_message, "RunNode/Google-", "Google")
-                return ("", "", json.dumps({"code": "error", "message": error_message}))
                 
-            task_id = result.get("data")
+            task_id = result.get("task_id")
             if not task_id:
                 error_message = "No task ID returned from API"
                 rn_pbar.error(error_message)
@@ -440,80 +609,98 @@ class Comfly_Googel_Veo3:
                 
                 try:
                     status_response = requests.get(
-                        f"{baseurl}/google/v1/tasks/{task_id}",
+                        f"{baseurl}/v2/videos/generations/{task_id}",
                         headers=self.get_headers(),
                         timeout=self.timeout
                     )
                     
                     if status_response.status_code != 200:
+                        print(f"[Comfly_Googel_Veo3] Status check failed with code: {status_response.status_code}")
                         continue
                         
                     status_result = status_response.json()
-                    
-                    if status_result.get("code") != "success":
-                        continue
-                    
-                    data = status_result.get("data", {})
-                    status = data.get("status", "")
-                    progress = data.get("progress", "0%")
-                    
+
+                    status = status_result.get("status", "")
+                    progress = status_result.get("progress", "0%")
+
                     try:
-                        if progress.endswith('%'):
+                        if progress and progress.endswith('%'):
                             progress_num = int(progress.rstrip('%'))
                             pbar_value = min(90, 30 + progress_num * 60 / 100)
                             pbar.update_absolute(pbar_value)
                     except (ValueError, AttributeError):
                         progress_value = min(80, 30 + (attempts * 50 // max_attempts))
                         pbar.update_absolute(progress_value)
-                    
+
                     if status == "SUCCESS":
-                        if "data" in data and "video_url" in data["data"]:
-                            video_url = data["data"]["video_url"]
+                        data = status_result.get("data", {})
+                        if "output" in data:
+                            video_url = data["output"]
+                            log_backend(
+                                "google_poll_success",
+                                request_id=request_id,
+                                video_url=safe_public_url(video_url),
+                            )
                             break
                     elif status == "FAILURE":
-                        fail_reason = data.get("fail_reason", "Unknown error")
+                        fail_reason = status_result.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
                         log_error("生成失败", request_id, fail_reason, "RunNode/Google-", "Google")
                         raise Exception(error_message)
-                        
+
                 except Exception as e:
-                    log_backend_exception(f"Error checking generation status: {str(e)}", request_id=request_id)
-                    rn_pbar.error(f"Error checking generation status: {str(e)}")
+                    msg = f"Error checking generation status: {str(e)}"
+                    rn_pbar.error(msg)
+                    log_backend_exception("google_poll_exception", request_id=request_id, error=msg)
             
             if not video_url:
                 error_message = "Failed to retrieve video URL after multiple attempts"
                 rn_pbar.error(error_message)
                 log_error("生成超时", request_id, error_message, "RunNode/Google-", "Google")
+                log_backend(
+                    "google_poll_timeout",
+                    level="ERROR",
+                    request_id=request_id,
+                    task_id=task_id,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
-            
-            if video_url:
-                pbar.update_absolute(95)
-                
-                response_data = {
-                    "code": "success",
-                    "task_id": task_id,
-                    "prompt": prompt,
-                    "model": model,
-                    "enhance_prompt": enhance_prompt,
-                    "aspect_ratio": aspect_ratio if model in ["veo3", "veo3-fast", "veo3-pro"] else "default",
-                    "enable_upsample": enable_upsample if model in ["veo3", "veo3-fast", "veo3-pro"] else False,
-                    "video_url": video_url,
-                    "images_count": len([img for img in [image1, image2, image3] if img is not None])
-                }
-                
-                safe_url = safe_public_url(video_url)
-                log_complete(request_id, "RunNode/Google-", "Google", 
-                            video_url=safe_url,
-                            task_id=task_id)
 
-                video_adapter = ComflyVideoAdapter(video_url)
-                rn_pbar.done(char_count=len(json.dumps(response_data)))
-                return (video_adapter, video_url, json.dumps(response_data))
-            
+            pbar.update_absolute(95)
+
+            response_data = {
+                "code": "success",
+                "task_id": task_id,
+                "prompt": prompt,
+                "model": model,
+                "enhance_prompt": enhance_prompt,
+                "aspect_ratio": aspect_ratio if model in supported_models else "default",
+                "enable_upsample": enable_upsample if model in supported_models else False,
+                "video_url": video_url,
+                "images_count": len([img for img in [image1, image2, image3] if img is not None])
+            }
+            pbar.update_absolute(100)
+
+            response_text = json.dumps(response_data)
+            elapsed_ms = int((time.perf_counter() - _rn_start) * 1000)
+            rn_pbar.done(char_count=len(response_text))
+            log_complete(
+                "视频生成",
+                request_id,
+                "Google",
+                char_count=len(response_text),
+                elapsed_ms=elapsed_ms,
+                source="RunNode/Google-",
+            )
+
+            video_adapter = ComflyVideoAdapter(video_url)
+            return (video_adapter, video_url, response_text)
+
         except Exception as e:
             error_message = f"Error generating video: {str(e)}"
             rn_pbar.error(error_message)
+            log_backend_exception("google_veo3_generate_exception", request_id=request_id, error=error_message)
             raise
 
 
@@ -2182,6 +2369,7 @@ class Comfly_banana2_edit_S2A_group:
             "images": images,
         }
         return (json.dumps(group, ensure_ascii=False),)
+
 
 class _ComflyBanana2ImageBatchRunner:
     def __init__(self):

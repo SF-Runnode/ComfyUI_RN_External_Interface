@@ -2194,18 +2194,18 @@ class Comfly_sora2_character:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "video_url": ("STRING", {"multiline": False}),
                 "timestamps": ("STRING", {"default": "1,3", "multiline": False}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
             "optional": {
+                "url": ("STRING", {"default": "", "multiline": False}),
+                "from_task": ("STRING", {"default": "", "multiline": False}),
                 "api_key": ("STRING", {"default": ""}),
-                # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
     RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("character_id", "username", "permalink", "profile_picture_url", "response")
+    RETURN_NAMES = ("id", "username", "permalink", "profile_picture_url", "response")
     FUNCTION = "create_character"
     CATEGORY = "RunNode/OpenAI"
 
@@ -2219,22 +2219,27 @@ class Comfly_sora2_character:
             "Authorization": f"Bearer {self.api_key}"
         }
     
-    def create_character(self, video_url, timestamps="1,3", seed=0, api_key=""):
+    def create_character(self, timestamps="1,3", seed=0, url="", from_task="", api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
             return ("", "", "", "", json.dumps(error_response))
+        
+        if url.strip() and from_task.strip():
+            error_response = {"status": "error", "message": "Parameters 'url' and 'from_task' are mutually exclusive. Please provide only one."}
+            return ("", "", "", "", json.dumps(error_response))
+
+        if not url.strip() and not from_task.strip():
+            error_response = {"status": "error", "message": "Either 'url' or 'from_task' parameter is required. Please provide one."}
+            return ("", "", "", "", json.dumps(error_response))
             
         try:
             if not timestamps or "," not in timestamps:
-                error_message = "Timestamps must be in format 'start,end' (e.g. '1,3')"
+                error_message = "Invaild timestamps format. Expected formats: 'start,end' (e.g. '1,3')"
                 print(error_message)
                 return ("", "", "", "", json.dumps({"status": "error", "message": error_message}))
             
@@ -2261,14 +2266,19 @@ class Comfly_sora2_character:
             pbar.update_absolute(10)
             
             payload = {
-                "url": video_url,
                 "timestamps": timestamps
             }
-            
-            if seed > 0:
-                payload["seed"] = seed
+
+            if url.strip():
+                payload["url"] = url.strip()
+                print(f"Creating character from video URL: {url}")
+            elif from_task.strip():
+                payload["from_task"] = from_task.strip()
+                print(f"Creating character from task ID: {from_task}")
                 
             pbar.update_absolute(30)
+
+            print(f"Sending character creation request with payload: {json.dumps(payload)}")
             
             response = requests.post(
                 f"{baseurl}/sora/v1/characters",
@@ -2302,17 +2312,26 @@ class Comfly_sora2_character:
             
             response_data = {
                 "status": "success",
-                "character_id": character_id,
+                "id": character_id,
                 "username": username,
                 "permalink": permalink,
                 "profile_picture_url": profile_picture_url,
-                "video_url": video_url,
                 "timestamps": timestamps,
                 "duration": f"{duration:.1f}s",
-                "seed": seed if seed > 0 else "auto"
             }
             
-            print(f"Character created successfully. ID: {character_id}, Username: {username}")
+            if url.strip():
+                response_data["source"] = "url"
+                response_data["url"] = url
+            else:
+                response_data["source"] = "from_task"
+                response_data["from_task"] = from_task
+            
+            print(f"Character created successfully!")
+            print(f"Character ID: {character_id}")
+            print(f"Character username: {username}")
+            print(f"Usage: Use @{username} in your prompt to reference this character")
+            print(f"Example: @{username} dancing on stage")
             
             return (character_id, username, permalink, profile_picture_url, json.dumps(response_data))
             
