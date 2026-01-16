@@ -407,7 +407,7 @@ class Comfly_Mj(ComflyBaseNode):
                 "api_key": ("STRING", {"default": "", "tooltip": "可选。用于 Authorization Bearer；填写后会写入本插件配置并覆盖默认 key。"}),  
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "ar": ("STRING", {"default": "1:1", "tooltip": "画幅比例参数：--ar，例如 1:1、16:9、2:3。"}),
-                "model_version": (["v 7", "v 6.1", "v 6.0", "v 5.2", "v 5.1", "niji 6", "niji 5", "niji 4"], {"default": "v 6.1", "tooltip": "模型版本。会追加到 prompt：--v 6.1 / --niji 6 等。"}),
+                "model_version": (["v 7", "v 6.1", "v 6.0", "v 5.2", "v 5.1", "niji 7", "niji 6", "niji 5", "niji 4"], {"default": "v 7", "tooltip": "模型版本。会追加到 prompt：--v 6.1 / --niji 6 等。"}),
                 "no": ("STRING", {"default": "", "forceInput": True, "tooltip": "排除内容：--no，例如 '--no text' 中的 text。"}),
                 "c": ("INT", {"default": 0, "min": 0, "max": 100, "forceInput": True, "tooltip": "混沌度：--c，范围 0-100。越高越随机。"}),
                 "s": ("INT", {"default": 0, "min": 0, "max": 1000, "forceInput": True, "tooltip": "风格化强度：--s，范围 0-1000。"}),

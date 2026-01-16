@@ -13,7 +13,7 @@ class Comfly_api_set:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "api_base": (["RunNode", "ip", "hk", "us"], {"default": "RunNode"}),
+                "api_base": (["RunNode", "ip"], {"default": "RunNode"}),
                 "apikey": ("STRING", {"default": ""}),
             },
             "optional": {
@@ -32,9 +32,7 @@ class Comfly_api_set:
         global baseurl
         base_url_mapping = {
             "RunNode": baseurl,
-            "ip": custom_ip,
-            "hk": "https://hk-api.gptbest.vip",
-            "us": "https://api.gptbest.vip"
+            "ip": custom_ip
         }
         if api_base == "ip" and not custom_ip.strip():
             raise ValueError("When selecting 'ip' option, you must provide a custom IP address in the 'custom_ip' field")

@@ -11,6 +11,7 @@ from .nodes.nodes_qwen import *
 from .nodes.nodes_MiniMax import *
 from .nodes.nodes_kling import *
 from .nodes.nodes_ollama import *
+from .nodes.nodes_xai import *
 
 
 WEB_DIRECTORY = "./web"
@@ -54,6 +55,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_Flux_Kontext": Comfly_Flux_Kontext,
     "RunNode_Flux_Kontext_Edit": Comfly_Flux_Kontext_Edit,
     "RunNode_Flux_Kontext_bfl": Comfly_Flux_Kontext_bfl,
+    # "RunNode_Flux_2_Max": Comfly_Flux_2_Max,
     "RunNode_Flux_2_Pro": Comfly_Flux_2_Pro,
     "RunNode_Flux_2_Flex": Comfly_Flux_2_Flex,
     "RunNode_Googel_Veo3": Comfly_Googel_Veo3,
@@ -94,6 +96,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_Z_image_turbo": Comfly_Z_image_turbo,
     # "RunNode_wan2_6_API": Comfly_wan2_6_API,
     "RunNode_LLm_API": Comfly_LLm_API,
+    # "RunNode_Grok3VideoApi": ComflyGrok3VideoApi,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -133,6 +136,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_Flux_Kontext": "RunNode Flux Kontext",
     "RunNode_Flux_Kontext_Edit": "RunNode Flux Kontext Edit",
     "RunNode_Flux_Kontext_bfl": "RunNode Flux Kontext bfl",
+    # "RunNode_Flux_2_Max": "RunNode Flux 2 Max",
     "RunNode_Flux_2_Pro": "RunNode Flux 2 Pro",
     "RunNode_Flux_2_Flex": "RunNode Flux 2 Flex",
     "RunNode_Googel_Veo3": "RunNode Google Veo3",
@@ -171,8 +175,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_banana2_edit_S2A_run_16": "RunNode banana2_edit S2A Run 16",
     "RunNode_banana2_edit_S2A_run_32": "RunNode banana2_edit S2A Run 32",
     "RunNode_Z_image_turbo": "RunNode Z Image Turbo",
-    # "RunNode_wan2_6_API": "RunNode wan2.6 API",
+    # "RunNode_wan2_6_API": "RunNode wan2.6 video",
     "RunNode_LLm_API": "RunNode LLM API",
+    # "RunNode_Grok3VideoApi": "RunNode Grok3 Video",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

@@ -8,7 +8,10 @@ class Comfly_MiniMax_video:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "描述视频内容的提示词"}),
-                "model": (["MiniMax-Hailuo-02", "T2V-01", "T2V-01-Director", "I2V-01-Director", "I2V-01-live", "I2V-01", "S2V-01"], {"default": "MiniMax-Hailuo-02", "tooltip": "使用的模型版本"}),
+                "model": (["MiniMax-Hailuo-02", "T2V-01", "T2V-01-Director", "I2V-01-Director", 
+                            "I2V-01-live", "I2V-01", "S2V-01", "MiniMax-Hailuo-2.3-Fast",
+                            "MiniMax-Hailuo-2.3"], 
+                            {"default": "MiniMax-Hailuo-02", "tooltip": "使用的模型版本"}),
                 "duration": (["6", "10"], {"default": "6", "tooltip": "生成视频的时长（秒）"}),
                 "resolution": (["720P","768P", "1080P"], {"default": "768P", "tooltip": "视频分辨率"}),
             },
