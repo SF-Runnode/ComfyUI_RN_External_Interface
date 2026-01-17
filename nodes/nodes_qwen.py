@@ -867,7 +867,7 @@ class Comfly_wan2_6_API:
     RETURN_TYPES = (IO.VIDEO, "STRING", "STRING")
     RETURN_NAMES = ("video", "video_url", "task_id")
     FUNCTION = "generate_video"
-    CATEGORY = "zhenzhen/wanx"
+    CATEGORY = "RunNode/wanx"
 
     def convert_image_to_base64(self, image_tensor):
         """Convert image tensor to base64 data URL - exactly as wan.py"""
@@ -893,7 +893,7 @@ class Comfly_wan2_6_API:
 
             # Get original image info
             original_size = image.size
-            print(f"[Zhenzhen_WanVideo INFO] Original image size: {original_size[0]}x{original_size[1]}")
+            print(f"[RunNode_WanVideo INFO] Original image size: {original_size[0]}x{original_size[1]}")
             
             # Optimize image size to reduce Base64 length
             max_dimension = 1536
@@ -903,7 +903,7 @@ class Comfly_wan2_6_API:
                 ratio = max_dimension / max(original_size)
                 new_size = (int(original_size[0] * ratio), int(original_size[1] * ratio))
                 image = image.resize(new_size, Image.Resampling.LANCZOS)
-                print(f"[Zhenzhen_WanVideo INFO] Resized image to: {new_size[0]}x{new_size[1]}")
+                print(f"[RunNode_WanVideo INFO] Resized image to: {new_size[0]}x{new_size[1]}")
 
             # Try JPEG format with quality optimization
             formats_to_try = [
@@ -942,29 +942,29 @@ class Comfly_wan2_6_API:
                         
                         # Calculate base64 size in MB
                         base64_size_mb = len(image_base64) / (1024 * 1024)
-                        print(f"[Zhenzhen_WanVideo INFO] {format_name} format: {base64_size_mb:.2f}MB base64")
+                        print(f"[RunNode_WanVideo INFO] {format_name} format: {base64_size_mb:.2f}MB base64")
                         
                         # If JPEG is small enough, use it
                         if format_name == 'JPEG' and base64_size_mb < 2.0:
                             break
                             
                 except Exception as format_error:
-                    print(f"[Zhenzhen_WanVideo WARNING] Failed to save as {format_name}: {format_error}")
+                    print(f"[RunNode_WanVideo WARNING] Failed to save as {format_name}: {format_error}")
                     continue
             
             if best_result:
                 final_size_mb = len(best_result.split(',')[1]) / (1024 * 1024)
-                print(f"[Zhenzhen_WanVideo INFO] Final base64 size: {final_size_mb:.2f}MB")
+                print(f"[RunNode_WanVideo INFO] Final base64 size: {final_size_mb:.2f}MB")
                 
                 if final_size_mb > 3.0:
-                    print(f"[Zhenzhen_WanVideo WARNING] Base64 data is large ({final_size_mb:.2f}MB), may cause API issues")
+                    print(f"[RunNode_WanVideo WARNING] Base64 data is large ({final_size_mb:.2f}MB), may cause API issues")
                 
                 return best_result
             else:
                 raise Exception("Failed to encode image in any supported format")
                 
         except Exception as e:
-            print(f"[Zhenzhen_WanVideo ERROR] Image base64 conversion error: {str(e)}")
+            print(f"[RunNode_WanVideo ERROR] Image base64 conversion error: {str(e)}")
             return None
 
     def generate_video(self, prompt, api_key, resolution, duration, image=None, audio_url="", prompt_extend=True, shot_type="multi", audio_enabled=True):
@@ -973,11 +973,20 @@ class Comfly_wan2_6_API:
         rn_pbar = ProgressBar(request_id, "WanX", streaming=True, task_type="视频生成", source="RunNode/Qwen-")
         rn_pbar.set_generating(0)
         _rn_start = time.perf_counter()
+        log_backend(
+            "qwen_wan_video_start",
+            request_id=request_id,
+            model="wan2.6-i2v",
+            prompt_len=len(prompt or ""),
+            resolution=resolution,
+            duration=int(duration),
+            has_image=bool(image is not None),
+            has_audio=bool(audio_url and audio_url.strip()),
+            audio_enabled=bool(audio_enabled),
+            shot_type=shot_type,
+        )
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
@@ -996,60 +1005,17 @@ class Comfly_wan2_6_API:
         try:
             # Validate prompt
             if not prompt or prompt.strip() == "":
-                error_msg = "Prompt cannot be empty"
-                rn_pbar.error(error_msg)
-                log_backend(
-                    "qwen_wan_video_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    stage="empty_prompt",
-                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                )
-                raise Exception(error_msg)
+                raise ValueError("Prompt cannot be empty")
             
             if len(prompt) > 1500:
-                error_msg = f"Prompt too long ({len(prompt)} chars). Max 1500 characters"
-                rn_pbar.error(error_msg)
-                log_backend(
-                    "qwen_wan_video_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    stage="prompt_too_long",
-                    prompt_len=int(len(prompt)),
-                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                )
-                raise Exception(error_msg)
+                raise ValueError(f"Prompt too long ({len(prompt)} chars). Max 1500 characters")
             
             # Convert image to base64 (exactly as wan.py)
             image_url = None
             if image is not None:
-                log_backend(
-                    "qwen_wan_video_image_encode_start",
-                    request_id=request_id,
-                )
                 image_url = self.convert_image_to_base64(image)
                 if not image_url:
-                    error_msg = "Failed to convert image to base64"
-                    rn_pbar.error(error_msg)
-                    log_backend(
-                        "qwen_wan_video_failed",
-                        level="ERROR",
-                        request_id=request_id,
-                        stage="image_encode_failed",
-                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                    )
-                    raise Exception(error_msg)
-                base64_len = None
-                try:
-                    if isinstance(image_url, str) and "," in image_url:
-                        base64_len = len(image_url.split(",", 1)[1])
-                except Exception:
-                    base64_len = None
-                log_backend(
-                    "qwen_wan_video_image_encode_done",
-                    request_id=request_id,
-                    base64_len=base64_len,
-                )
+                    raise ValueError("Failed to convert image to base64")
                 print(f"[Zhenzhen_Wan26_I2V INFO] Image converted to base64 successfully")
             
             # Prepare request body (exactly matching wan.py structure)
@@ -1081,25 +1047,7 @@ class Comfly_wan2_6_API:
                 request_body["parameters"]["audio"] = audio_enabled
             
             # Submit task (exactly as wan.py)
-            cfg = get_config()
-            base_url = cfg.get('base_url', '').strip() or "https://dashscope.aliyuncs.com"
-            url_primary = f"{base_url}/api/v1/services/aigc/video-generation/video-synthesis"
-            url_fallback = "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
-
-            log_backend(
-                "qwen_wan_video_start",
-                request_id=request_id,
-                url=safe_public_url(url_primary),
-                model="wan2.6-i2v",
-                prompt_len=len(prompt or ""),
-                resolution=str(resolution),
-                duration=int(duration) if isinstance(duration, int) else duration,
-                prompt_extend=bool(prompt_extend),
-                shot_type=str(shot_type),
-                has_image=bool(image is not None),
-                has_audio_url=bool(isinstance(audio_url, str) and audio_url.strip()),
-                audio_enabled=bool(audio_enabled),
-            )
+            url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
             
             headers = {
                 'Authorization': f'Bearer {self.api_key}',
@@ -1117,71 +1065,32 @@ class Comfly_wan2_6_API:
                         truncated = base64_part[0] + "," + base64_part[1][:50] + f"...[{len(base64_part[1])} chars]"
                         log_body["input"]["img_url"] = truncated
             
-            print(f"[Zhenzhen_WanVideo INFO] Request body: {json.dumps(log_body, indent=2, ensure_ascii=False)}")
-            print(f"[Zhenzhen_WanVideo INFO] Sending request to: {url_primary}")
+            print(f"[RunNode_WanVideo INFO] Request body: {json.dumps(log_body, indent=2, ensure_ascii=False)}")
+            print(f"[RunNode_WanVideo INFO] Sending request to: {url}")
             
-            response = None
-            try:
-                log_backend(
-                    "qwen_wan_video_submit_start",
-                    request_id=request_id,
-                    url=safe_public_url(url_primary),
-                )
-                response = requests.post(url_primary, headers=headers, json=request_body, timeout=60)
-            except Exception as e:
-                print(f"[Zhenzhen_WanVideo WARNING] Primary request error: {str(e)}")
-                log_backend_exception(
-                    "qwen_wan_video_submit_primary_failed",
-                    request_id=request_id,
-                    url=safe_public_url(url_primary),
-                )
-                response = None
+            response = requests.post(url, headers=headers, json=request_body, timeout=60)
             
-            if (response is None or response.status_code != 200) and (base_url.rstrip('/') != "https://dashscope.aliyuncs.com"):
-                print(f"[Zhenzhen_WanVideo INFO] Fallback to DashScope: {url_fallback}")
-                try:
-                    log_backend(
-                        "qwen_wan_video_submit_fallback_start",
-                        request_id=request_id,
-                        url=safe_public_url(url_fallback),
-                    )
-                    response = requests.post(url_fallback, headers=headers, json=request_body, timeout=60)
-                except Exception as e:
-                    print(f"[Zhenzhen_WanVideo ERROR] Fallback request error: {str(e)}")
-                    log_backend_exception(
-                        "qwen_wan_video_submit_fallback_failed",
-                        request_id=request_id,
-                        url=safe_public_url(url_fallback),
-                    )
-                    response = None
-            
-            if response is not None and response.status_code == 200:
+            if response.status_code == 200:
                 result = response.json()
                 task_id = result.get('output', {}).get('task_id')
                 if task_id:
-                    print(f"[Zhenzhen_WanVideo INFO] Task created. Task ID: {task_id}")
-                    log_backend(
-                        "qwen_wan_video_submit_done",
-                        request_id=request_id,
-                        url=safe_public_url(url_primary),
-                        task_id=str(task_id),
-                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                    )
+                    print(f"[RunNode_WanVideo INFO] Task created. Task ID: {task_id}")
                     
                     # Poll for result
-                    video_url = self.poll_task_status(task_id, request_id=request_id)
+                    video_url = self.poll_task_status(task_id, rn_pbar=rn_pbar)
                     
                     if video_url:
-                        print(f"[Zhenzhen_WanVideo INFO] Downloading video from: {video_url}")
-                        video_adapter = ComflyVideoAdapter(video_url)
+                        print(f"[RunNode_WanVideo INFO] Downloading video from: {video_url}")
                         log_backend(
                             "qwen_wan_video_done",
                             request_id=request_id,
-                            url=safe_public_url(video_url),
-                            task_id=str(task_id),
+                            model="wan2.6-i2v",
+                            task_id=task_id,
+                            video_url=safe_public_url(video_url),
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                        rn_pbar.done(char_count=len(video_url or ""), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                        rn_pbar.done(char_count=len(video_url))
+                        video_adapter = ComflyVideoAdapter(video_url)
                         return (video_adapter, video_url, task_id)
                     else:
                         error_msg = "Failed to generate video"
@@ -1191,29 +1100,34 @@ class Comfly_wan2_6_API:
                             "qwen_wan_video_failed",
                             level="ERROR",
                             request_id=request_id,
-                            stage="poll_no_video_url",
-                            task_id=str(task_id),
+                            model="wan2.6-i2v",
+                            task_id=task_id,
+                            stage="pending_or_failed",
+                            error=error_msg,
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                        raise Exception(error_msg)
+                        return (EmptyVideoAdapter(), error_msg, task_id)
                 else:
-                    print(f"[Zhenzhen_WanVideo ERROR] No task ID: {result}")
-                    rn_pbar.error("No task ID in response")
+                    print(f"[RunNode_WanVideo ERROR] No task ID: {result}")
+                    error_msg = "No task ID in response"
+                    rn_pbar.error(error_msg)
                     log_backend(
                         "qwen_wan_video_failed",
                         level="ERROR",
                         request_id=request_id,
-                        stage="missing_task_id",
+                        model="wan2.6-i2v",
+                        stage="no_task_id",
+                        error=error_msg,
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
-                    raise Exception("No task ID in response")
+                    return (EmptyVideoAdapter(), "No task ID in response", "")
             else:
                 # Error handling
-                status_code = response.status_code if response is not None else -1
+                status_code = response.status_code
                 error_message = "Unknown error"
                 
                 try:
-                    if response is not None and response.text:
+                    if response.text:
                         response_json = response.json()
                         if isinstance(response_json, dict):
                             if 'message' in response_json:
@@ -1228,165 +1142,85 @@ class Comfly_wan2_6_API:
                             if len(error_message) > 200:
                                 error_message = error_message[:200] + "..."
                 except:
-                    error_message = response.text[:200] if (response is not None and response.text) else "No details"
+                    error_message = response.text[:200] if response.text else "No details"
                 
-                print(f"[Zhenzhen_WanVideo ERROR] API error ({status_code}): {error_message}")
-                rn_pbar.error(f"API error: {status_code} - {error_message}")
+                print(f"[RunNode_WanVideo ERROR] API error ({status_code}): {error_message}")
+                rn_pbar.error(error_message)
                 log_backend(
                     "qwen_wan_video_failed",
                     level="ERROR",
                     request_id=request_id,
-                    stage="http_error",
+                    model="wan2.6-i2v",
+                    stage="api_http_error",
                     status_code=int(status_code),
+                    error=error_message,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                raise Exception(f"API error: {status_code} - {error_message}")
+                return (EmptyVideoAdapter(), f"API error: {status_code} - {error_message}", "")
                 
         except Exception as e:
-            print(f"[Zhenzhen_WanVideo ERROR] Video generation error: {str(e)}")
-            rn_pbar.error(str(e))
+            print(f"[RunNode_WanVideo ERROR] Video generation error: {str(e)}")
+            error_msg = str(e)
+            rn_pbar.error(error_msg)
             log_backend_exception(
                 "qwen_wan_video_exception",
                 request_id=request_id,
+                model="wan2.6-i2v",
             )
-            raise
+            return (EmptyVideoAdapter(), error_msg, "")
 
-    def poll_task_status(self, task_id, request_id: str = None):
+    def poll_task_status(self, task_id, rn_pbar=None):
         """Poll task status (exactly as wan.py)"""
-        cfg = get_config()
-        base_url = cfg.get('base_url', '').strip() or "https://dashscope.aliyuncs.com"
-        query_url_primary = f"{base_url}/api/v1/tasks/{task_id}"
-        query_url_fallback = f"https://dashscope.aliyuncs.com/api/v1/tasks/{task_id}"
+        query_url = f"https://dashscope.aliyuncs.com/api/v1/tasks/{task_id}"
         headers = {'Authorization': f'Bearer {self.api_key}'}
         
         max_poll_time = 300
         poll_interval = 10
         start_time = time.time()
-
-        log_backend(
-            "qwen_wan_video_poll_start",
-            request_id=request_id,
-            url=safe_public_url(query_url_primary),
-            task_id=str(task_id),
-        )
-
-        last_status = None
-        last_progress_log_sec = 0
         
         while time.time() - start_time < max_poll_time:
             try:
-                print(f"[Zhenzhen_WanVideo INFO] Querying task: {query_url_primary}")
-                response = None
-                try:
-                    response = requests.get(query_url_primary, headers=headers, timeout=30)
-                except Exception as e:
-                    print(f"[Zhenzhen_WanVideo WARNING] Primary query error: {str(e)}")
-                    response = None
+                print(f"[RunNode_WanVideo INFO] Querying task: {query_url}")
+                response = requests.get(query_url, headers=headers, timeout=30)
                 
-                if (response is None or response.status_code != 200) and (base_url.rstrip('/') != "https://dashscope.aliyuncs.com"):
-                    print(f"[Zhenzhen_WanVideo INFO] Fallback querying task: {query_url_fallback}")
-                    try:
-                        response = requests.get(query_url_fallback, headers=headers, timeout=30)
-                    except Exception as e:
-                        print(f"[Zhenzhen_WanVideo ERROR] Fallback query error: {str(e)}")
-                        response = None
-                
-                if response is not None and response.status_code == 200:
+                if response.status_code == 200:
                     result = response.json()
                     task_status = result.get('output', {}).get('task_status')
-
-                    if task_status and task_status != last_status:
-                        last_status = task_status
-                        log_backend(
-                            "qwen_wan_video_poll_status",
-                            request_id=request_id,
-                            task_id=str(task_id),
-                            status=str(task_status),
-                        )
                     
                     if task_status == 'SUCCEEDED':
                         video_url = result.get('output', {}).get('video_url')
                         if video_url:
-                            print(f"[Zhenzhen_WanVideo INFO] Video ready: {video_url}")
-                            log_backend(
-                                "qwen_wan_video_poll_done",
-                                request_id=request_id,
-                                url=safe_public_url(video_url),
-                                task_id=str(task_id),
-                            )
+                            print(f"[RunNode_WanVideo INFO] Video ready: {video_url}")
+                            if rn_pbar is not None:
+                                rn_pbar.set_generating(100)
                             return video_url
                         else:
-                            print(f"[Zhenzhen_WanVideo ERROR] No video URL: {result}")
-                            log_backend(
-                                "qwen_wan_video_poll_failed",
-                                level="ERROR",
-                                request_id=request_id,
-                                task_id=str(task_id),
-                                stage="missing_video_url",
-                            )
+                            print(f"[RunNode_WanVideo ERROR] No video URL: {result}")
                             return None
                     elif task_status == 'FAILED':
                         error_msg = result.get('output', {}).get('message', 'Unknown error')
-                        print(f"[Zhenzhen_WanVideo ERROR] Task failed: {error_msg}")
-                        log_backend(
-                            "qwen_wan_video_poll_failed",
-                            level="ERROR",
-                            request_id=request_id,
-                            task_id=str(task_id),
-                            stage="task_failed",
-                        )
+                        print(f"[RunNode_WanVideo ERROR] Task failed: {error_msg}")
                         return None
                     elif task_status in ['PENDING', 'RUNNING']:
                         elapsed = time.time() - start_time
                         remaining = max_poll_time - elapsed
-                        print(f"[Zhenzhen_WanVideo INFO] Status: {task_status} ({elapsed:.1f}s elapsed, {remaining:.1f}s remaining)")
-                        try:
-                            now_sec = int(elapsed)
-                            if now_sec - last_progress_log_sec >= 30:
-                                last_progress_log_sec = now_sec
-                                log_backend(
-                                    "qwen_wan_video_poll_progress",
-                                    request_id=request_id,
-                                    task_id=str(task_id),
-                                    status=str(task_status),
-                                    elapsed_sec=int(now_sec),
-                                )
-                        except Exception:
-                            pass
+                        print(f"[RunNode_WanVideo INFO] Status: {task_status} ({elapsed:.1f}s elapsed, {remaining:.1f}s remaining)")
+                        if rn_pbar is not None:
+                            progress = min(95, int((elapsed / max_poll_time) * 100))
+                            rn_pbar.set_generating(progress)
                         time.sleep(poll_interval)
                         continue
                     else:
-                        print(f"[Zhenzhen_WanVideo WARNING] Unknown status: {task_status}")
+                        print(f"[RunNode_WanVideo WARNING] Unknown status: {task_status}")
                         time.sleep(poll_interval)
                         continue
                 else:
-                    status = response.status_code if response is not None else -1
-                    print(f"[Zhenzhen_WanVideo ERROR] Query failed: {status}")
-                    log_backend(
-                        "qwen_wan_video_poll_failed",
-                        level="ERROR",
-                        request_id=request_id,
-                        task_id=str(task_id),
-                        stage="http_error",
-                        status_code=int(status),
-                    )
+                    print(f"[RunNode_WanVideo ERROR] Query failed: {response.status_code}")
                     return None
                     
             except Exception as e:
-                print(f"[Zhenzhen_WanVideo ERROR] Query error: {str(e)}")
-                log_backend_exception(
-                    "qwen_wan_video_poll_exception",
-                    request_id=request_id,
-                    task_id=str(task_id),
-                )
+                print(f"[RunNode_WanVideo ERROR] Query error: {str(e)}")
                 return None
         
-        print("[Zhenzhen_WanVideo ERROR] Polling timeout")
-        log_backend(
-            "qwen_wan_video_poll_failed",
-            level="ERROR",
-            request_id=request_id,
-            task_id=str(task_id),
-            stage="timeout",
-        )
+        print("[RunNode_WanVideo ERROR] Polling timeout")
         return None

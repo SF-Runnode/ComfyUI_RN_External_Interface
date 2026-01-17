@@ -2,7 +2,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from .comfly_config import get_config, save_config, baseurl
-from .utils import generate_request_id, log_prepare, log_complete, log_error, ProgressBar
+from .utils import generate_request_id, log_prepare, log_complete, log_error, ProgressBar, log_backend, log_backend_exception, safe_public_url
 import requests
 import os
 
@@ -13,7 +13,7 @@ class Comfly_api_set:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "api_base": (["RunNode", "ip", "hk", "us"], {"default": "RunNode"}),
+                "api_base": (["RunNode", "ip"], {"default": "RunNode"}),
                 "apikey": ("STRING", {"default": ""}),
             },
             "optional": {
@@ -32,9 +32,7 @@ class Comfly_api_set:
         global baseurl
         base_url_mapping = {
             "RunNode": baseurl,
-            "ip": custom_ip,
-            "hk": "https://hk-api.gptbest.vip",
-            "us": "https://api.gptbest.vip"
+            "ip": custom_ip
         }
         if api_base == "ip" and not custom_ip.strip():
             raise ValueError("When selecting 'ip' option, you must provide a custom IP address in the 'custom_ip' field")
@@ -60,7 +58,7 @@ class Comfly_LLm_API:
             "required": {
                 "api_baseurl": ("STRING", {"multiline": True, "default": ""}),
                 "api_key": ("STRING", {"default": ""}),
-                "model": ("STRING", {"default": "gemini-3-pro-preview"}),
+                "model": (["gemini-3-pro-preview"], {"default": "gemini-3-pro-preview"}),
                 "role": ("STRING", {"multiline": True, "default": "You are a helpful assistant"}),
                 "prompt": ("STRING", {"multiline": True, "default": "describe the image"}),
                 "temperature": ("FLOAT", {"default": 0.6}),
@@ -149,11 +147,29 @@ class Comfly_LLm_API:
             self.api_key = get_config().get('api_key', '')
 
         if api_baseurl.strip():
-             self.api_baseurl = api_baseurl
+            self.api_baseurl = api_baseurl
         else:
-             self.api_baseurl = baseurl
-        
+            self.api_baseurl = baseurl
+
+        if not self.api_key:
+            error_msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_msg)
+            log_error("配置缺失", request_id, error_msg, "RunNode/LLM-", "LLM")
+            return (error_msg,)
+
         base = self.api_baseurl.strip()
+        if not base:
+            error_msg = "API base URL not configured"
+            rn_pbar.error(error_msg)
+            log_backend(
+                "llm_chat_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_base_url",
+                model=model,
+            )
+            return (error_msg,)
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -163,7 +179,16 @@ class Comfly_LLm_API:
         if video is not None:
             b64v = self._encode_video_b64(video)
             if not b64v:
-                return ("Error: failed to encode video",)
+                error_msg = "Error: failed to encode video"
+                rn_pbar.error(error_msg)
+                log_backend(
+                    "llm_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="encode_video_failed",
+                    model=model,
+                )
+                return (error_msg,)
             messages = [
                 {"role": "system", "content": f"{role}"},
                 {
@@ -182,7 +207,16 @@ class Comfly_LLm_API:
         else:
             b64i = self._encode_image_b64(ref_image)
             if not b64i:
-                return ("Error: failed to encode image",)
+                error_msg = "Error: failed to encode image"
+                rn_pbar.error(error_msg)
+                log_backend(
+                    "llm_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="encode_image_failed",
+                    model=model,
+                )
+                return (error_msg,)
             messages = [
                 {"role": "system", "content": f"{role}"},
                 {
@@ -202,17 +236,59 @@ class Comfly_LLm_API:
             payload["seed"] = seed
         try:
             url = f"{base.rstrip('/')}/chat/completions"
+            log_backend(
+                "llm_chat_start",
+                request_id=request_id,
+                url=safe_public_url(url),
+                model=model,
+                prompt_len=len(prompt or ""),
+                has_image=bool(ref_image is not None),
+                has_video=bool(video is not None),
+                temperature=float(temperature),
+                seed=int(seed) if isinstance(seed, int) else 0,
+            )
             resp = requests.post(url, headers=headers, json=payload, timeout=300)
             if resp.status_code != 200:
-                rn_pbar.error(f"Error: {resp.status_code} {resp.text}")
-                return (f"Error: {resp.status_code} {resp.text}",)
+                error_msg = f"Error: {resp.status_code} {resp.text}"
+                rn_pbar.error(error_msg)
+                log_backend(
+                    "llm_chat_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    url=safe_public_url(url),
+                    model=model,
+                    status_code=int(resp.status_code),
+                )
+                return (error_msg,)
             data = resp.json()
             if data and "choices" in data and data["choices"]:
                 content = data["choices"][0].get("message", {}).get("content", "")
                 rn_pbar.done(char_count=len(content or ""))
+                log_backend(
+                    "llm_chat_done",
+                    request_id=request_id,
+                    url=safe_public_url(url),
+                    model=model,
+                    response_len=len(content or ""),
+                )
                 return (content or "",)
             rn_pbar.error("Error: empty response")
+            log_backend(
+                "llm_chat_failed",
+                level="ERROR",
+                request_id=request_id,
+                url=safe_public_url(url),
+                model=model,
+                stage="empty_response",
+            )
             return ("Error: empty response",)
         except Exception as e:
-            rn_pbar.error(f"Error calling API: {str(e)}")
-            return (f"Error calling API: {str(e)}",)
+            error_msg = f"Error calling API: {str(e)}"
+            rn_pbar.error(error_msg)
+            log_backend_exception(
+                "llm_chat_exception",
+                request_id=request_id,
+                url=safe_public_url(url) if "url" in locals() else None,
+                model=model,
+            )
+            return (error_msg,)

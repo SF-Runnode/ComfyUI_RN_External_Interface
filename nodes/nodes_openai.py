@@ -30,10 +30,28 @@ class Comfly_gpt_image_1_edit:
                 "prompt": ("STRING", {"multiline": True, "tooltip": "描述如何编辑图像的提示词"}),
             },
             "optional": {
-                "mask": ("MASK", {"tooltip": "可选的遮罩，用于限制编辑区域"}),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "image5": ("IMAGE",),
+                "image6": ("IMAGE",),
+                "image7": ("IMAGE",),
+                "image8": ("IMAGE",),
+                "image9": ("IMAGE",),
+                "image10": ("IMAGE",),
+                "mask1": ("MASK",),
+                "mask2": ("MASK",),
+                "mask3": ("MASK",),
+                "mask4": ("MASK",),
+                "mask5": ("MASK",),
+                "mask6": ("MASK",),
+                "mask7": ("MASK",),
+                "mask8": ("MASK",),
+                "mask9": ("MASK",),
+                "mask10": ("MASK",),
                 "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API 密钥，留空则使用全局配置"}),
-                # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": (["gpt-image-1"], {"default": "gpt-image-1", "tooltip": "使用的模型版本"}),
+                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1", "tooltip": "使用的模型版本"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成的图像数量"}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto", "tooltip": "输出图像尺寸，'auto'表示保持原尺寸"}),
@@ -56,7 +74,7 @@ class Comfly_gpt_image_1_edit:
 
     def __init__(self):
         self.api_key = get_config().get('api_key', '')
-        self.timeout = 1800
+        self.timeout = 900
         self.session = requests.Session()
         retry_strategy = requests.packages.urllib3.util.retry.Retry(
             total=3,
@@ -136,22 +154,33 @@ class Comfly_gpt_image_1_edit:
                 wait_time = min(2 ** (attempt - 1), 60)
                 time.sleep(wait_time)
     
-    def edit_image(self, image, prompt, model="gpt-image-1", n=1, quality="auto", 
-             seed=0, mask=None, api_key="", size="auto", clear_chats=True,
-             background="auto", output_compression=100, output_format="png",
-             max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0):
+    def edit_image(self, prompt, model="gpt-image-1", n=1, quality="auto", 
+              seed=0, api_key="", size="auto", clear_chats=True,
+              background="auto", output_compression=100, output_format="png",
+              max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0,
+              image1=None, image2=None, image3=None, image4=None, image5=None,
+              image6=None, image7=None, image8=None, image9=None, image10=None,
+              mask1=None, mask2=None, mask3=None, mask4=None, mask5=None,
+              mask6=None, mask7=None, mask8=None, mask9=None, mask10=None):
         request_id = generate_request_id("img_edit", "openai")
         log_prepare("图像编辑", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像编辑", source="RunNode/OpenAI-")
         _rn_start = time.perf_counter()
+
+        all_images = [image1, image2, image3, image4, image5, 
+                     image6, image7, image8, image9, image10]
+        all_masks = [mask1, mask2, mask3, mask4, mask5,
+                    mask6, mask7, mask8, mask9, mask10]
+        raw_image_count = sum(1 for img in all_images if img is not None)
+        raw_mask_count = sum(1 for m in all_masks if m is not None)
         log_backend(
             "openai_image_edit_start",
             request_id=request_id,
             url=safe_public_url(baseurl),
             model=model,
             prompt_len=len(prompt or ""),
-            image_batch=(int(image.shape[0]) if hasattr(image, "shape") else None),
-            has_mask=bool(mask is not None),
+            image_batch=(None if raw_image_count == 0 else int(raw_image_count)),
+            has_mask=(None if raw_mask_count == 0 else True),
             n=int(n),
             quality=quality,
             size=(None if size == "auto" else size),
@@ -163,25 +192,45 @@ class Comfly_gpt_image_1_edit:
         )
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
  
-        original_image = image
-        original_batch_size = image.shape[0]
+        provided_images = []
+        provided_masks = []
+        for i, (img, msk) in enumerate(zip(all_images, all_masks)):
+            if img is not None:
+                provided_images.append(img)
+                provided_masks.append(msk)  # Can be None
+                if msk is not None:
+                    print(f"Image {i+1} has mask")
+        
+        if not provided_images:
+            error_message = "No images provided. Please provide at least one image."
+            print(error_message)
+            rn_pbar.error(error_message)
+            log_backend(
+                "openai_image_edit_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="no_input_images",
+                error=error_message,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            blank_image = Image.new('RGB', (1024, 1024), color='white')
+            blank_tensor = pil2tensor(blank_image)
+            return (blank_tensor, error_message, self.format_conversation_history())
+        
+        image_count = len(provided_images)
+        print(f"Processing {image_count} input images")
+        
+        # Use first image as original for reference (no merging needed)
+        original_image = provided_images[0]
         use_saved_image = False
 
         if not clear_chats and Comfly_gpt_image_1_edit._last_edited_image is not None:
-            if original_batch_size > 1:
-                last_batch_size = Comfly_gpt_image_1_edit._last_edited_image.shape[0]
-                last_image_first = Comfly_gpt_image_1_edit._last_edited_image[0:1]
-                if last_image_first.shape[1:] == original_image.shape[1:]:
-                    image = torch.cat([last_image_first, original_image[1:]], dim=0)
-                    use_saved_image = True
-            else:
-                image = Comfly_gpt_image_1_edit._last_edited_image
+            # Only use saved image if we have exactly one input image
+            if image_count == 1:
+                provided_images[0] = Comfly_gpt_image_1_edit._last_edited_image
                 use_saved_image = True
 
         if clear_chats:
@@ -204,46 +253,55 @@ class Comfly_gpt_image_1_edit:
           
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
+            rn_pbar.update(10)
             
             files = {}
- 
-            if image is not None:
-                batch_size = image.shape[0]
-                for i in range(batch_size):
-                    single_image = image[i:i+1]
-                    scaled_image = downscale_input(single_image).squeeze()
-                    
-                    image_np = (scaled_image.numpy() * 255).astype(np.uint8)
-                    img = Image.fromarray(image_np)
-                    img_byte_arr = io.BytesIO()
-                    img.save(img_byte_arr, format='PNG')
-                    img_byte_arr.seek(0)
-                    
-                    if batch_size == 1:
-                        files['image'] = ('image.png', img_byte_arr, 'image/png')
-                    else:
-                        if 'image[]' not in files:
-                            files['image[]'] = []
-                        files['image[]'].append(('image_{}.png'.format(i), img_byte_arr, 'image/png'))
-            
-            if mask is not None:
-                if image.shape[0] != 1:
-                    raise Exception("Cannot use a mask with multiple images")
-                if image is None:
-                    raise Exception("Cannot use a mask without an input image")
-                if mask.shape[1:] != image.shape[1:-1]:
-                    raise Exception("Mask and Image must be the same size")
+            # Process all provided images with their corresponding masks
+            for i, (single_image, single_mask) in enumerate(zip(provided_images, provided_masks)):
+                # Get single image from tensor (handle batch dimension)
+                if len(single_image.shape) == 4:
+                    img_to_process = single_image[0:1]
+                else:
+                    img_to_process = single_image.unsqueeze(0)
                 
-                batch, height, width = mask.shape
-                rgba_mask = torch.zeros(height, width, 4, device="cpu")
-                rgba_mask[:,:,3] = (1-mask.squeeze().cpu())
-                scaled_mask = downscale_input(rgba_mask.unsqueeze(0)).squeeze()
-                mask_np = (scaled_mask.numpy() * 255).astype(np.uint8)
-                mask_img = Image.fromarray(mask_np)
-                mask_byte_arr = io.BytesIO()
-                mask_img.save(mask_byte_arr, format='PNG')
-                mask_byte_arr.seek(0)
-                files['mask'] = ('mask.png', mask_byte_arr, 'image/png')
+                scaled_image = downscale_input(img_to_process).squeeze()
+                
+                image_np = (scaled_image.numpy() * 255).astype(np.uint8)
+                img = Image.fromarray(image_np)
+                img_byte_arr = io.BytesIO()
+                img.save(img_byte_arr, format='PNG')
+                img_byte_arr.seek(0)
+                
+                # Store files for multi-image upload
+                if image_count == 1:
+                    files['image'] = ('image.png', img_byte_arr, 'image/png')
+                else:
+                    if 'image[]' not in files:
+                        files['image[]'] = []
+                    files['image[]'].append((f'image_{i}.png', img_byte_arr, 'image/png'))
+                
+                # Process corresponding mask if exists
+                if single_mask is not None:
+                    # Validate mask size matches image
+                    if single_mask.shape[1:] != single_image.shape[1:-1]:
+                        print(f"Warning: Mask {i+1} size {single_mask.shape[1:]} doesn't match image {i+1} size {single_image.shape[1:-1]}, skipping mask")
+                        continue
+                    batch, height, width = single_mask.shape
+                    rgba_mask = torch.zeros(height, width, 4, device="cpu")
+                    rgba_mask[:,:,3] = (1-single_mask.squeeze().cpu())
+                    scaled_mask = downscale_input(rgba_mask.unsqueeze(0)).squeeze()
+                    mask_np = (scaled_mask.numpy() * 255).astype(np.uint8)
+                    mask_img = Image.fromarray(mask_np)
+                    mask_byte_arr = io.BytesIO()
+                    mask_img.save(mask_byte_arr, format='PNG')
+                    mask_byte_arr.seek(0)
+                    
+                    if image_count == 1:
+                        files['mask'] = ('mask.png', mask_byte_arr, 'image/png')
+                    else:
+                        if 'mask[]' not in files:
+                            files['mask[]'] = []
+                        files['mask[]'].append((f'mask_{i}.png', mask_byte_arr, 'image/png'))
 
             data = {
                 'prompt': prompt,
@@ -271,15 +329,20 @@ class Comfly_gpt_image_1_edit:
                 data['partial_images'] = str(partial_images)
 
             pbar.update_absolute(30)
+            rn_pbar.update(30)
 
+            # Handle mask file in request
             try:
                 if 'image[]' in files:
+                    # Multiple images case
                     image_files = []
                     for file_tuple in files['image[]']:
                         image_files.append(('image', file_tuple))
 
-                    if 'mask' in files:
-                        image_files.append(('mask', files['mask']))
+                    # Add multiple masks if exists
+                    if 'mask[]' in files:
+                        for mask_tuple in files['mask[]']:
+                            image_files.append(('mask', mask_tuple))
 
                     response = self.make_request_with_retry(
                         f"{baseurl}/v1/images/edits",
@@ -384,7 +447,7 @@ class Comfly_gpt_image_1_edit:
 
             if edited_images:
                 combined_tensor = torch.cat(edited_images, dim=0)
-                response_info = f"Successfully edited {len(edited_images)} image(s)\n"
+                response_info = f"Successfully edited {len(edited_images)} image(s) from {image_count} input image(s)\n"
                 response_info += f"Prompt: {prompt}\n"
                 response_info += f"Model: {model}\n"
                 response_info += f"Quality: {quality}\n"
@@ -1494,6 +1557,8 @@ class Comfly_sora2:
     def process(self, prompt, model, aspect_ratio="16:9", duration="10", hd=False, apikey="", 
                 image1=None, image2=None, image3=None, image4=None, seed=0, private=True):
         request_id = generate_request_id("video_gen", "openai")
+        log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
         _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
@@ -1504,20 +1569,22 @@ class Comfly_sora2:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"status": "error", "message": "API key not provided or not found in config"}
+            error_message = "API key not provided or not found in config"
+            rn_pbar.error(error_message)
             log_backend(
                 "openai_video_v2_generate_failed",
                 level="ERROR",
                 request_id=request_id,
                 stage="missing_api_key",
                 model=model,
+                error=error_message,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            raise Exception(error_response["message"])
+            raise Exception(error_message)
 
         if duration == "25" and hd == True:
             error_message = "25s and hd parameters cannot be used together. Please choose only one of them."
-            print(error_message)
+            rn_pbar.error(error_message)
             log_backend(
                 "openai_video_v2_generate_failed",
                 level="ERROR",
@@ -1534,7 +1601,7 @@ class Comfly_sora2:
         if model == "sora-2":
             if duration == "25":  
                 error_message = "The sora-2 model does not support 25 second videos. Please use sora-2-pro for 25 second videos."
-                print(error_message)
+                rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_v2_generate_failed",
                     level="ERROR",
@@ -1547,7 +1614,7 @@ class Comfly_sora2:
                 raise Exception(error_message)
             if hd:
                 error_message = "The sora-2 model does not support HD mode. Please use sora-2-pro for HD videos or disable HD."
-                print(error_message)
+                rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_v2_generate_failed",
                     level="ERROR",
@@ -1589,7 +1656,7 @@ class Comfly_sora2:
                 
                 if not images:
                     error_message = "Failed to process any of the input images"
-                    print(error_message)
+                    rn_pbar.error(error_message)
                     log_backend(
                         "openai_video_v2_generate_failed",
                         level="ERROR",
@@ -1640,7 +1707,7 @@ class Comfly_sora2:
             
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
-                print(error_message)
+                rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_v2_generate_failed",
                     level="ERROR",
@@ -1656,7 +1723,7 @@ class Comfly_sora2:
             
             if "task_id" not in result:
                 error_message = "No task ID in API response"
-                print(error_message)
+                rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_v2_generate_failed",
                     level="ERROR",
@@ -1712,7 +1779,7 @@ class Comfly_sora2:
                     elif status == "FAILURE":
                         fail_reason = status_data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
                         log_backend(
                             "openai_video_v2_generate_failed",
                             level="ERROR",
@@ -1731,7 +1798,7 @@ class Comfly_sora2:
             
             if not video_url:
                 error_message = f"Failed to get video URL after {max_attempts} attempts"
-                print(error_message)
+                rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_v2_generate_failed",
                     level="ERROR",
@@ -1760,11 +1827,24 @@ class Comfly_sora2:
                 "video_url": video_url
             }
             
+            try:
+                rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+            except Exception:
+                pass
+            log_backend(
+                "openai_video_v2_generate_done",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             return (video_adapter, video_url, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error in video generation: {str(e)}"
-            print(error_message)
+            rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
             log_backend_exception(
@@ -2114,18 +2194,18 @@ class Comfly_sora2_character:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "video_url": ("STRING", {"multiline": False}),
                 "timestamps": ("STRING", {"default": "1,3", "multiline": False}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
             "optional": {
+                "url": ("STRING", {"default": "", "multiline": False}),
+                "from_task": ("STRING", {"default": "", "multiline": False}),
                 "api_key": ("STRING", {"default": ""}),
-                # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
     RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("character_id", "username", "permalink", "profile_picture_url", "response")
+    RETURN_NAMES = ("id", "username", "permalink", "profile_picture_url", "response")
     FUNCTION = "create_character"
     CATEGORY = "RunNode/OpenAI"
 
@@ -2139,22 +2219,27 @@ class Comfly_sora2_character:
             "Authorization": f"Bearer {self.api_key}"
         }
     
-    def create_character(self, video_url, timestamps="1,3", seed=0, api_key=""):
+    def create_character(self, timestamps="1,3", seed=0, url="", from_task="", api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
             return ("", "", "", "", json.dumps(error_response))
+        
+        if url.strip() and from_task.strip():
+            error_response = {"status": "error", "message": "Parameters 'url' and 'from_task' are mutually exclusive. Please provide only one."}
+            return ("", "", "", "", json.dumps(error_response))
+
+        if not url.strip() and not from_task.strip():
+            error_response = {"status": "error", "message": "Either 'url' or 'from_task' parameter is required. Please provide one."}
+            return ("", "", "", "", json.dumps(error_response))
             
         try:
             if not timestamps or "," not in timestamps:
-                error_message = "Timestamps must be in format 'start,end' (e.g. '1,3')"
+                error_message = "Invaild timestamps format. Expected formats: 'start,end' (e.g. '1,3')"
                 print(error_message)
                 return ("", "", "", "", json.dumps({"status": "error", "message": error_message}))
             
@@ -2181,14 +2266,19 @@ class Comfly_sora2_character:
             pbar.update_absolute(10)
             
             payload = {
-                "url": video_url,
                 "timestamps": timestamps
             }
-            
-            if seed > 0:
-                payload["seed"] = seed
+
+            if url.strip():
+                payload["url"] = url.strip()
+                print(f"Creating character from video URL: {url}")
+            elif from_task.strip():
+                payload["from_task"] = from_task.strip()
+                print(f"Creating character from task ID: {from_task}")
                 
             pbar.update_absolute(30)
+
+            print(f"Sending character creation request with payload: {json.dumps(payload)}")
             
             response = requests.post(
                 f"{baseurl}/sora/v1/characters",
@@ -2222,17 +2312,26 @@ class Comfly_sora2_character:
             
             response_data = {
                 "status": "success",
-                "character_id": character_id,
+                "id": character_id,
                 "username": username,
                 "permalink": permalink,
                 "profile_picture_url": profile_picture_url,
-                "video_url": video_url,
                 "timestamps": timestamps,
                 "duration": f"{duration:.1f}s",
-                "seed": seed if seed > 0 else "auto"
             }
             
-            print(f"Character created successfully. ID: {character_id}, Username: {username}")
+            if url.strip():
+                response_data["source"] = "url"
+                response_data["url"] = url
+            else:
+                response_data["source"] = "from_task"
+                response_data["from_task"] = from_task
+            
+            print(f"Character created successfully!")
+            print(f"Character ID: {character_id}")
+            print(f"Character username: {username}")
+            print(f"Usage: Use @{username} in your prompt to reference this character")
+            print(f"Example: @{username} dancing on stage")
             
             return (character_id, username, permalink, profile_picture_url, json.dumps(response_data))
             
@@ -4645,4 +4744,3 @@ class Comfly_sora2_run_32:
         max_workers = max(1, min(32, max_workers))
         groups = [cfg.get(f"promt_{i}", "") for i in range(1, 33)]
         return self.runner.run(groups, max_workers, cfg)
-
