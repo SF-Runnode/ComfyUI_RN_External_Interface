@@ -59,6 +59,14 @@ def get_config():
         max_tokens = _env_int(["COMFLY_MAX_TOKENS", "COMFYUI_RN_MAX_TOKENS"], provider_cfg.get('max_tokens', 1000))
         top_p = _env_float(["COMFLY_TOP_P", "COMFYUI_RN_TOP_P"], provider_cfg.get('top_p', 0.9))
 
+        def _env_bool(names, default):
+            v = _env(names)
+            if v is None:
+                return default
+            return str(v).lower() in ("true", "1", "yes", "on")
+
+        sora2_v1_enable = _env_bool(["SORA2_V1_ENABLE", "COMFLY_SORA2_V1_ENABLE", "COMFYUI_RN_SORA2_V1_ENABLE"], provider_cfg.get('sora2_v1_enable', False))
+
         return {
             'api_key': api_key,
             'model': model,
@@ -66,6 +74,7 @@ def get_config():
             'temperature': temperature,
             'max_tokens': max_tokens,
             'top_p': top_p,
+            'sora2_v1_enable': sora2_v1_enable,
         }
     except Exception:
         return {}
