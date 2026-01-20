@@ -2551,7 +2551,7 @@ class Comfly_sora2_character:
             print(f"Sending character creation request with payload: {json.dumps(payload)}")
             
             response = requests.post(
-                f"{baseurl}/sora/v1/characters",
+                f"{baseurl}/v1/characters",
                 headers=self.get_headers(),
                 json=payload,
                 timeout=self.timeout
