@@ -1252,7 +1252,8 @@ class Comfly_sora2_openai:
             # config['api_key'] = apikey
             # save_config(config)
         else:
-            self.api_key = get_config().get('api_key', '')
+            config = get_config()
+            self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -1546,7 +1547,8 @@ class Comfly_sora2:
     CATEGORY = "RunNode/OpenAI"
 
     def __init__(self):
-        self.api_key = get_config().get('api_key', '')
+        config = get_config()
+        self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
         self.timeout = 1800
 
     def get_headers(self):
@@ -1578,7 +1580,8 @@ class Comfly_sora2:
             # config['api_key'] = apikey
             # save_config(config)
         else:
-            self.api_key = get_config().get('api_key', '')
+            config = get_config()
+            self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not provided or not found in config"
@@ -1599,7 +1602,8 @@ class Comfly_sora2:
         sora2_v1_enable = config.get('sora2_v1_enable', False)
 
         if sora2_v1_enable:
-            baseurl = get_config().get('base_url', '')
+            config = get_config()
+            baseurl = config.get('sora2_base_url') or config.get('base_url', '')
             endpoint = f"{baseurl.rstrip('/')}/v1/videos"
 
             size_map = {
@@ -2139,7 +2143,8 @@ class Comfly_sora2_chat:
     CATEGORY = "RunNode/OpenAI"
 
     def __init__(self):
-        self.api_key = get_config().get('api_key', '')
+        config = get_config()
+        self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
         self.timeout = 1800
 
     def get_headers(self):
@@ -2162,6 +2167,8 @@ class Comfly_sora2_chat:
     def generate_video(self, prompt, model="sora-2", duration="10", orientation="portrait", 
                       image=None, hd=False, apikey="", seed=0):
         request_id = generate_request_id("video_chat", "openai")
+        config = get_config()
+        baseurl = config.get('sora2_base_url') or baseurl
         _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
@@ -2169,7 +2176,8 @@ class Comfly_sora2_chat:
             # config['api_key'] = apikey
             # save_config(config)
         else:
-            self.api_key = get_config().get('api_key', '')
+            config = get_config()
+            self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -2468,7 +2476,8 @@ class Comfly_sora2_character:
     CATEGORY = "RunNode/OpenAI"
 
     def __init__(self):
-        self.api_key = get_config().get('api_key', '')
+        config = get_config()
+        self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
         self.timeout = 1800
 
     def get_headers(self):
@@ -2478,10 +2487,13 @@ class Comfly_sora2_character:
         }
     
     def create_character(self, timestamps="1,3", seed=0, url="", from_task="", api_key=""):
+        config = get_config()
+        baseurl = config.get('sora2_base_url') or baseurl
         if api_key.strip():
             self.api_key = api_key
         else:
-            self.api_key = get_config().get('api_key', '')
+            config = get_config()
+            self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
             
         if not self.api_key:
             error_response = {"status": "error", "message": "API key not provided or not found in config"}
@@ -2668,8 +2680,16 @@ class OpenAISoraAPIPlus:
         """
         request_id = generate_request_id("sora_plus", "openai")
         _rn_start = time.perf_counter()
+        
+        config = get_config()
+        
         if not base_url.strip():  
-            base_url = f"{baseurl.rstrip('/')}/v1"
+            base_url_cfg = config.get('sora2_base_url') or config.get('base_url', baseurl)
+            base_url = f"{base_url_cfg.rstrip('/')}/v1"
+            
+        if not api_key.strip():
+            api_key = config.get('sora2_api_key') or config.get('api_key', '')
+
         if not api_key:
             log_backend(
                 "openai_sora_plus_failed",
@@ -3966,8 +3986,8 @@ class Comfly_sora2_batch_32:
     def __init__(self):
         # 从配置文件初始化API Key和base_url
         self.config = get_config()
-        self.api_key = self.config.get('api_key', '')
-        self.base_url = self.config.get('base_url', baseurl)
+        self.api_key = self.config.get('sora2_api_key') or self.config.get('api_key', '')
+        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', baseurl)
         
         self.task_progress: Dict[int, int] = {}  # 任务进度 {任务索引: 进度值}
         self.global_pbar = None
@@ -4612,8 +4632,8 @@ class Comfly_sora2_group:
     CATEGORY = "RunNode/OpenAI"
     def __init__(self):
         self.config = get_config()
-        self.api_key = self.config.get('api_key', '')
-        self.base_url = self.config.get('base_url', baseurl)
+        self.api_key = self.config.get('sora2_api_key') or self.config.get('api_key', '')
+        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', baseurl)
     def image_to_base64(self, image_tensor):
         if image_tensor is None:
             return None
@@ -4656,8 +4676,8 @@ class Comfly_sora2_group:
 class _ComflySora2BatchRunner:
     def __init__(self):
         self.config = get_config()
-        self.api_key = self.config.get('api_key', '')
-        self.base_url = self.config.get('base_url', baseurl)
+        self.api_key = self.config.get('sora2_api_key') or self.config.get('api_key', '')
+        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', baseurl)
         self.task_progress = {}
         self.global_pbar = None
         self.rn_pbar = None

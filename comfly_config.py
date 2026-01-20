@@ -66,6 +66,20 @@ def get_config():
             return str(v).lower() in ("true", "1", "yes", "on")
 
         sora2_v1_enable = _env_bool(["SORA2_V1_ENABLE", "COMFLY_SORA2_V1_ENABLE", "COMFYUI_RN_SORA2_V1_ENABLE"], provider_cfg.get('sora2_v1_enable', False))
+        
+        # Sora2 独立 API 配置 (默认回退到通用配置)
+        # 优先读取环境变量 -> 其次读取配置文件中 sora2 专属配置 -> 若为空字符串则回退到通用配置
+        _sora2_base = _env(["SORA2_BASE_URL", "COMFLY_SORA2_BASE_URL"])
+        if _sora2_base is None:
+             _sora2_base = provider_cfg.get('sora2_base_url')
+        
+        sora2_base_url = _sora2_base if _sora2_base and str(_sora2_base).strip() else base_url
+
+        _sora2_key = _env(["SORA2_API_KEY", "COMFLY_SORA2_API_KEY"])
+        if _sora2_key is None:
+            _sora2_key = provider_cfg.get('sora2_api_key')
+
+        sora2_api_key = _sora2_key if _sora2_key and str(_sora2_key).strip() else api_key
 
         return {
             'api_key': api_key,
@@ -75,6 +89,8 @@ def get_config():
             'max_tokens': max_tokens,
             'top_p': top_p,
             'sora2_v1_enable': sora2_v1_enable,
+            'sora2_base_url': sora2_base_url,
+            'sora2_api_key': sora2_api_key,
         }
     except Exception:
         return {}
