@@ -65,7 +65,11 @@ def get_config():
                 return default
             return str(v).lower() in ("true", "1", "yes", "on")
 
-        sora2_v1_enable = _env_bool(["SORA2_V1_ENABLE", "COMFLY_SORA2_V1_ENABLE", "COMFYUI_RN_SORA2_V1_ENABLE"], provider_cfg.get('sora2_v1_enable', False))
+        sora2_prioritize_v1 = _env_bool(
+            ["SORA2_PRIORITIZE_V1", "COMFLY_SORA2_PRIORITIZE_V1", "COMFYUI_RN_SORA2_PRIORITIZE_V1", 
+             "SORA2_V1_ENABLE", "COMFLY_SORA2_V1_ENABLE", "COMFYUI_RN_SORA2_V1_ENABLE"], 
+            provider_cfg.get('sora2_prioritize_v1', provider_cfg.get('sora2_v1_enable', False))
+        )
         
         # Sora2 独立 API 配置 (默认回退到通用配置)
         # 优先读取环境变量 -> 其次读取配置文件中 sora2 专属配置 -> 若为空字符串则回退到通用配置
@@ -88,7 +92,7 @@ def get_config():
             'temperature': temperature,
             'max_tokens': max_tokens,
             'top_p': top_p,
-            'sora2_v1_enable': sora2_v1_enable,
+            'sora2_prioritize_v1': sora2_prioritize_v1,
             'sora2_base_url': sora2_base_url,
             'sora2_api_key': sora2_api_key,
         }

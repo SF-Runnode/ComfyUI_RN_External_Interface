@@ -1,5 +1,6 @@
 from ..comfly_config import *
 from .__init__ import *
+import comfy.model_management
 
 
 def downscale_input(image):
@@ -15,6 +16,20 @@ def downscale_input(image):
     s = common_upscale(samples, width, height, "lanczos", "disabled")
     s = s.movedim(1,-1)
     return s
+
+
+def format_openai_error(response):
+    try:
+        data = response.json()
+        if "message" in data:
+            return f"API Error: {response.status_code} - {data['message']}"
+        if "error" in data:
+            if isinstance(data["error"], dict) and "message" in data["error"]:
+                 return f"API Error: {response.status_code} - {data['error']['message']}"
+            return f"API Error: {response.status_code} - {data['error']}"
+    except:
+        pass
+    return f"API Error: {response.status_code} - {response.text}"
 
 
 class Comfly_gpt_image_1_edit:
@@ -631,7 +646,7 @@ class Comfly_gpt_image_1:
             
             pbar.update_absolute(50)
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_openai_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_image_generate_failed",
@@ -1371,7 +1386,7 @@ class Comfly_sora2_openai:
                 )
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_openai_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_generate_failed",
@@ -1578,222 +1593,200 @@ class Comfly_sora2:
         base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{base64_str}"
     
-    def process(self, prompt, model, aspect_ratio="16:9", duration="10", hd=False, apikey="", 
-                image1=None, image2=None, image3=None, image4=None, seed=0, private=True):
-        request_id = generate_request_id("video_gen", "openai")
-        log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
-        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
-        _rn_start = time.perf_counter()
-        if apikey.strip():
-            self.api_key = apikey
-            # config = get_config()
-            # config['api_key'] = apikey
-            # save_config(config)
-        else:
-            config = get_config()
-            self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
-            
-        if not self.api_key:
-            error_message = "API key not provided or not found in config"
+    def _process_v1(self, prompt, model, aspect_ratio, duration, hd,
+                    image1, image2, image3, image4, image5, image6, image7, image8, image9,
+                    seed, baseurl, request_id, rn_pbar, _rn_start):
+        endpoint = f"{baseurl.rstrip('/')}/v1/videos"
+
+        size_map = {
+            "16:9": "1280x720",
+            "9:16": "720x1280",
+            "3:4": "1024x1792",
+            "4:3": "1792x1024"
+        }
+        size = size_map.get(aspect_ratio, "1280x720")
+
+        if aspect_ratio in ["3:4", "4:3"] and (model != "sora-2-pro" or not hd):
+            error_message = f"Resolution {size} ({aspect_ratio}) is only supported for model sora-2-pro with hd=True"
             rn_pbar.error(error_message)
             log_backend(
-                "openai_video_v2_generate_failed",
+                "openai_video_v1_generate_failed",
                 level="ERROR",
                 request_id=request_id,
-                stage="missing_api_key",
+                stage="invalid_params",
                 model=model,
-                error=error_message,
-                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                size=size,
+                hd=bool(hd),
             )
             raise Exception(error_message)
 
-        # Check for V1 Enable
-        config = get_config()
-        sora2_v1_enable = config.get('sora2_v1_enable', False)
-        baseurl = config.get('sora2_base_url') or config.get('base_url', '')
+        pbar = comfy.utils.ProgressBar(100)
+        pbar.update_absolute(10)
 
-        if sora2_v1_enable:
-            endpoint = f"{baseurl.rstrip('/')}/v1/videos"
+        data = {
+            "model": model,
+            "prompt": prompt,
+            "size": size,
+            "seconds": str(duration),
+        }
 
-            size_map = {
-                "16:9": "1280x720",
-                "9:16": "720x1280",
-                "3:4": "1024x1792",
-                "4:3": "1792x1024"
-            }
-            size = size_map.get(aspect_ratio, "1280x720")
+        files = []
+        for i, img in enumerate([image1, image2, image3, image4, image5, image6, image7, image8, image9]):
+            if img is not None:
+                 pil_image = tensor2pil(img)[0]
+                 buffered = BytesIO()
+                 pil_image.save(buffered, format="PNG")
+                 buffered.seek(0)
+                 files.append(('input_reference', (f'image{i+1}.png', buffered, 'image/png')))
 
-            if aspect_ratio in ["3:4", "4:3"] and (model != "sora-2-pro" or not hd):
-                error_message = f"Resolution {size} ({aspect_ratio}) is only supported for model sora-2-pro with hd=True"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+
+        log_backend(
+            "openai_video_v1_generate_start",
+            request_id=request_id,
+            url=safe_public_url(baseurl),
+            model=model,
+            prompt_len=len(prompt or ""),
+            size=size,
+            seconds=str(duration),
+            hd=bool(hd),
+            has_images=bool(files),
+            image_count=len(files),
+            seed=(int(seed) if int(seed) > 0 else None),
+        )
+
+        try:
+            if files:
+                response = requests.post(endpoint, headers=headers, data=data, files=files, timeout=self.timeout)
+            else:
+                response = requests.post(endpoint, headers=headers, json=data, timeout=self.timeout)
+
+            if response.status_code != 200:
+                error_message = format_openai_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_v1_generate_failed",
                     level="ERROR",
                     request_id=request_id,
-                    stage="invalid_params",
+                    stage="http_error",
                     model=model,
-                    size=size,
-                    hd=bool(hd),
+                    status_code=int(response.status_code),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
                 raise Exception(error_message)
 
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
+            result = response.json()
+            if "id" not in result:
+                 if "task_id" in result:
+                     task_id = result["task_id"]
+                 else:
+                    error_message = "No id in API response"
+                    rn_pbar.error(error_message)
+                    raise Exception(error_message)
+            else:
+                task_id = result["id"]
 
-            data = {
-                "model": model,
+            print(f"Task ID: {task_id}")
+            pbar.update_absolute(30)
+
+            max_attempts = 180
+            attempts = 0
+            video_url = None
+
+            while attempts < max_attempts:
+                time.sleep(10)
+                attempts += 1
+
+                try:
+                    status_response = requests.get(
+                        f"{baseurl.rstrip('/')}/v1/videos/{task_id}",
+                        headers=headers,
+                        timeout=min(self.timeout, 30)
+                    )
+                    if status_response.status_code != 200:
+                        continue
+
+                    status_data = status_response.json()
+                    status = status_data.get("status", "")
+
+                    progress = status_data.get("progress", 0)
+                    try:
+                         if isinstance(progress, str) and progress.endswith('%'):
+                             progress_val = int(progress.rstrip('%'))
+                         else:
+                             progress_val = int(progress)
+                         pbar_value = min(90, 30 + int(progress_val * 0.6))
+                         pbar.update_absolute(pbar_value)
+                    except:
+                         progress_value = min(80, 30 + (attempts * 50 // max_attempts))
+                         pbar.update_absolute(progress_value)
+
+                    if status in ["completed", "succeeded", "SUCCESS", "Succeeded"]:
+                        video_url = status_data.get("video_url") or status_data.get("url") or (status_data.get("data") or {}).get("output")
+                        break
+                    elif status in ["failed", "failure", "FAILED", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
+                        fail_reason = status_data.get("fail_reason") or status_data.get("error") or "Unknown error"
+                        raise Exception(f"Video generation failed: {fail_reason}")
+                    
+                    # Check for early failure case (e.g. content violation) where status might be ambiguous but progress implies completion without success
+                    start_time = status_data.get("start_time", 0)
+                    if start_time == 0 and progress_val == 100 and status not in ["completed", "succeeded", "SUCCESS", "Succeeded", "processing", "pending", "queued"]:
+                         fail_reason = status_data.get("fail_reason") or status_data.get("error") or f"Unknown error (status: {status})"
+                         raise Exception(f"Video generation failed (early termination): {fail_reason}")
+
+
+                except Exception as e:
+                     print(f"Error checking status: {e}")
+                     if "Video generation failed" in str(e):
+                         raise
+
+            if not video_url:
+                raise Exception("Timeout or failed to get video URL")
+
+            video_adapter = ComflyVideoAdapter(video_url)
+            pbar.update_absolute(100)
+
+            response_data = {
+                "status": "success",
+                "task_id": task_id,
+                "video_url": video_url,
                 "prompt": prompt,
-                "size": size,
-                "seconds": str(duration),
+                "model": model,
             }
 
-            files = []
-            for i, img in enumerate([image1, image2, image3, image4]):
-                if img is not None:
-                     pil_image = tensor2pil(img)[0]
-                     buffered = BytesIO()
-                     pil_image.save(buffered, format="PNG")
-                     buffered.seek(0)
-                     files.append(('input_reference', (f'image{i+1}.png', buffered, 'image/png')))
-
-            headers = {"Authorization": f"Bearer {self.api_key}"}
+            try:
+                rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+            except:
+                pass
 
             log_backend(
-                "openai_video_v1_generate_start",
+                "openai_video_v1_generate_done",
                 request_id=request_id,
                 url=safe_public_url(baseurl),
                 model=model,
-                prompt_len=len(prompt or ""),
-                size=size,
-                seconds=str(duration),
-                hd=bool(hd),
-                has_images=bool(files),
-                image_count=len(files),
-                seed=(int(seed) if int(seed) > 0 else None),
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
 
-            try:
-                if files:
-                    response = requests.post(endpoint, headers=headers, data=data, files=files, timeout=self.timeout)
-                else:
-                    response = requests.post(endpoint, headers=headers, json=data, timeout=self.timeout)
+            return (video_adapter, video_url, json.dumps(response_data))
 
-                if response.status_code != 200:
-                    error_message = f"API Error: {response.status_code} - {response.text}"
-                    rn_pbar.error(error_message)
-                    log_backend(
-                        "openai_video_v1_generate_failed",
-                        level="ERROR",
-                        request_id=request_id,
-                        stage="http_error",
-                        model=model,
-                        status_code=int(response.status_code),
-                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                    )
-                    raise Exception(error_message)
+        except Exception as e:
+            error_message = f"Error in video generation: {str(e)}"
+            rn_pbar.error(error_message)
+            import traceback
+            traceback.print_exc()
+            log_backend_exception(
+                "openai_video_v1_generate_exception",
+                request_id=request_id,
+                url=safe_public_url(baseurl),
+                model=model,
+            )
+            raise
 
-                result = response.json()
-                if "id" not in result:
-                     if "task_id" in result:
-                         task_id = result["task_id"]
-                     else:
-                        error_message = "No id in API response"
-                        rn_pbar.error(error_message)
-                        raise Exception(error_message)
-                else:
-                    task_id = result["id"]
-
-                print(f"Task ID: {task_id}")
-                pbar.update_absolute(30)
-
-                max_attempts = 180
-                attempts = 0
-                video_url = None
-
-                while attempts < max_attempts:
-                    time.sleep(10)
-                    attempts += 1
-
-                    try:
-                        status_response = requests.get(
-                            f"{baseurl.rstrip('/')}/v1/videos/{task_id}",
-                            headers=headers,
-                            timeout=min(self.timeout, 30)
-                        )
-                        if status_response.status_code != 200:
-                            continue
-
-                        status_data = status_response.json()
-                        status = status_data.get("status", "")
-
-                        progress = status_data.get("progress", 0)
-                        try:
-                             if isinstance(progress, str) and progress.endswith('%'):
-                                 progress_val = int(progress.rstrip('%'))
-                             else:
-                                 progress_val = int(progress)
-                             pbar_value = min(90, 30 + int(progress_val * 0.6))
-                             pbar.update_absolute(pbar_value)
-                        except:
-                             progress_value = min(80, 30 + (attempts * 50 // max_attempts))
-                             pbar.update_absolute(progress_value)
-
-                        if status in ["completed", "succeeded", "SUCCESS", "Succeeded"]:
-                            video_url = status_data.get("video_url") or status_data.get("url") or (status_data.get("data") or {}).get("output")
-                            break
-                        elif status in ["failed", "failure", "FAILED", "Failure"]:
-                            fail_reason = status_data.get("fail_reason") or status_data.get("error") or "Unknown error"
-                            raise Exception(f"Video generation failed: {fail_reason}")
-
-                    except Exception as e:
-                         print(f"Error checking status: {e}")
-                         if "Video generation failed" in str(e):
-                             raise
-
-                if not video_url:
-                    raise Exception("Timeout or failed to get video URL")
-
-                video_adapter = ComflyVideoAdapter(video_url)
-                pbar.update_absolute(100)
-
-                response_data = {
-                    "status": "success",
-                    "task_id": task_id,
-                    "video_url": video_url,
-                    "prompt": prompt,
-                    "model": model,
-                }
-
-                try:
-                    rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
-                except:
-                    pass
-
-                log_backend(
-                    "openai_video_v1_generate_done",
-                    request_id=request_id,
-                    url=safe_public_url(baseurl),
-                    model=model,
-                    task_id=task_id,
-                    video_url=safe_public_url(video_url),
-                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                )
-
-                return (video_adapter, video_url, json.dumps(response_data))
-
-            except Exception as e:
-                error_message = f"Error in video generation: {str(e)}"
-                rn_pbar.error(error_message)
-                import traceback
-                traceback.print_exc()
-                log_backend_exception(
-                    "openai_video_v1_generate_exception",
-                    request_id=request_id,
-                    url=safe_public_url(baseurl),
-                    model=model,
-                )
-                raise
-
+    def _process_v2(self, prompt, model, aspect_ratio, duration, hd,
+                    image1, image2, image3, image4, image5, image6, image7, image8, image9,
+                    seed, private, baseurl, request_id, rn_pbar, _rn_start):
         if duration == "25" and hd == True:
             error_message = "25s and hd parameters cannot be used together. Please choose only one of them."
             rn_pbar.error(error_message)
@@ -1842,7 +1835,7 @@ class Comfly_sora2:
         pbar.update_absolute(10)
         
         try:
-            has_image = any(img is not None for img in [image1, image2, image3, image4])
+            has_image = any(img is not None for img in [image1, image2, image3, image4, image5, image6, image7, image8, image9])
             log_backend(
                 "openai_video_v2_generate_start",
                 request_id=request_id,
@@ -1860,7 +1853,7 @@ class Comfly_sora2:
             
             if has_image:
                 images = []
-                for img in [image1, image2, image3, image4]:
+                for img in [image1, image2, image3, image4, image5, image6, image7, image8, image9]:
                     if img is not None:
                         img_base64 = self.image_to_base64(img)
                         if img_base64:
@@ -1892,7 +1885,7 @@ class Comfly_sora2:
                 if seed > 0:
                     payload["seed"] = seed
                 
-                endpoint = f"{baseurl}/v2/videos/generations"
+                endpoint = f"{baseurl.rstrip('/')}/v2/videos/generations"
             else:
                 payload = {
                     "prompt": prompt,
@@ -1906,72 +1899,19 @@ class Comfly_sora2:
                 if seed > 0:
                     payload["seed"] = seed
                     
-                endpoint = f"{baseurl}/v2/videos/generations"
+                endpoint = f"{baseurl.rstrip('/')}/v2/videos/generations"
             
             pbar.update_absolute(20)
             
-            # V1 Interface Logic
-            config = get_config()
-            sora2_v1_enable = config.get('sora2_v1_enable', False)
-            
-            if sora2_v1_enable:
-                endpoint = f"{baseurl.rstrip('/')}/v1/videos"
-                size_map = {
-                    "16:9": "1280x720",
-                    "9:16": "720x1280",
-                    "3:4": "1024x1792",
-                    "4:3": "1792x1024"
-                }
-                size = size_map.get(aspect_ratio, "1280x720")
-                
-                if aspect_ratio in ["3:4", "4:3"]:
-                    if model != "sora-2-pro" or not hd:
-                        raise Exception(f"Resolution {size} ({aspect_ratio}) is only supported for model sora-2-pro with hd=True")
-
-                headers = {
-                    "Authorization": f"Bearer {self.api_key}"
-                }
-                
-                data = {
-                    "model": model,
-                    "prompt": prompt,
-                    "size": size,
-                    "seconds": str(duration),
-                    # "hd": str(hd).lower()
-                }
-                # seed parameter removed as it is not supported by V1 API
-                if seed > 0:
-                    # We keep the seed in the log but don't send it to the API
-                    pass
-                    
-                files_list = []
-                if images:
-                    for idx, img_b64 in enumerate(images):
-                        if img_b64.startswith("data:"):
-                            try:
-                                header, encoded = img_b64.split(",", 1)
-                                img_data = base64.b64decode(encoded)
-                                files_list.append(('input_reference', (f'image_{idx}.png', img_data, 'image/png')))
-                            except Exception:
-                                pass
-
-                response = requests.post(
-                    endpoint,
-                    headers=headers,
-                    data=data,
-                    files=files_list,
-                    timeout=self.timeout
-                )
-            else:
-                response = requests.post(
-                    endpoint,
-                    headers=self.get_headers(),
-                    json=payload,
-                    timeout=self.timeout
-                )
+            response = requests.post(
+                endpoint,
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_openai_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_video_v2_generate_failed",
@@ -2014,10 +1954,7 @@ class Comfly_sora2:
                 attempts += 1
                 
                 try:
-                    if sora2_v1_enable:
-                        poll_endpoint = f"{baseurl.rstrip('/')}/v1/videos/{task_id}"
-                    else:
-                        poll_endpoint = f"{baseurl}/v2/videos/generations/{task_id}"
+                    poll_endpoint = f"{baseurl.rstrip('/')}/v2/videos/generations/{task_id}"
 
                     status_response = requests.get(
                         poll_endpoint,
@@ -2042,13 +1979,12 @@ class Comfly_sora2:
                     
                     status = status_data.get("status", "")
                     
-                    if status == "SUCCESS":
-                        if "data" in status_data and "output" in status_data["data"]:
-                            video_url = status_data["data"]["output"]
-                            break
+                    if status in ["completed", "succeeded", "SUCCESS", "Succeeded"]:
+                        video_url = status_data.get("video_url") or status_data.get("url") or (status_data.get("data") or {}).get("output")
+                        break
                             
-                    elif status == "FAILURE":
-                        fail_reason = status_data.get("fail_reason", "Unknown error")
+                    elif status in ["failed", "failure", "FAILED", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
+                        fail_reason = status_data.get("fail_reason") or status_data.get("error") or "Unknown error"
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
                         log_backend(
@@ -2062,6 +1998,24 @@ class Comfly_sora2:
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
                         raise Exception(error_message)
+
+                    # Check for early failure case (e.g. content violation) where status might be ambiguous but progress implies completion without success
+                    start_time = status_data.get("start_time", 0)
+                    if start_time == 0 and progress_value == 100 and status not in ["completed", "succeeded", "SUCCESS", "Succeeded", "processing", "pending", "queued"]:
+                         fail_reason = status_data.get("fail_reason") or status_data.get("error") or f"Unknown error (status: {status})"
+                         error_message = f"Video generation failed (early termination): {fail_reason}"
+                         rn_pbar.error(error_message)
+                         log_backend(
+                            "openai_video_v2_generate_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="task_failed_early",
+                            model=model,
+                            task_id=task_id,
+                            fail_reason=str(fail_reason),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
+                         raise Exception(error_message)
                         
                 except Exception as e:
                     print(f"Error checking task status: {str(e)}")
@@ -2125,6 +2079,78 @@ class Comfly_sora2:
                 model=model,
             )
             raise
+
+    def process(self, prompt, model, aspect_ratio="16:9", duration="10", hd=False, apikey="", 
+                image1=None, image2=None, image3=None, image4=None, image5=None, image6=None, image7=None, image8=None, image9=None,
+                seed=0, private=True):
+        request_id = generate_request_id("video_gen", "openai")
+        log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
+        _rn_start = time.perf_counter()
+        if apikey.strip():
+            self.api_key = apikey
+            # config = get_config()
+            # config['api_key'] = apikey
+            # save_config(config)
+        else:
+            config = get_config()
+            self.api_key = config.get('sora2_api_key') or config.get('api_key', '')
+            
+        if not self.api_key:
+            error_message = "API key not provided or not found in config"
+            rn_pbar.error(error_message)
+            log_backend(
+                "openai_video_v2_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                model=model,
+                error=error_message,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            raise Exception(error_message)
+
+        # Check for V1 Priority
+        config = get_config()
+        sora2_prioritize_v1 = config.get('sora2_prioritize_v1', False)
+        baseurl = config.get('sora2_base_url') or config.get('base_url', '')
+
+        if sora2_prioritize_v1:
+            try:
+                print(f"Attempting V1 generation (priority)")
+                return self._process_v1(
+                    prompt, model, aspect_ratio, duration, hd,
+                    image1, image2, image3, image4, image5, image6, image7, image8, image9,
+                    seed, baseurl, request_id, rn_pbar, _rn_start
+                )
+            except Exception as e:
+                print(f"V1 generation failed, falling back to V2: {e}")
+                try:
+                    return self._process_v2(
+                        prompt, model, aspect_ratio, duration, hd,
+                        image1, image2, image3, image4, image5, image6, image7, image8, image9,
+                        seed, private, baseurl, request_id, rn_pbar, _rn_start
+                    )
+                except Exception as e2:
+                    raise Exception(f"V1 failed: {e}; V2 failed: {e2}")
+        else:
+            try:
+                print(f"Attempting V2 generation (priority)")
+                return self._process_v2(
+                    prompt, model, aspect_ratio, duration, hd,
+                    image1, image2, image3, image4, image5, image6, image7, image8, image9,
+                    seed, private, baseurl, request_id, rn_pbar, _rn_start
+                )
+            except Exception as e:
+                print(f"V2 generation failed, falling back to V1: {e}")
+                try:
+                    return self._process_v1(
+                        prompt, model, aspect_ratio, duration, hd,
+                        image1, image2, image3, image4, image5, image6, image7, image8, image9,
+                        seed, baseurl, request_id, rn_pbar, _rn_start
+                    )
+                except Exception as e2:
+                    raise Exception(f"V2 failed: {e}; V1 failed: {e2}")
 
 
 class Comfly_sora2_chat:
@@ -2303,7 +2329,7 @@ class Comfly_sora2_chat:
             )
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_openai_error(response)
                 print(error_message)
                 log_backend(
                     "openai_video_chat_failed",
@@ -2572,7 +2598,7 @@ class Comfly_sora2_character:
             pbar.update_absolute(60)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_openai_error(response)
                 print(error_message)
                 return ("", "", "", "", json.dumps({"status": "error", "message": error_message}))
                 
@@ -3972,7 +3998,7 @@ class Comfly_sora2_batch_32:
                 
                 # 全局配置项
                 "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
+                "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
                 "hd": ("BOOLEAN", {"default": False}),
                 "max_concurrent": ("INT", {"default": 1, "min": 1, "max": 32}),
                 "global_prompt": ("STRING", {"default": "", "multiline": True}),
@@ -4051,6 +4077,281 @@ class Comfly_sora2_batch_32:
         
         return True, ""
 
+    def _process_single_task_v1(
+        self, 
+        task_idx: int, 
+        model: str, 
+        prompt: str, 
+        image, 
+        aspect_ratio: str, 
+        duration: int, 
+        hd: bool,
+        current_base_url: str,
+        request_id: str | None
+    ) -> Dict[str, Any]:
+        task_result = {
+            "index": task_idx,
+            "status": "failed",
+            "video": EmptyVideoAdapter(),
+            "video_url": "",
+            "error": "",
+            "response": "",
+            "task_id": ""
+        }
+        
+        self.task_progress[task_idx] = 10
+        endpoint = f"{current_base_url.rstrip('/')}/v1/videos"
+        
+        size_map = {
+            "16:9": "1280x720",
+            "9:16": "720x1280",
+            "3:4": "1024x1792",
+            "4:3": "1792x1024"
+        }
+        size = size_map.get(aspect_ratio, "1280x720")
+
+        # 检查 sora-2-pro 和 hd 限制
+        if aspect_ratio in ["3:4", "4:3"] and (model != "sora-2-pro" or not hd):
+            raise Exception(f"Resolution {size} ({aspect_ratio}) is only supported for model sora-2-pro with hd=True")
+
+        log_backend(
+            "openai_video_batch_task_start_v1",
+            request_id=request_id,
+            task_index=int(task_idx),
+            url=safe_public_url(current_base_url),
+            model=model,
+            prompt_len=len(prompt or ""),
+            size=size,
+            duration=int(duration),
+            hd=bool(hd),
+            has_image=bool(image is not None),
+        )
+
+        form_data = {
+            "model": model,
+            "prompt": prompt,
+            "size": size,
+            "seconds": str(duration),
+        }
+
+        files = {}
+        image_base64 = self.image_to_base64(image)
+        if image_base64:
+            try:
+                header, encoded = image_base64.split(",", 1)
+                image_data = base64.b64decode(encoded)
+                files["input_reference"] = ("image.png", image_data, "image/png")
+            except Exception as e:
+                print(f"Failed to decode image for V1: {e}")
+
+        self.task_progress[task_idx] = 20
+        
+        response = requests.post(
+            endpoint,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            data=form_data,
+            files=files if files else None,
+            timeout=TIMEOUT
+        )
+
+        if response.status_code != 200:
+            raise Exception(format_openai_error(response))
+
+        result = response.json()
+        task_id = result.get("id") or result.get("task_id")
+        
+        if not task_id:
+             raise Exception("API response missing task ID")
+
+        task_result["task_id"] = task_id
+        self.task_progress[task_idx] = 30
+
+        # Polling
+        max_attempts = int(TIMEOUT / 10)
+        attempts = 0
+        
+        while attempts < max_attempts:
+            time.sleep(10)
+            attempts += 1
+            self.task_progress[task_idx] = 30 + min(60, int((attempts / max_attempts) * 60))
+            
+            try:
+                status_resp = requests.get(
+                    f"{current_base_url.rstrip('/')}/v1/videos/{task_id}",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    timeout=TIMEOUT
+                )
+                
+                if status_resp.status_code != 200:
+                    continue
+                
+                status_data = status_resp.json()
+                task_result["response"] = json.dumps(status_data, ensure_ascii=False)
+                
+                status = status_data.get("status", "")
+                
+                if status == "succeeded":
+                     video_url = status_data.get("output", {}).get("url") or status_data.get("url")
+                     if not video_url and "data" in status_data:
+                          if isinstance(status_data["data"], list) and len(status_data["data"]) > 0:
+                              video_url = status_data["data"][0].get("url")
+                          elif isinstance(status_data["data"], dict):
+                              video_url = status_data["data"].get("url")
+                     
+                     if video_url:
+                        task_result["status"] = "success"
+                        task_result["video_url"] = video_url
+                        task_result["video"] = ComflyVideoAdapter(video_url)
+                        self.task_progress[task_idx] = 100
+                        log_backend(
+                            "openai_video_batch_task_done",
+                            request_id=request_id,
+                            task_index=int(task_idx),
+                            url=safe_public_url(current_base_url),
+                            model=model,
+                            task_id=task_id,
+                            video_url=safe_public_url(video_url),
+                        )
+                        return task_result
+                elif status == "failed":
+                     fail_reason = status_data.get("error", {}).get("message") or status_data.get("fail_reason", "Unknown error")
+                     raise Exception(f"Generation failed: {fail_reason}")
+                     
+            except Exception as e:
+                if attempts >= max_attempts:
+                    raise e
+                
+        raise Exception(f"Task timed out after {TIMEOUT} seconds")
+
+    def _process_single_task_v2(
+        self, 
+        task_idx: int, 
+        model: str, 
+        prompt: str, 
+        image, 
+        aspect_ratio: str, 
+        duration: int, 
+        hd: bool,
+        current_base_url: str,
+        request_id: str | None
+    ) -> Dict[str, Any]:
+        task_result = {
+            "index": task_idx,
+            "status": "failed",
+            "video": EmptyVideoAdapter(),
+            "video_url": "",
+            "error": "",
+            "response": "",
+            "task_id": ""
+        }
+
+        self.task_progress[task_idx] = 10
+        
+        log_backend(
+            "openai_video_batch_task_start",
+            request_id=request_id,
+            task_index=int(task_idx),
+            url=safe_public_url(current_base_url),
+            model=model,
+            prompt_len=len(prompt or ""),
+            aspect_ratio=str(aspect_ratio),
+            duration=int(duration),
+            hd=bool(hd),
+            has_image=bool(image is not None),
+        )
+
+        payload = {
+            "prompt": prompt,
+            "model": model,
+            "aspect_ratio": aspect_ratio,
+            "duration": duration,
+            "hd": hd,
+            "private": True
+        }
+
+        image_base64 = self.image_to_base64(image)
+        if image_base64:
+            payload["images"] = [image_base64]
+
+        self.task_progress[task_idx] = 20
+
+        response = requests.post(
+            f"{current_base_url.rstrip('/')}/v2/videos/generations",
+            headers=self.get_headers(),
+            json=payload,
+            timeout=TIMEOUT
+        )
+
+        if response.status_code != 200:
+            raise Exception(format_openai_error(response))
+
+        result = response.json()
+        task_id = result.get("task_id") or result.get("id")
+        
+        if not task_id:
+            raise Exception("API response missing task ID")
+
+        task_result["task_id"] = task_id
+        self.task_progress[task_idx] = 30
+
+        max_attempts = int(TIMEOUT / 10)
+        attempts = 0
+        
+        while attempts < max_attempts:
+            time.sleep(10)
+            attempts += 1
+            
+            try:
+                status_resp = requests.get(
+                    f"{current_base_url.rstrip('/')}/v2/videos/generations/{task_id}",
+                    headers=self.get_headers(),
+                    timeout=TIMEOUT
+                )
+
+                if status_resp.status_code != 200:
+                    continue
+
+                status_data = status_resp.json()
+                task_result["response"] = json.dumps(status_data, ensure_ascii=False)
+
+                progress_text = status_data.get("progress", "0%")
+                if progress_text.endswith('%'):
+                    try:
+                        progress_val = int(progress_text[:-1])
+                        self.task_progress[task_idx] = 30 + int(progress_val * 0.6)
+                    except:
+                        pass
+                else:
+                    self.task_progress[task_idx] = 30 + min(60, int((attempts / max_attempts) * 60))
+
+                status = status_data.get("status", "")
+                if status == "SUCCESS":
+                    video_url = status_data.get("data", {}).get("output", "")
+                    if video_url:
+                        task_result["status"] = "success"
+                        task_result["video_url"] = video_url
+                        task_result["video"] = ComflyVideoAdapter(video_url)
+                        self.task_progress[task_idx] = 100
+                        log_backend(
+                            "openai_video_batch_task_done",
+                            request_id=request_id,
+                            task_index=int(task_idx),
+                            url=safe_public_url(current_base_url),
+                            model=model,
+                            task_id=task_id,
+                            video_url=safe_public_url(video_url),
+                        )
+                        return task_result
+                elif status == "FAILURE":
+                    fail_reason = status_data.get("fail_reason", "Unknown error")
+                    raise Exception(f"Generation failed: {fail_reason}")
+                    
+            except Exception as e:
+                if attempts >= max_attempts:
+                    raise e
+                    
+        raise Exception(f"Task timed out after {TIMEOUT} seconds")
+
     def process_single_task(
         self, 
         task_idx: int, 
@@ -4073,10 +4374,6 @@ class Comfly_sora2_batch_32:
             "response": "",
             "task_id": ""
         }
-
-        # Check for V1 Enable
-        config = get_config()
-        sora2_v1_enable = config.get('sora2_v1_enable', False)
 
         # 1. 参数校验
         is_valid, err_msg = self.validate_task_params(model, duration, hd)
@@ -4109,315 +4406,44 @@ class Comfly_sora2_batch_32:
             )
             return task_result
 
-        try:
-            self.task_progress[task_idx] = 10  # 初始化进度
-
-            if sora2_v1_enable:
-                # V1 接口逻辑
-                endpoint = f"{current_base_url.rstrip('/')}/v1/videos"
-                
-                size_map = {
-                    "16:9": "1280x720",
-                    "9:16": "720x1280",
-                    "3:4": "1024x1792",
-                    "4:3": "1792x1024"
-                }
-                size = size_map.get(aspect_ratio, "1280x720")
-
-                # 检查 sora-2-pro 和 hd 限制
-                if aspect_ratio in ["3:4", "4:3"] and (model != "sora-2-pro" or not hd):
-                    error_message = f"Resolution {size} ({aspect_ratio}) is only supported for model sora-2-pro with hd=True"
-                    task_result["error"] = error_message
-                    self.task_progress[task_idx] = 100
-                    log_backend(
-                        "openai_video_batch_task_failed",
-                        level="ERROR",
-                        request_id=request_id,
-                        task_index=int(task_idx),
-                        stage="invalid_params_v1",
-                        model=model,
-                        size=size,
-                        hd=bool(hd),
-                    )
-                    return task_result
-
-                log_backend(
-                    "openai_video_batch_task_start_v1",
-                    request_id=request_id,
-                    task_index=int(task_idx),
-                    url=safe_public_url(current_base_url),
-                    model=model,
-                    prompt_len=len(prompt or ""),
-                    size=size,
-                    duration=int(duration),
-                    hd=bool(hd),
-                    has_image=bool(image is not None),
-                )
-
-                # 构建 V1 请求体 (form-data)
-                # requests 的 files 参数可以处理 multipart/form-data
-                # data 参数处理普通字段
-                form_data = {
-                    "model": model,
-                    "prompt": prompt,
-                    "size": size,
-                    "seconds": str(duration),
-                }
-
-                files = {}
-                image_base64 = self.image_to_base64(image)
-                if image_base64:
-                    # 假设 image_base64 是 data:image/png;base64,xxxx
-                    # 我们需要提取 base64 数据并解码为二进制
-                    try:
-                        header, encoded = image_base64.split(",", 1)
-                        image_data = base64.b64decode(encoded)
-                        files["input_reference"] = ("image.png", image_data, "image/png")
-                    except Exception as e:
-                        print(f"Failed to decode image for V1: {e}")
-
-                self.task_progress[task_idx] = 20  # 构建请求完成
-
-                # 提交请求
-                response = requests.post(
-                    endpoint,
-                    headers={"Authorization": f"Bearer {self.api_key}"}, # 不要手动设 Content-Type
-                    data=form_data,
-                    files=files if files else None,
-                    timeout=TIMEOUT
-                )
-
-            else:
-                # 原有 V2 逻辑
-                log_backend(
-                    "openai_video_batch_task_start",
-                    request_id=request_id,
-                    task_index=int(task_idx),
-                    url=safe_public_url(current_base_url),
-                    model=model,
-                    prompt_len=len(prompt or ""),
-                    aspect_ratio=str(aspect_ratio),
-                    duration=int(duration),
-                    hd=bool(hd),
-                    has_image=bool(image is not None),
-                )
-
-                # 3. 构建请求体
-                payload = {
-                    "prompt": prompt,
-                    "model": model,
-                    "aspect_ratio": aspect_ratio,
-                    "duration": duration,
-                    "hd": hd,
-                    "private": True
-                }
-
-                # 添加参考图片
-                image_base64 = self.image_to_base64(image)
-                if image_base64:
-                    payload["images"] = [image_base64]
-
-                self.task_progress[task_idx] = 20  # 构建请求完成
-
-                # 4. 提交生成请求（使用动态base_url）
-                response = requests.post(
-                    f"{current_base_url}/v2/videos/generations",
-                    headers=self.get_headers(),
-                    json=payload,
-                    timeout=TIMEOUT
-                )
-
-            if response.status_code != 200:
-                task_result["error"] = f"API请求失败：{response.status_code} - {response.text}"
-                self.task_progress[task_idx] = 100
-                log_backend(
-                    "openai_video_batch_task_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    task_index=int(task_idx),
-                    stage="http_error",
-                    model=model,
-                    status_code=int(response.status_code),
-                )
-                return task_result
-
-            result = response.json()
-            # V1 返回的是 id, V2 是 task_id
-            task_id = result.get("task_id") or result.get("id")
-            
-            if not task_id:
-                task_result["error"] = "API响应无任务ID"
-                self.task_progress[task_idx] = 100
-                log_backend(
-                    "openai_video_batch_task_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    task_index=int(task_idx),
-                    stage="missing_task_id",
-                    model=model,
-                )
-                return task_result
-
-            task_result["task_id"] = task_id
-            self.task_progress[task_idx] = 30  # 提交任务完成
-
-            # 5. 轮询任务状态（使用动态base_url）
-            max_attempts = int(TIMEOUT / 10)  # 每10秒轮询一次
-            attempts = 0
-            video_url = None
-
-            while attempts < max_attempts:
-                time.sleep(10)
-                attempts += 1
-
-                # 更新进度（保底）
-                self.task_progress[task_idx] = 30 + min(60, int((attempts / max_attempts) * 60))
-
+        # 3. 优先级回退逻辑
+        config = get_config()
+        sora2_prioritize_v1 = config.get('sora2_prioritize_v1', False)
+        
+        error_msg = ""
+        
+        if sora2_prioritize_v1:
+            try:
+                return self._process_single_task_v1(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
+            except Exception as e:
+                print(f"V1 task {task_idx} failed: {e}, falling back to V2")
                 try:
-                    if sora2_v1_enable:
-                         status_resp = requests.get(
-                            f"{current_base_url.rstrip('/')}/v1/videos/{task_id}",
-                            headers={"Authorization": f"Bearer {self.api_key}"},
-                            timeout=TIMEOUT
-                        )
-                    else:
-                        status_resp = requests.get(
-                            f"{current_base_url}/v2/videos/generations/{task_id}",
-                            headers=self.get_headers(),
-                            timeout=TIMEOUT
-                        )
+                    return self._process_single_task_v2(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
+                except Exception as e2:
+                    error_msg = f"V1 failed: {e}; V2 failed: {e2}"
+        else:
+            try:
+                return self._process_single_task_v2(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
+            except Exception as e:
+                print(f"V2 task {task_idx} failed: {e}, falling back to V1")
+                try:
+                    return self._process_single_task_v1(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
+                except Exception as e2:
+                    error_msg = f"V2 failed: {e}; V1 failed: {e2}"
 
-                    if status_resp.status_code != 200:
-                        continue
-
-                    status_data = status_resp.json()
-                    task_result["response"] = json.dumps(status_data, ensure_ascii=False)
-
-                    # V1/V2 状态解析差异处理
-                    if sora2_v1_enable:
-                         status = status_data.get("status", "") # V1 usually uses 'status': 'succeeded'/'processing'/'failed'
-                         # V1 response example needed, assuming similar to standard async APIs
-                         # Common: status: "succeeded", output: { url: ... } or data: ...
-                         
-                         # Check progress if available
-                         # V1 might not have progress percentage
-                         
-                         if status == "succeeded":
-                             video_url = status_data.get("output", {}).get("url") or status_data.get("url") # Adapt to provider
-                             if not video_url and "data" in status_data:
-                                  # Some providers return list in data
-                                  if isinstance(status_data["data"], list) and len(status_data["data"]) > 0:
-                                      video_url = status_data["data"][0].get("url")
-                                  elif isinstance(status_data["data"], dict):
-                                      video_url = status_data["data"].get("url")
-                             
-                             if video_url:
-                                task_result["status"] = "success"
-                                task_result["video_url"] = video_url
-                                task_result["video"] = ComflyVideoAdapter(video_url)
-                                self.task_progress[task_idx] = 100
-                                log_backend(
-                                    "openai_video_batch_task_done",
-                                    request_id=request_id,
-                                    task_index=int(task_idx),
-                                    url=safe_public_url(current_base_url),
-                                    model=model,
-                                    task_id=task_id,
-                                    video_url=safe_public_url(video_url),
-                                )
-                                return task_result
-                         elif status == "failed":
-                             fail_reason = status_data.get("error", {}).get("message") or status_data.get("fail_reason", "未知错误")
-                             task_result["error"] = f"生成失败：{fail_reason}"
-                             self.task_progress[task_idx] = 100
-                             log_backend(
-                                "openai_video_batch_task_failed",
-                                level="ERROR",
-                                request_id=request_id,
-                                task_index=int(task_idx),
-                                stage="task_failed",
-                                model=model,
-                                task_id=task_id,
-                                fail_reason=str(fail_reason),
-                            )
-                             return task_result
-
-                    else:
-                        # V2 logic
-                        # 解析进度
-                        progress_text = status_data.get("progress", "0%")
-                        if progress_text.endswith('%'):
-                            try:
-                                progress_val = int(progress_text[:-1])
-                                self.task_progress[task_idx] = 30 + int(progress_val * 0.6)
-                            except:
-                                pass
-
-                        # 解析状态
-                        status = status_data.get("status", "")
-                        if status == "SUCCESS":
-                            video_url = status_data.get("data", {}).get("output", "")
-                            if video_url:
-                                task_result["status"] = "success"
-                                task_result["video_url"] = video_url
-                                task_result["video"] = ComflyVideoAdapter(video_url)
-                                self.task_progress[task_idx] = 100
-                                log_backend(
-                                    "openai_video_batch_task_done",
-                                    request_id=request_id,
-                                    task_index=int(task_idx),
-                                    url=safe_public_url(current_base_url),
-                                    model=model,
-                                    task_id=task_id,
-                                    video_url=safe_public_url(video_url),
-                                )
-                                return task_result
-                        elif status == "FAILURE":
-                            fail_reason = status_data.get("fail_reason", "未知错误")
-                            task_result["error"] = f"生成失败：{fail_reason}"
-                            self.task_progress[task_idx] = 100
-                            log_backend(
-                                "openai_video_batch_task_failed",
-                                level="ERROR",
-                                request_id=request_id,
-                                task_index=int(task_idx),
-                                stage="task_failed",
-                                model=model,
-                                task_id=task_id,
-                                fail_reason=str(fail_reason),
-                            )
-                            return task_result
-
-                except Exception as e:
-                    task_result["error"] = f"轮询状态异常：{str(e)}"
-                    continue
-
-            # 超时未完成
-            task_result["error"] = f"任务超时（{TIMEOUT}秒）未生成完成"
-            self.task_progress[task_idx] = 100
-            log_backend(
-                "openai_video_batch_task_failed",
-                level="ERROR",
-                request_id=request_id,
-                task_index=int(task_idx),
-                stage="task_timeout",
-                model=model,
-                task_id=task_id,
-                attempts=int(attempts),
-            )
-            return task_result
-
-        except Exception as e:
-            task_result["error"] = f"任务执行异常：{str(e)}\n{traceback.format_exc()}"
-            self.task_progress[task_idx] = 100
-            log_backend_exception(
-                "openai_video_batch_task_exception",
-                request_id=request_id,
-                task_index=int(task_idx),
-                url=safe_public_url(current_base_url),
-                model=model,
-            )
-            return task_result
+        # Final failure handling
+        task_result["error"] = error_msg
+        self.task_progress[task_idx] = 100
+        log_backend(
+            "openai_video_batch_task_failed",
+            level="ERROR",
+            request_id=request_id,
+            task_index=int(task_idx),
+            stage="task_failed_final",
+            model=model,
+            error=error_msg
+        )
+        return task_result
 
     def update_global_progress(self):
         """更新全局进度条"""
@@ -4720,6 +4746,316 @@ class _ComflySora2BatchRunner:
         if duration < 1 or duration > 60:
             return False, f"时长必须在1-60秒之间（当前值：{duration}）"
         return True, ""
+    def _process_v1(self, idx, payload, base_url, api_key, request_id: str | None = None):
+        res = {
+            "index": idx,
+            "status": "failed",
+            "video": EmptyVideoAdapter(),
+            "video_url": "",
+            "error": "",
+            "response": "",
+            "task_id": ""
+        }
+        
+        self.task_progress[idx] = 10
+        endpoint = f"{base_url.rstrip('/')}/v1/videos"
+        
+        aspect_ratio = payload.get("aspect_ratio", "16:9")
+        size_map = {
+            "16:9": "1280x720",
+            "9:16": "720x1280",
+            "3:4": "1024x1792",
+            "4:3": "1792x1024"
+        }
+        size = size_map.get(aspect_ratio, "1280x720")
+        
+        model = payload.get("model", "sora-2")
+        hd = bool(payload.get("hd", False))
+        
+        if aspect_ratio in ["3:4", "4:3"] and (model != "sora-2-pro" or not hd):
+            res["error"] = f"Resolution {size} ({aspect_ratio}) is only supported for model sora-2-pro with hd=True"
+            self.task_progress[idx] = 100
+            log_backend(
+                "openai_video_group_batch_task_failed",
+                level="ERROR",
+                request_id=request_id,
+                task_index=int(idx),
+                stage="invalid_params_v1",
+                model=model,
+                size=size,
+                hd=hd,
+            )
+            return res
+
+        log_backend(
+            "openai_video_group_batch_task_start_v1",
+            request_id=request_id,
+            task_index=int(idx),
+            url=safe_public_url(base_url),
+            model=model,
+            prompt_len=len(str(payload.get("prompt", "") or "")),
+            size=size,
+            duration=int(payload.get("duration", 4)),
+            hd=hd,
+            image_count=(len(payload.get("images", [])) if isinstance(payload.get("images", []), list) else 0),
+        )
+        
+        form_data = {
+            "model": model,
+            "prompt": payload.get("prompt", ""),
+            "size": size,
+            "seconds": str(int(payload.get("duration", 4))),
+        }
+        
+        files_list = []
+        images = payload.get("images", [])
+        if images:
+            for i, image_base64 in enumerate(images):
+                if image_base64:
+                    try:
+                        header, encoded = image_base64.split(",", 1)
+                        image_data = base64.b64decode(encoded)
+                        files_list.append(('input_reference', (f'image_{i}.png', image_data, 'image/png')))
+                    except Exception:
+                        pass
+        
+        self.task_progress[idx] = 20
+        resp = requests.post(
+            endpoint,
+            headers={"Authorization": f"Bearer {api_key}"},
+            data=form_data,
+            files=files_list if files_list else None,
+            timeout=self.timeout
+        )
+
+        if resp.status_code != 200:
+            raise Exception(format_openai_error(resp))
+        
+        data = resp.json()
+        task_id = data.get("task_id") or data.get("id")
+
+        if not task_id:
+            raise Exception("API response missing task ID")
+
+        res["task_id"] = task_id
+        self.task_progress[idx] = 30
+        
+        return self._poll_v1(res, base_url, api_key, task_id, request_id, idx, model)
+
+    def _poll_v1(self, res, base_url, api_key, task_id, request_id, idx, model):
+        _timeout_sec = self.timeout if isinstance(self.timeout, (int, float)) and self.timeout > 0 else 1800
+        max_attempts = max(1, int(_timeout_sec / 10))
+        attempts = 0
+        
+        while attempts < max_attempts:
+            try:
+                comfy.model_management.throw_exception_if_processing_interrupted()
+            except Exception:
+                res["error"] = "Task canceled by user"
+                res["status"] = "failed"
+                self.task_progress[idx] = 100
+                raise Exception("Task canceled by user")
+
+            time.sleep(10)
+            attempts += 1
+            self.task_progress[idx] = 30 + min(60, int((attempts / max_attempts) * 60))
+            
+            try:
+                s = requests.get(
+                    f"{base_url.rstrip('/')}/v1/videos/{task_id}",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=_timeout_sec
+                )
+
+                if s.status_code != 200:
+                    continue
+                sd = s.json()
+                res["response"] = json.dumps(sd, ensure_ascii=False)
+                
+                st = sd.get("status", "")
+                progress = sd.get("progress", 0)
+                try:
+                     if isinstance(progress, str) and progress.endswith('%'):
+                         progress_val = int(progress.rstrip('%'))
+                     else:
+                         progress_val = int(progress)
+                except:
+                     progress_val = 0
+
+                if st in ["succeeded", "completed", "SUCCESS", "Succeeded"]:
+                    url = sd.get("output", {}).get("url") or sd.get("url")
+                    if not url and "data" in sd:
+                        if isinstance(sd["data"], list) and len(sd["data"]) > 0:
+                            url = sd["data"][0].get("url")
+                        elif isinstance(sd["data"], dict):
+                            url = sd["data"].get("url")
+                    
+                    if url:
+                        res["status"] = "success"
+                        res["video_url"] = url
+                        res["video"] = ComflyVideoAdapter(url)
+                        self.task_progress[idx] = 100
+                        log_backend(
+                            "openai_video_group_batch_task_done",
+                            request_id=request_id,
+                            task_index=int(idx),
+                            url=safe_public_url(base_url),
+                            model=model,
+                            task_id=task_id,
+                            video_url=safe_public_url(url),
+                        )
+                        return res
+                elif st in ["failed", "failure", "FAILED", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
+                    fr = sd.get("error", {}).get("message") or sd.get("fail_reason", "未知错误")
+                    raise Exception(f"Generation failed: {fr}")
+                
+                # Check for early failure case
+                start_time = sd.get("start_time", 0)
+                if start_time == 0 and progress_val == 100 and st not in ["succeeded", "completed", "SUCCESS", "Succeeded", "processing", "pending", "queued"]:
+                     fr = sd.get("error", {}).get("message") or sd.get("fail_reason") or f"Unknown error (status: {st})"
+                     raise Exception(f"Generation failed (early termination): {fr}")
+                    
+            except Exception as e:
+                if attempts >= max_attempts or "Generation failed" in str(e):
+                    raise e
+                    
+        raise Exception(f"Task timed out after {_timeout_sec} seconds")
+
+    def _process_v2(self, idx, payload, base_url, api_key, request_id: str | None = None):
+        res = {
+            "index": idx,
+            "status": "failed",
+            "video": EmptyVideoAdapter(),
+            "video_url": "",
+            "error": "",
+            "response": "",
+            "task_id": ""
+        }
+        
+        self.task_progress[idx] = 10
+        
+        log_backend(
+            "openai_video_group_batch_task_start",
+            request_id=request_id,
+            task_index=int(idx),
+            url=safe_public_url(base_url),
+            model=payload.get("model", "sora-2"),
+            prompt_len=len(str(payload.get("prompt", "") or "")),
+            aspect_ratio=payload.get("aspect_ratio", "16:9"),
+            duration=int(payload.get("duration", 4)),
+            hd=bool(payload.get("hd", False)),
+            image_count=(len(payload.get("images", [])) if isinstance(payload.get("images", []), list) else 0),
+        )
+        body = {
+            "prompt": payload.get("prompt", ""),
+            "model": payload.get("model", "sora-2"),
+            "aspect_ratio": payload.get("aspect_ratio", "16:9"),
+            "duration": int(payload.get("duration", 4)),
+            "hd": bool(payload.get("hd", False)),
+            "private": bool(payload.get("private", True))
+        }
+        images = payload.get("images", [])
+        if images:
+            body["images"] = images
+        self.task_progress[idx] = 20
+        resp = requests.post(
+            f"{base_url.rstrip('/')}/v2/videos/generations",
+            headers=self._headers(api_key),
+            json=body,
+            timeout=self.timeout
+        )
+
+        if resp.status_code != 200:
+            raise Exception(format_openai_error(resp))
+        
+        data = resp.json()
+        task_id = data.get("task_id") or data.get("id")
+
+        if not task_id:
+            raise Exception("API response missing task ID")
+
+        res["task_id"] = task_id
+        self.task_progress[idx] = 30
+        
+        return self._poll_v2(res, base_url, api_key, task_id, request_id, idx, payload.get("model", "sora-2"))
+
+    def _poll_v2(self, res, base_url, api_key, task_id, request_id, idx, model):
+        _timeout_sec = self.timeout if isinstance(self.timeout, (int, float)) and self.timeout > 0 else 1800
+        max_attempts = max(1, int(_timeout_sec / 10))
+        attempts = 0
+        
+        while attempts < max_attempts:
+            try:
+                comfy.model_management.throw_exception_if_processing_interrupted()
+            except Exception:
+                res["error"] = "Task canceled by user"
+                res["status"] = "failed"
+                self.task_progress[idx] = 100
+                raise Exception("Task canceled by user")
+
+            time.sleep(10)
+            attempts += 1
+            
+            try:
+                s = requests.get(
+                    f"{base_url.rstrip('/')}/v2/videos/generations/{task_id}",
+                    headers=self._headers(api_key),
+                    timeout=_timeout_sec
+                )
+
+                if s.status_code != 200:
+                    continue
+                sd = s.json()
+                res["response"] = json.dumps(sd, ensure_ascii=False)
+                
+                ptxt = sd.get("progress", "0%")
+                pv = 0
+                if isinstance(ptxt, str) and ptxt.endswith('%'):
+                    try:
+                        pv = int(ptxt[:-1])
+                        self.task_progress[idx] = 30 + int(pv * 0.6)
+                    except Exception:
+                        pass
+                elif isinstance(ptxt, (int, float)):
+                    pv = int(ptxt)
+                    self.task_progress[idx] = 30 + int(pv * 0.6)
+                else:
+                    self.task_progress[idx] = 30 + min(60, int((attempts / max_attempts) * 60))
+                
+                st = sd.get("status", "")
+                if st in ["SUCCESS", "success", "succeeded", "completed", "Succeeded"]:
+                    url = sd.get("data", {}).get("output", "")
+                    if url:
+                        res["status"] = "success"
+                        res["video_url"] = url
+                        res["video"] = ComflyVideoAdapter(url)
+                        self.task_progress[idx] = 100
+                        log_backend(
+                            "openai_video_group_batch_task_done",
+                            request_id=request_id,
+                            task_index=int(idx),
+                            url=safe_public_url(base_url),
+                            model=model,
+                            task_id=task_id,
+                            video_url=safe_public_url(url),
+                        )
+                        return res
+                elif st in ["FAILURE", "failure", "failed", "Failed", "canceled", "cancelled", "timeout", "rejected"]:
+                    fr = sd.get("fail_reason", "未知错误")
+                    raise Exception(f"Generation failed: {fr}")
+                
+                # Check for early failure case
+                start_time = sd.get("start_time", 0)
+                if start_time == 0 and pv == 100 and st not in ["SUCCESS", "success", "succeeded", "completed", "Succeeded", "processing", "pending", "queued"]:
+                     fr = sd.get("fail_reason") or sd.get("error", {}).get("message") or f"Unknown error (status: {st})"
+                     raise Exception(f"Generation failed (early termination): {fr}")
+                    
+            except Exception as e:
+                if attempts >= max_attempts or "Generation failed" in str(e):
+                    raise e
+                    
+        raise Exception(f"Task timed out after {_timeout_sec} seconds")
+
     def _process(self, idx, payload, base_url, api_key, request_id: str | None = None):
         res = {
             "index": idx,
@@ -4731,9 +5067,9 @@ class _ComflySora2BatchRunner:
             "task_id": ""
         }
 
-        # Check for V1 Enable
+        # Check for V1 Priority
         config = get_config()
-        sora2_v1_enable = config.get('sora2_v1_enable', False)
+        sora2_prioritize_v1 = config.get('sora2_prioritize_v1', False)
 
         ok, msg = self._validate(payload.get("model", "sora-2"), int(payload.get("duration", 10)), bool(payload.get("hd", False)))
         if not ok:
@@ -4760,277 +5096,48 @@ class _ComflySora2BatchRunner:
                 model=payload.get("model", "sora-2"),
             )
             return res
-        try:
-            self.task_progress[idx] = 10
-            
-            if sora2_v1_enable:
-                 # V1 Logic
-                 endpoint = f"{base_url.rstrip('/')}/v1/videos"
-                 
-                 aspect_ratio = payload.get("aspect_ratio", "16:9")
-                 size_map = {
-                    "16:9": "1280x720",
-                    "9:16": "720x1280",
-                    "3:4": "1024x1792",
-                    "4:3": "1792x1024"
-                 }
-                 size = size_map.get(aspect_ratio, "1280x720")
-                 
-                 model = payload.get("model", "sora-2")
-                 hd = bool(payload.get("hd", False))
-                 
-                 if aspect_ratio in ["3:4", "4:3"] and (model != "sora-2-pro" or not hd):
-                     res["error"] = f"Resolution {size} ({aspect_ratio}) is only supported for model sora-2-pro with hd=True"
-                     self.task_progress[idx] = 100
-                     log_backend(
-                        "openai_video_group_batch_task_failed",
-                        level="ERROR",
-                        request_id=request_id,
-                        task_index=int(idx),
-                        stage="invalid_params_v1",
-                        model=model,
-                        size=size,
-                        hd=hd,
-                    )
-                     return res
-
-                 log_backend(
-                    "openai_video_group_batch_task_start_v1",
-                    request_id=request_id,
-                    task_index=int(idx),
-                    url=safe_public_url(base_url),
-                    model=model,
-                    prompt_len=len(str(payload.get("prompt", "") or "")),
-                    size=size,
-                    duration=int(payload.get("duration", 4)),
-                    hd=hd,
-                    image_count=(len(payload.get("images", [])) if isinstance(payload.get("images", []), list) else 0),
-                )
-                 
-                 form_data = {
-                     "model": model,
-                     "prompt": payload.get("prompt", ""),
-                     "size": size,
-                     "seconds": str(int(payload.get("duration", 4))),
-                 }
-                 
-                 files_list = []
-                 images = payload.get("images", [])
-                 if images:
-                     for i, image_base64 in enumerate(images):
-                         if image_base64:
-                             try:
-                                 header, encoded = image_base64.split(",", 1)
-                                 image_data = base64.b64decode(encoded)
-                                 files_list.append(('input_reference', (f'image_{i}.png', image_data, 'image/png')))
-                             except Exception:
-                                 pass
-                 
-                 self.task_progress[idx] = 20
-                 resp = requests.post(
-                    endpoint,
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    data=form_data,
-                    files=files_list if files_list else None,
-                    timeout=self.timeout
-                 )
-
-            else:
-                log_backend(
-                    "openai_video_group_batch_task_start",
-                    request_id=request_id,
-                    task_index=int(idx),
-                    url=safe_public_url(base_url),
-                    model=payload.get("model", "sora-2"),
-                    prompt_len=len(str(payload.get("prompt", "") or "")),
-                    aspect_ratio=payload.get("aspect_ratio", "16:9"),
-                    duration=int(payload.get("duration", 4)),
-                    hd=bool(payload.get("hd", False)),
-                    image_count=(len(payload.get("images", [])) if isinstance(payload.get("images", []), list) else 0),
-                )
-                body = {
-                    "prompt": payload.get("prompt", ""),
-                    "model": payload.get("model", "sora-2"),
-                    "aspect_ratio": payload.get("aspect_ratio", "16:9"),
-                    "duration": int(payload.get("duration", 4)),
-                    "hd": bool(payload.get("hd", False)),
-                    "private": bool(payload.get("private", True))
-                }
-                images = payload.get("images", [])
-                if images:
-                    body["images"] = images
-                self.task_progress[idx] = 20
-                resp = requests.post(
-                    f"{base_url}/v2/videos/generations",
-                    headers=self._headers(api_key),
-                    json=body,
-                    timeout=self.timeout
-                )
-
-            if resp.status_code != 200:
-                res["error"] = f"API请求失败：{resp.status_code} - {resp.text}"
-                self.task_progress[idx] = 100
-                log_backend(
-                    "openai_video_group_batch_task_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    task_index=int(idx),
-                    stage="http_error",
-                    model=payload.get("model", "sora-2"),
-                    status_code=int(resp.status_code),
-                )
-                return res
-            
-            data = resp.json()
-            task_id = data.get("task_id") or data.get("id")
-
-            if not task_id:
-                res["error"] = "API响应无任务ID"
-                self.task_progress[idx] = 100
-                log_backend(
-                    "openai_video_group_batch_task_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    task_index=int(idx),
-                    stage="missing_task_id",
-                    model=payload.get("model", "sora-2"),
-                )
-                return res
-            res["task_id"] = task_id
-            self.task_progress[idx] = 30
-            _timeout_sec = self.timeout if isinstance(self.timeout, (int, float)) and self.timeout > 0 else 1800
-            max_attempts = max(1, int(_timeout_sec / 10))
-            attempts = 0
-            while attempts < max_attempts:
-                time.sleep(10)
-                attempts += 1
-                self.task_progress[idx] = 30 + min(60, int((attempts / max_attempts) * 60))
+        
+        error_msg = ""
+        
+        if sora2_prioritize_v1:
+            try:
+                return self._process_v1(idx, payload, base_url, api_key, request_id)
+            except Exception as e:
+                if "Task canceled by user" in str(e) or "Generation failed" in str(e):
+                    raise e
+                print(f"V1 task {idx} failed: {e}, falling back to V2")
                 try:
-                    if sora2_v1_enable:
-                         s = requests.get(
-                            f"{base_url.rstrip('/')}/v1/videos/{task_id}",
-                            headers={"Authorization": f"Bearer {api_key}"},
-                            timeout=_timeout_sec
-                        )
-                    else:
-                        s = requests.get(
-                            f"{base_url}/v2/videos/generations/{task_id}",
-                            headers=self._headers(api_key),
-                            timeout=_timeout_sec
-                        )
+                    return self._process_v2(idx, payload, base_url, api_key, request_id)
+                except Exception as e2:
+                    if "Task canceled by user" in str(e2) or "Generation failed" in str(e2):
+                        raise e2
+                    error_msg = f"V1 failed: {e}; V2 failed: {e2}"
+        else:
+            try:
+                return self._process_v2(idx, payload, base_url, api_key, request_id)
+            except Exception as e:
+                if "Task canceled by user" in str(e) or "Generation failed" in str(e):
+                    raise e
+                print(f"V2 task {idx} failed: {e}, falling back to V1")
+                try:
+                    return self._process_v1(idx, payload, base_url, api_key, request_id)
+                except Exception as e2:
+                    if "Task canceled by user" in str(e2) or "Generation failed" in str(e2):
+                        raise e2
+                    error_msg = f"V2 failed: {e}; V1 failed: {e2}"
 
-                    if s.status_code != 200:
-                        continue
-                    sd = s.json()
-                    res["response"] = json.dumps(sd, ensure_ascii=False)
-                    
-                    if sora2_v1_enable:
-                         st = sd.get("status", "")
-                         if st == "succeeded":
-                             url = sd.get("output", {}).get("url") or sd.get("url")
-                             if not url and "data" in sd:
-                                   if isinstance(sd["data"], list) and len(sd["data"]) > 0:
-                                       url = sd["data"][0].get("url")
-                                   elif isinstance(sd["data"], dict):
-                                       url = sd["data"].get("url")
-                             
-                             if url:
-                                res["status"] = "success"
-                                res["video_url"] = url
-                                res["video"] = ComflyVideoAdapter(url)
-                                self.task_progress[idx] = 100
-                                log_backend(
-                                    "openai_video_group_batch_task_done",
-                                    request_id=request_id,
-                                    task_index=int(idx),
-                                    url=safe_public_url(base_url),
-                                    model=payload.get("model", "sora-2"),
-                                    task_id=task_id,
-                                    video_url=safe_public_url(url),
-                                )
-                                return res
-                         elif st == "failed":
-                             fr = sd.get("error", {}).get("message") or sd.get("fail_reason", "未知错误")
-                             res["error"] = f"生成失败：{fr}"
-                             self.task_progress[idx] = 100
-                             log_backend(
-                                "openai_video_group_batch_task_failed",
-                                level="ERROR",
-                                request_id=request_id,
-                                task_index=int(idx),
-                                stage="task_failed",
-                                model=payload.get("model", "sora-2"),
-                                task_id=task_id,
-                                fail_reason=str(fr),
-                            )
-                             return res
-                    else:
-                        ptxt = sd.get("progress", "0%")
-                        if isinstance(ptxt, str) and ptxt.endswith('%'):
-                            try:
-                                pv = int(ptxt[:-1])
-                                self.task_progress[idx] = 30 + int(pv * 0.6)
-                            except Exception:
-                                pass
-                        st = sd.get("status", "")
-                        if st == "SUCCESS":
-                            url = sd.get("data", {}).get("output", "")
-                            if url:
-                                res["status"] = "success"
-                                res["video_url"] = url
-                                res["video"] = ComflyVideoAdapter(url)
-                                self.task_progress[idx] = 100
-                                log_backend(
-                                    "openai_video_group_batch_task_done",
-                                    request_id=request_id,
-                                    task_index=int(idx),
-                                    url=safe_public_url(base_url),
-                                    model=payload.get("model", "sora-2"),
-                                    task_id=task_id,
-                                    video_url=safe_public_url(url),
-                                )
-                                return res
-                        elif st == "FAILURE":
-                            fr = sd.get("fail_reason", "未知错误")
-                            res["error"] = f"生成失败：{fr}"
-                            self.task_progress[idx] = 100
-                            log_backend(
-                                "openai_video_group_batch_task_failed",
-                                level="ERROR",
-                                request_id=request_id,
-                                task_index=int(idx),
-                                stage="task_failed",
-                                model=payload.get("model", "sora-2"),
-                                task_id=task_id,
-                                fail_reason=str(fr),
-                            )
-                            return res
-                except Exception as e:
-                    res["error"] = f"轮询状态异常：{str(e)}"
-                    continue
-            res["error"] = f"任务超时（{_timeout_sec}秒）未生成完成"
-            self.task_progress[idx] = 100
-            log_backend(
-                "openai_video_group_batch_task_failed",
-                level="ERROR",
-                request_id=request_id,
-                task_index=int(idx),
-                stage="task_timeout",
-                model=payload.get("model", "sora-2"),
-                task_id=task_id,
-            )
-            return res
-        except Exception as e:
-            res["error"] = f"任务执行异常：{str(e)}\n{traceback.format_exc()}"
-            self.task_progress[idx] = 100
-            log_backend_exception(
-                "openai_video_group_batch_task_exception",
-                request_id=request_id,
-                task_index=int(idx),
-                url=safe_public_url(base_url),
-                model=payload.get("model", "sora-2"),
-            )
-            return res
+        res["error"] = error_msg
+        self.task_progress[idx] = 100
+        log_backend(
+            "openai_video_group_batch_task_failed",
+            level="ERROR",
+            request_id=request_id,
+            task_index=int(idx),
+            stage="task_failed_final",
+            model=payload.get("model", "sora-2"),
+            error=error_msg
+        )
+        return res
     def _update_bar(self):
         if not self.global_pbar or not self.task_progress:
             return
