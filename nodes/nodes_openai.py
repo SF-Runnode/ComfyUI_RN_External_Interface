@@ -167,6 +167,9 @@ class Comfly_gpt_image_1_edit:
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像编辑", source="RunNode/OpenAI-")
         _rn_start = time.perf_counter()
 
+        config = get_config()
+        baseurl = config.get('base_url', '')
+
         all_images = [image1, image2, image3, image4, image5, 
                      image6, image7, image8, image9, image10]
         all_masks = [mask1, mask2, mask3, mask4, mask5,
@@ -564,6 +567,9 @@ class Comfly_gpt_image_1:
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像生成", source="RunNode/OpenAI-")
         _rn_start = time.perf_counter()
         
+        config = get_config()
+        baseurl = config.get('base_url', '')
+
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -1246,6 +1252,10 @@ class Comfly_sora2_openai:
         log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
         _rn_start = time.perf_counter()
+        
+        config = get_config()
+        baseurl = config.get('sora2_base_url') or config.get('base_url', '')
+
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -1600,10 +1610,9 @@ class Comfly_sora2:
         # Check for V1 Enable
         config = get_config()
         sora2_v1_enable = config.get('sora2_v1_enable', False)
+        baseurl = config.get('sora2_base_url') or config.get('base_url', '')
 
         if sora2_v1_enable:
-            config = get_config()
-            baseurl = config.get('sora2_base_url') or config.get('base_url', '')
             endpoint = f"{baseurl.rstrip('/')}/v1/videos"
 
             size_map = {
@@ -2168,7 +2177,7 @@ class Comfly_sora2_chat:
                       image=None, hd=False, apikey="", seed=0):
         request_id = generate_request_id("video_chat", "openai")
         config = get_config()
-        baseurl = config.get('sora2_base_url') or baseurl
+        baseurl = config.get('sora2_base_url') or config.get('base_url', '')
         _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
@@ -2238,6 +2247,9 @@ class Comfly_sora2_chat:
         pbar.update_absolute(10)
         
         try:
+            config = get_config()
+            baseurl = config.get('sora2_base_url') or config.get('base_url', '')
+            
             final_prompt = f"高清，{prompt}" if hd else prompt
 
             log_backend(
@@ -2488,7 +2500,7 @@ class Comfly_sora2_character:
     
     def create_character(self, timestamps="1,3", seed=0, url="", from_task="", api_key=""):
         config = get_config()
-        baseurl = config.get('sora2_base_url') or baseurl
+        baseurl = config.get('sora2_base_url') or config.get('base_url', '')
         if api_key.strip():
             self.api_key = api_key
         else:
@@ -2684,7 +2696,7 @@ class OpenAISoraAPIPlus:
         config = get_config()
         
         if not base_url.strip():  
-            base_url_cfg = config.get('sora2_base_url') or config.get('base_url', baseurl)
+            base_url_cfg = config.get('sora2_base_url') or config.get('base_url', '')
             base_url = f"{base_url_cfg.rstrip('/')}/v1"
             
         if not api_key.strip():
@@ -3301,8 +3313,18 @@ class OpenAISoraAPI:
         """
         request_id = generate_request_id("sora", "openai")
         _rn_start = time.perf_counter()
+        
+        config = get_config()
         if not base_url.strip():
-            base_url = f"{baseurl.rstrip('/')}/v1"
+             # 优先使用 sora2_base_url，其次使用 base_url
+             base_url = config.get('sora2_base_url') or config.get('base_url', '')
+             if base_url:
+                 base_url = f"{base_url.rstrip('/')}/v1"
+                 
+        if not api_key.strip():
+             # 优先使用 sora2_api_key，其次使用 api_key
+             api_key = config.get('sora2_api_key') or config.get('api_key', '')
+
         if not api_key:
             log_backend(
                 "openai_sora_stream_failed",
@@ -3987,7 +4009,7 @@ class Comfly_sora2_batch_32:
         # 从配置文件初始化API Key和base_url
         self.config = get_config()
         self.api_key = self.config.get('sora2_api_key') or self.config.get('api_key', '')
-        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', baseurl)
+        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', '')
         
         self.task_progress: Dict[int, int] = {}  # 任务进度 {任务索引: 进度值}
         self.global_pbar = None
@@ -4633,7 +4655,7 @@ class Comfly_sora2_group:
     def __init__(self):
         self.config = get_config()
         self.api_key = self.config.get('sora2_api_key') or self.config.get('api_key', '')
-        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', baseurl)
+        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', '')
     def image_to_base64(self, image_tensor):
         if image_tensor is None:
             return None
@@ -4677,7 +4699,7 @@ class _ComflySora2BatchRunner:
     def __init__(self):
         self.config = get_config()
         self.api_key = self.config.get('sora2_api_key') or self.config.get('api_key', '')
-        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', baseurl)
+        self.base_url = self.config.get('sora2_base_url') or self.config.get('base_url', '')
         self.task_progress = {}
         self.global_pbar = None
         self.rn_pbar = None
@@ -5023,7 +5045,7 @@ class _ComflySora2BatchRunner:
         self.rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"并发:{max_workers}", streaming=True, task_type="视频批量生成", source="RunNode/OpenAI-")
         self.rn_pbar.set_generating()
         _rn_start = time.perf_counter()
-        base_url = global_cfg.get("base_url", "").strip() or self.base_url or baseurl
+        base_url = global_cfg.get("base_url", "").strip() or self.base_url or ""
         api_key = global_cfg.get("api_key", "").strip() or self.api_key
         _cfg_timeout = global_cfg.get("timeout")
         if isinstance(_cfg_timeout, (int, float)) and _cfg_timeout > 0:
@@ -5168,10 +5190,10 @@ class Comfly_sora2_run_4:
     CATEGORY = "RunNode/OpenAI"
     def __init__(self):
         self.runner = _ComflySora2BatchRunner()
-    def run(self, promt_1, promt_2, promt_3, promt_4, **cfg):
+    def run(self, **cfg):
         max_workers = int(cfg.get("max_concurrent", 4))
         max_workers = max(1, min(4, max_workers))
-        groups = [promt_1, promt_2, promt_3, promt_4]
+        groups = [cfg.get(f"promt_{i}", "") for i in range(1, 5)]
         return self.runner.run(groups, max_workers, cfg)
 
 
