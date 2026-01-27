@@ -16,7 +16,7 @@ from .nodes.nodes_xai import *
 
 WEB_DIRECTORY = "./web"
 
-__version__ = "1.18.2"
+__version__ = "1.18.3"
 
 NODE_CLASS_MAPPINGS = {
     "RunNode_api_set": Comfly_api_set,
@@ -48,6 +48,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_sora2_run_8": Comfly_sora2_run_8,
     "RunNode_sora2_run_16": Comfly_sora2_run_16,
     "RunNode_sora2_run_32": Comfly_sora2_run_32,
+    "RunNode_sora2_log_parser": Comfly_sora2_log_parser,
     "RunNodeJimengApi": ComflyJimengApi,
     "RunNode_gpt_image_1_edit": Comfly_gpt_image_1_edit,
     "RunNode_gpt_image_1": Comfly_gpt_image_1,
@@ -130,6 +131,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_sora2_run_8": "RunNode Sora2 Run 8",
     "RunNode_sora2_run_16": "RunNode Sora2 Run 16",
     "RunNode_sora2_run_32": "RunNode Sora2 Run 32",
+    "RunNode_sora2_log_parser": "RunNode Sora2 Log Parser",
     "RunNodeJimengApi": "RunNode Jimeng API",
     "RunNode_gpt_image_1_edit": "RunNode gpt_image_1_edit",
     "RunNode_gpt_image_1": "RunNode gpt_image_1",

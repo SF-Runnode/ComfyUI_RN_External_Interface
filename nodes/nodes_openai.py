@@ -5295,3 +5295,44 @@ class Comfly_sora2_run_32:
         max_workers = max(1, min(32, max_workers))
         groups = [cfg.get(f"promt_{i}", "") for i in range(1, 33)]
         return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_sora2_log_parser:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "log": ("STRING", {"forceInput": True, "multiline": True}),
+                "data_type": (["task_id", "video_url", "response", "status", "error", "prompt"], {"default": "task_id"}),
+                "task_index": ("INT", {"default": 1, "min": 1, "max": 32}),
+            }
+        }
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("output_value",)
+    FUNCTION = "parse_log"
+    CATEGORY = "RunNode/OpenAI"
+
+    def parse_log(self, log, data_type, task_index):
+        try:
+            if not log:
+                return ("Empty log",)
+            log_data = json.loads(log)
+            tasks = log_data.get("tasks", [])
+            
+            # Adjust index from 1-based to 0-based
+            idx = task_index - 1
+            
+            if idx < 0 or idx >= len(tasks):
+                return (f"Invalid task index: {task_index}. Available tasks: {len(tasks)}",)
+            
+            task = tasks[idx]
+            
+            if data_type not in task:
+                return (f"Data type '{data_type}' not found in task log",)
+            
+            return (str(task[data_type]),)
+            
+        except json.JSONDecodeError:
+            return ("Invalid log format: Not a valid JSON string",)
+        except Exception as e:
+            return (f"Log parsing error: {str(e)}",)
