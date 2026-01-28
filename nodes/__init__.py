@@ -41,6 +41,7 @@ import urllib.error
 
 # ComfyUI核心导入
 import comfy.utils
+import comfy.model_management
 import folder_paths
 import mimetypes
 from comfy.utils import common_upscale

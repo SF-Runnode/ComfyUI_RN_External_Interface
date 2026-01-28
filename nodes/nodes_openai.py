@@ -1,6 +1,5 @@
 from ..comfly_config import *
 from .__init__ import *
-import comfy.model_management
 
 
 def downscale_input(image):

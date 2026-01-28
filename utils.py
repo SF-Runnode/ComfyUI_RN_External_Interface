@@ -438,17 +438,19 @@ def log_complete(task_type: str, request_id: str, service_name: str, char_count:
         elapsed_ms=elapsed_ms,
     )
 
-def log_error(task_type: str, request_id: str, error_msg: str, source: str = None) -> None:
+def log_error(task_type: str, request_id: str, error_msg: str, source: str = None, service_name: str = None) -> None:
     if bool(getattr(sys.stdout, "isatty", lambda: False)()):
         print(f"\r{_ANSI_CLEAR_EOL}", end="")
     src = source if source else ""
-    print(f"{PREFIX} ❌ {src}{task_type}失败 | ID:{request_id} | 错误:{error_msg}", flush=True)
+    svc = f" | 服务:{service_name}" if service_name else ""
+    print(f"{PREFIX} ❌ {src}{task_type}失败{svc} | ID:{request_id} | 错误:{error_msg}", flush=True)
     log_backend(
         "task_error",
         level="ERROR",
         task_type=task_type,
         request_id=request_id,
         source=source,
+        service_name=service_name,
         error=error_msg,
     )
 
