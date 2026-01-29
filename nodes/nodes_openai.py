@@ -5102,26 +5102,54 @@ class _ComflySora2BatchRunner:
             try:
                 return self._process_v1(idx, payload, base_url, api_key, request_id)
             except Exception as e:
-                if "Task canceled by user" in str(e) or "Generation failed" in str(e):
+                if "Task canceled by user" in str(e):
                     raise e
+                if "Generation failed" in str(e):
+                    res["error"] = str(e)
+                    self.task_progress[idx] = 100
+                    log_backend(
+                        "openai_video_group_batch_task_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        task_index=int(idx),
+                        stage="v1_generation_failed",
+                        model=payload.get("model", "sora-2"),
+                        error=str(e)
+                    )
+                    return res
+
                 print(f"V1 task {idx} failed: {e}, falling back to V2")
                 try:
                     return self._process_v2(idx, payload, base_url, api_key, request_id)
                 except Exception as e2:
-                    if "Task canceled by user" in str(e2) or "Generation failed" in str(e2):
+                    if "Task canceled by user" in str(e2):
                         raise e2
                     error_msg = f"V1 failed: {e}; V2 failed: {e2}"
         else:
             try:
                 return self._process_v2(idx, payload, base_url, api_key, request_id)
             except Exception as e:
-                if "Task canceled by user" in str(e) or "Generation failed" in str(e):
+                if "Task canceled by user" in str(e):
                     raise e
+                if "Generation failed" in str(e):
+                    res["error"] = str(e)
+                    self.task_progress[idx] = 100
+                    log_backend(
+                        "openai_video_group_batch_task_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        task_index=int(idx),
+                        stage="v2_generation_failed",
+                        model=payload.get("model", "sora-2"),
+                        error=str(e)
+                    )
+                    return res
+
                 print(f"V2 task {idx} failed: {e}, falling back to V1")
                 try:
                     return self._process_v1(idx, payload, base_url, api_key, request_id)
                 except Exception as e2:
-                    if "Task canceled by user" in str(e2) or "Generation failed" in str(e2):
+                    if "Task canceled by user" in str(e2):
                         raise e2
                     error_msg = f"V2 failed: {e}; V1 failed: {e2}"
 
@@ -5171,74 +5199,10 @@ class _ComflySora2BatchRunner:
                 model=model_name,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            empty = [EmptyVideoAdapter()] * max_workers
+            empty = [EmptyVideoAdapter()] * len(groups)
             log = json.dumps({"error": "API Key未配置"}, ensure_ascii=False, indent=2)
             return (*empty, log)
         tasks = []
-        for i, g in enumerate(groups, start=1):
-            try:
-                d = json.loads(g) if isinstance(g, str) else {}
-            except Exception:
-                d = {}
-            prompt = d.get("prompt", "") or global_cfg.get("global_prompt", "")
-            model = d.get("model", "sora-2")
-            aspect_ratio = d.get("aspect_ratio") or global_cfg.get("aspect_ratio") or "16:9"
-            duration = int(d.get("duration") or global_cfg.get("duration") or 15)
-            hd = bool(d.get("hd" if "hd" in d else None)) if "hd" in d else bool(global_cfg.get("hd", False))
-            images = d.get("images", [])
-            g_base_url = d.get("base_url", "").strip() or base_url
-            g_api_key = d.get("api_key", "").strip() or api_key
-            tasks.append({
-                "idx": i,
-                "payload": {
-                    "prompt": prompt,
-                    "model": model,
-                    "aspect_ratio": aspect_ratio,
-                    "duration": duration,
-                    "hd": hd,
-                    "private": bool(d.get("private", True)),
-                    "images": images
-                },
-                "base_url": g_base_url,
-                "api_key": g_api_key
-            })
-        self.task_progress = {t["idx"]: 0 for t in tasks}
-        self.global_pbar = comfy.utils.ProgressBar(100)
-        log_backend(
-            "openai_video_group_batch_start",
-            request_id=request_id,
-            url=safe_public_url(base_url),
-            model=model_name,
-            task_count=len(tasks),
-            max_workers=int(max_workers),
-        )
-        results = {}
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futmap = {}
-            for t in tasks:
-                f = ex.submit(self._process, t["idx"], t["payload"], t["base_url"], t["api_key"], request_id)
-                futmap[f] = t["idx"]
-                # 仅当Prompt不为空时才进行流控等待（空Prompt不会发起请求）
-                if t["payload"]["prompt"]:
-                    time.sleep(0.1)
-            for f in as_completed(futmap):
-                idx = futmap[f]
-                try:
-                    results[idx] = f.result()
-                except Exception as e:
-                    results[idx] = {
-                        "index": idx,
-                        "status": "failed",
-                        "video": EmptyVideoAdapter(),
-                        "video_url": "",
-                        "error": f"任务执行异常：{str(e)}",
-                        "response": "",
-                        "task_id": ""
-                    }
-                self._update_bar()
-        output_videos = []
-        for i in range(1, max_workers + 1):
-            output_videos.append(results.get(i, {}).get("video", EmptyVideoAdapter()))
         log_data = {
             "global_config": {
                 "aspect_ratio": global_cfg.get("aspect_ratio"),
@@ -5250,18 +5214,122 @@ class _ComflySora2BatchRunner:
             },
             "tasks": []
         }
-        for i in range(1, max_workers + 1):
+        results = {}
+        
+        try:
+            for i, g in enumerate(groups, start=1):
+                try:
+                    d = json.loads(g) if isinstance(g, str) else {}
+                except Exception:
+                    d = {}
+                prompt = d.get("prompt", "") or global_cfg.get("global_prompt", "")
+                model = d.get("model", "sora-2")
+                aspect_ratio = d.get("aspect_ratio") or global_cfg.get("aspect_ratio") or "16:9"
+                duration = int(d.get("duration") or global_cfg.get("duration") or 15)
+                hd = bool(d.get("hd" if "hd" in d else None)) if "hd" in d else bool(global_cfg.get("hd", False))
+                images = d.get("images", [])
+                g_base_url = d.get("base_url", "").strip() or base_url
+                g_api_key = d.get("api_key", "").strip() or api_key
+                tasks.append({
+                    "idx": i,
+                    "payload": {
+                        "prompt": prompt,
+                        "model": model,
+                        "aspect_ratio": aspect_ratio,
+                        "duration": duration,
+                        "hd": hd,
+                        "private": bool(d.get("private", True)),
+                        "images": images
+                    },
+                    "base_url": g_base_url,
+                    "api_key": g_api_key
+                })
+            self.task_progress = {t["idx"]: 0 for t in tasks}
+            self.global_pbar = comfy.utils.ProgressBar(100)
+            log_backend(
+                "openai_video_group_batch_start",
+                request_id=request_id,
+                url=safe_public_url(base_url),
+                model=model_name,
+                task_count=len(tasks),
+                max_workers=int(max_workers),
+            )
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futmap = {}
+                for t in tasks:
+                    f = ex.submit(self._process, t["idx"], t["payload"], t["base_url"], t["api_key"], request_id)
+                    futmap[f] = t["idx"]
+                    # 仅当Prompt不为空时才进行流控等待（空Prompt不会发起请求）
+                    if t["payload"]["prompt"]:
+                        time.sleep(0.1)
+                for f in as_completed(futmap):
+                    idx = futmap[f]
+                    try:
+                        results[idx] = f.result()
+                    except Exception as e:
+                        print(f"RunNode OpenAI Batch Task {idx} Failed: {e}")
+                        results[idx] = {
+                            "index": idx,
+                            "status": "failed",
+                            "video": EmptyVideoAdapter(),
+                            "video_url": "",
+                            "error": f"任务执行异常：{str(e)}",
+                            "response": "",
+                            "task_id": ""
+                        }
+                    self._update_bar()
+        except Exception as e:
+            # Check for ComfyUI interruption
+            if "Interrupted" in str(e) or "canceled" in str(e).lower():
+                 raise e
+            print(f"RunNode OpenAI Global Batch Error: {e}")
+            import traceback
+            traceback.print_exc()
+            log_data["error"] = f"Global execution error: {str(e)}"
+            if self.rn_pbar:
+                self.rn_pbar.error(f"全局执行错误: {str(e)}")
+            
+            # Fill empty results for tasks that might not have run
+            if not tasks:
+                 # If tasks initialization failed, we create dummy tasks based on groups length
+                 for i in range(1, len(groups) + 1):
+                      results[i] = {
+                            "index": i,
+                            "status": "failed",
+                            "video": EmptyVideoAdapter(),
+                            "video_url": "",
+                            "error": "Task not started due to global error",
+                            "response": "",
+                            "task_id": ""
+                        }
+        
+        output_videos = []
+        # Iterate over all tasks to ensure return tuple matches the node definition
+        # Use len(groups) as tasks might be empty if initialization failed
+        total_slots = len(tasks) if tasks else len(groups)
+        
+        for i in range(1, total_slots + 1):
+            output_videos.append(results.get(i, {}).get("video", EmptyVideoAdapter()))
+        
+        for i in range(1, total_slots + 1):
             r = results.get(i, {})
+            # safely get prompt from tasks if available
+            prompt_str = ""
+            if i <= len(tasks):
+                 prompt_str = tasks[i-1]["payload"]["prompt"]
+            
             log_data["tasks"].append({
                 "task_index": i,
                 "status": r.get("status", "idle"),
                 "video_url": r.get("video_url", ""),
                 "task_id": r.get("task_id", ""),
-                "error": r.get("error", ""),
-                "prompt": tasks[i-1]["payload"]["prompt"] if (i-1) < len(tasks) else ""
+                "error": r.get("error", "") or log_data.get("error", ""),
+                "prompt": prompt_str
             })
         log = json.dumps(log_data, ensure_ascii=False, indent=2)
-        self.global_pbar.update_absolute(100)
+        if self.global_pbar:
+             self.global_pbar.update_absolute(100)
         if self.rn_pbar:
             try:
                 self.rn_pbar.done(char_count=len(log), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
