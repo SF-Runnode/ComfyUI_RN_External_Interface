@@ -937,6 +937,7 @@ class ComflyChatGPTApi:
             response.raise_for_status()
 
             for line in response.iter_lines():
+                comfy.model_management.throw_exception_if_processing_interrupted()
                 if line:
                     line_text = line.decode('utf-8').strip()
                     if line_text.startswith('data: '):
@@ -1424,6 +1425,7 @@ class Comfly_sora2_openai:
             actual_seed = str(seed) if seed > 0 else "0"
             
             while attempts < max_attempts:
+                comfy.model_management.throw_exception_if_processing_interrupted()
                 time.sleep(10)
                 attempts += 1
                 
@@ -1477,6 +1479,8 @@ class Comfly_sora2_openai:
                         raise Exception(error_message)
                         
                 except Exception as e:
+                    if "Task canceled by user" in str(e):
+                         raise e
                     rn_pbar.error(f"Error checking task status: {str(e)}")
                     raise
             
@@ -1693,7 +1697,9 @@ class Comfly_sora2:
             video_url = None
 
             while attempts < max_attempts:
-                time.sleep(10)
+                for _ in range(10):
+                    comfy.model_management.throw_exception_if_processing_interrupted()
+                    time.sleep(1)
                 attempts += 1
 
                 try:
@@ -1710,15 +1716,18 @@ class Comfly_sora2:
 
                     progress = status_data.get("progress", 0)
                     try:
-                         if isinstance(progress, str) and progress.endswith('%'):
-                             progress_val = int(progress.rstrip('%'))
-                         else:
-                             progress_val = int(progress)
-                         pbar_value = min(90, 30 + int(progress_val * 0.6))
-                         pbar.update_absolute(pbar_value)
-                    except:
-                         progress_value = min(80, 30 + (attempts * 50 // max_attempts))
-                         pbar.update_absolute(progress_value)
+                        if isinstance(progress, str) and progress.endswith('%'):
+                            progress_val = int(progress.rstrip('%'))
+                        else:
+                            progress_val = int(progress)
+                        pbar_value = min(90, 30 + int(progress_val * 0.6))
+                        pbar.update_absolute(pbar_value)
+                    except Exception as e:
+                        if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                            raise e
+                        progress_val = 0
+                        progress_value = min(80, 30 + (attempts * 50 // max_attempts))
+                        pbar.update_absolute(progress_value)
 
                     if status in ["completed", "succeeded", "SUCCESS", "Succeeded"]:
                         video_url = status_data.get("video_url") or status_data.get("url") or (status_data.get("data") or {}).get("output")
@@ -1735,6 +1744,11 @@ class Comfly_sora2:
 
 
                 except Exception as e:
+                     # 优先检查中断状态
+                     comfy.model_management.throw_exception_if_processing_interrupted()
+                     
+                     if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                         raise e
                      print(f"Error checking status: {e}")
                      if "Video generation failed" in str(e):
                          raise
@@ -1771,6 +1785,11 @@ class Comfly_sora2:
             return (video_adapter, video_url, json.dumps(response_data))
 
         except Exception as e:
+            # 优先检查中断状态
+            comfy.model_management.throw_exception_if_processing_interrupted()
+            
+            if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                 raise e
             error_message = f"Error in video generation: {str(e)}"
             rn_pbar.error(error_message)
             import traceback
@@ -1949,7 +1968,9 @@ class Comfly_sora2:
             video_url = None
             
             while attempts < max_attempts:
-                time.sleep(10)
+                for _ in range(10):
+                    comfy.model_management.throw_exception_if_processing_interrupted()
+                    time.sleep(1)
                 attempts += 1
                 
                 try:
@@ -1982,7 +2003,7 @@ class Comfly_sora2:
                         video_url = status_data.get("video_url") or status_data.get("url") or (status_data.get("data") or {}).get("output")
                         break
                             
-                    elif status in ["failed", "failure", "FAILED", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
+                    elif status in ["failed", "failure", "FAILED", "FAILURE", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
                         fail_reason = status_data.get("fail_reason") or status_data.get("error") or "Unknown error"
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
@@ -2017,6 +2038,8 @@ class Comfly_sora2:
                          raise Exception(error_message)
                         
                 except Exception as e:
+                    if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                         raise e
                     print(f"Error checking task status: {str(e)}")
                     raise
             
@@ -2067,6 +2090,11 @@ class Comfly_sora2:
             return (video_adapter, video_url, json.dumps(response_data))
             
         except Exception as e:
+            # 优先检查中断状态
+            comfy.model_management.throw_exception_if_processing_interrupted()
+            
+            if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                 raise e
             error_message = f"Error in video generation: {str(e)}"
             rn_pbar.error(error_message)
             import traceback
@@ -2123,6 +2151,22 @@ class Comfly_sora2:
                     seed, baseurl, request_id, rn_pbar, _rn_start
                 )
             except Exception as e:
+                # 优先检查中断状态，确保中断信号不被 swallowed
+                comfy.model_management.throw_exception_if_processing_interrupted()
+
+                if isinstance(e, comfy.model_management.InterruptProcessingException):
+                    print("Task canceled by user")
+                    rn_pbar.error("Task canceled by user")
+                    log_backend(
+                        "openai_video_generate_canceled",
+                        request_id=request_id,
+                        model=model,
+                        stage="user_cancel_v1"
+                    )
+                    raise e
+                
+                if "Interrupted" in str(e) or "canceled" in str(e).lower() or "interrupted" in str(e).lower():
+                    raise e
                 print(f"V1 generation failed, falling back to V2: {e}")
                 try:
                     return self._process_v2(
@@ -2131,6 +2175,8 @@ class Comfly_sora2:
                         seed, private, baseurl, request_id, rn_pbar, _rn_start
                     )
                 except Exception as e2:
+                    # 再次检查中断
+                    comfy.model_management.throw_exception_if_processing_interrupted()
                     raise Exception(f"V1 failed: {e}; V2 failed: {e2}")
         else:
             try:
@@ -2141,6 +2187,22 @@ class Comfly_sora2:
                     seed, private, baseurl, request_id, rn_pbar, _rn_start
                 )
             except Exception as e:
+                # 优先检查中断状态
+                comfy.model_management.throw_exception_if_processing_interrupted()
+
+                if isinstance(e, comfy.model_management.InterruptProcessingException):
+                    print("Task canceled by user")
+                    rn_pbar.error("Task canceled by user")
+                    log_backend(
+                        "openai_video_generate_canceled",
+                        request_id=request_id,
+                        model=model,
+                        stage="user_cancel_v2"
+                    )
+                    raise e
+                
+                if "Interrupted" in str(e) or "canceled" in str(e).lower() or "interrupted" in str(e).lower():
+                    raise e
                 print(f"V2 generation failed, falling back to V1: {e}")
                 try:
                     return self._process_v1(
@@ -2149,6 +2211,8 @@ class Comfly_sora2:
                         seed, baseurl, request_id, rn_pbar, _rn_start
                     )
                 except Exception as e2:
+                    # 再次检查中断
+                    comfy.model_management.throw_exception_if_processing_interrupted()
                     raise Exception(f"V2 failed: {e}; V1 failed: {e2}")
 
 
@@ -2346,6 +2410,7 @@ class Comfly_sora2_chat:
             data_preview_url = None
             
             for line in response.iter_lines():
+                comfy.model_management.throw_exception_if_processing_interrupted()
                 if line:
                     line_text = line.decode("utf-8")
                     if line_text.startswith("data: "):
@@ -2399,7 +2464,9 @@ class Comfly_sora2_chat:
             gif_url = None
             
             while attempts < max_attempts:
-                time.sleep(10)
+                for _ in range(10):
+                    comfy.model_management.throw_exception_if_processing_interrupted()
+                    time.sleep(1)
                 attempts += 1
                 
                 try:
@@ -2430,6 +2497,8 @@ class Comfly_sora2_chat:
                         break
                         
                 except Exception as e:
+                    if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                         raise e
                     print(f"Error checking task status: {str(e)}")
                     raise
             
@@ -2479,6 +2548,11 @@ class Comfly_sora2_chat:
             return (video_adapter, video_url, gif_url, json.dumps(response_data))
             
         except Exception as e:
+            # 优先检查中断状态
+            comfy.model_management.throw_exception_if_processing_interrupted()
+            
+            if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                 raise e
             error_message = f"Error in video generation: {str(e)}"
             print(error_message)
             import traceback
@@ -4170,7 +4244,11 @@ class Comfly_sora2_batch_32:
         attempts = 0
         
         while attempts < max_attempts:
-            time.sleep(10)
+            for _ in range(10):
+                # 批量任务运行在线程池中，无法直接检测主线程中断
+                # 但可以通过检查外部标志或异常来响应（如果框架支持）
+                # 这里主要优化响应速度，让线程有机会响应关闭信号
+                time.sleep(1)
             attempts += 1
             self.task_progress[task_idx] = 30 + min(60, int((attempts / max_attempts) * 60))
             
@@ -4297,7 +4375,8 @@ class Comfly_sora2_batch_32:
         attempts = 0
         
         while attempts < max_attempts:
-            time.sleep(10)
+            for _ in range(10):
+                time.sleep(1)
             attempts += 1
             
             try:
@@ -4415,19 +4494,28 @@ class Comfly_sora2_batch_32:
             try:
                 return self._process_single_task_v1(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
             except Exception as e:
+                # 批量任务中不一定能捕获主线程中断，但如果有外部标志，这里也可以检查
+                if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                    raise e
                 print(f"V1 task {task_idx} failed: {e}, falling back to V2")
                 try:
                     return self._process_single_task_v2(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
                 except Exception as e2:
+                    if "Task canceled by user" in str(e2) or "interrupted" in str(e2).lower():
+                        raise e2
                     error_msg = f"V1 failed: {e}; V2 failed: {e2}"
         else:
             try:
                 return self._process_single_task_v2(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
             except Exception as e:
+                if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
+                    raise e
                 print(f"V2 task {task_idx} failed: {e}, falling back to V1")
                 try:
                     return self._process_single_task_v1(task_idx, model, prompt, image, aspect_ratio, duration, hd, current_base_url, request_id)
                 except Exception as e2:
+                    if "Task canceled by user" in str(e2) or "interrupted" in str(e2).lower():
+                        raise e2
                     error_msg = f"V2 failed: {e}; V1 failed: {e2}"
 
         # Final failure handling
@@ -4915,6 +5003,8 @@ class _ComflySora2BatchRunner:
                      raise Exception(f"Generation failed (early termination): {fr}")
                     
             except Exception as e:
+                if "Task canceled by user" in str(e):
+                    raise e
                 if attempts >= max_attempts or "Generation failed" in str(e):
                     raise e
                     
@@ -5050,6 +5140,8 @@ class _ComflySora2BatchRunner:
                      raise Exception(f"Generation failed (early termination): {fr}")
                     
             except Exception as e:
+                if "Task canceled by user" in str(e):
+                    raise e
                 if attempts >= max_attempts or "Generation failed" in str(e):
                     raise e
                     
@@ -5264,10 +5356,13 @@ class _ComflySora2BatchRunner:
                     if t["payload"]["prompt"]:
                         time.sleep(0.1)
                 for f in as_completed(futmap):
+                    comfy.model_management.throw_exception_if_processing_interrupted()
                     idx = futmap[f]
                     try:
                         results[idx] = f.result()
                     except Exception as e:
+                        if "Task canceled by user" in str(e):
+                            raise e
                         print(f"RunNode OpenAI Batch Task {idx} Failed: {e}")
                         results[idx] = {
                             "index": idx,
