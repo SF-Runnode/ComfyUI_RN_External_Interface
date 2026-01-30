@@ -23,7 +23,7 @@ def vidu_wait_for_task(task_id, rn_pbar, pbar, headers, timeout, request_id=None
             )
             
             if status_response.status_code != 200:
-                msg = f"Status check failed: {status_response.status_code} - {status_response.text}"
+                msg = format_runnode_error(status_response)
                 rn_pbar.error(msg)
                 log_backend_exception(msg, request_id=request_id)
                 continue
@@ -51,8 +51,8 @@ def vidu_wait_for_task(task_id, rn_pbar, pbar, headers, timeout, request_id=None
         except Exception as e:
             if "Video generation failed" in str(e):
                 raise e
-            rn_pbar.error(f"Error checking generation status (attempt {attempts}): {str(e)}")
-            log_backend_exception(f"Error checking generation status: {str(e)}", request_id=request_id)
+            rn_pbar.error(f"Error checking generation status (attempt {attempts}): {format_runnode_error(str(e))}")
+            log_backend_exception(f"Error checking generation status: {format_runnode_error(str(e))}", request_id=request_id)
     
     if not video_url:
         error_message = f"Failed to retrieve video URL after {max_attempts} attempts"
@@ -354,7 +354,7 @@ class Comfly_vidu_img2video:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 raise Exception(error_message)
@@ -362,7 +362,7 @@ class Comfly_vidu_img2video:
             result = response.json()
             
             if "task_id" not in result:
-                error_message = f"No task_id in response: {result}"
+                error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 raise Exception(error_message)
@@ -394,7 +394,7 @@ class Comfly_vidu_img2video:
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
-            error_message = f"Error generating video: {str(e)}"
+            error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
@@ -518,7 +518,7 @@ class Comfly_vidu_text2video:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
@@ -527,7 +527,7 @@ class Comfly_vidu_text2video:
             result = response.json()
             
             if "task_id" not in result:
-                error_message = f"No task_id in response: {result}"
+                error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 empty_video = ComflyVideoAdapter("")
@@ -559,7 +559,7 @@ class Comfly_vidu_text2video:
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
-            error_message = f"Error generating video: {str(e)}"
+            error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
@@ -761,7 +761,7 @@ class Comfly_vidu_ref2video:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 raise Exception(error_message)
@@ -769,7 +769,7 @@ class Comfly_vidu_ref2video:
             result = response.json()
             
             if "task_id" not in result:
-                error_message = f"No task_id in response: {result}"
+                error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 raise Exception(error_message)
@@ -802,7 +802,7 @@ class Comfly_vidu_ref2video:
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
-            error_message = f"Error generating video: {str(e)}"
+            error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback
@@ -950,7 +950,7 @@ class Comfly_vidu_start_end2video:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 raise Exception(error_message)
@@ -958,7 +958,7 @@ class Comfly_vidu_start_end2video:
             result = response.json()
             
             if "task_id" not in result:
-                error_message = f"No task_id in response: {result}"
+                error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
                 raise Exception(error_message)
@@ -989,7 +989,7 @@ class Comfly_vidu_start_end2video:
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
-            error_message = f"Error generating video: {str(e)}"
+            error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
             import traceback

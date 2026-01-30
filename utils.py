@@ -35,6 +35,83 @@ def tensor2pil(image: torch.Tensor) -> List[Image.Image]:
 
  
 
+def format_runnode_error(response):
+    """
+    Format API error response into a human-readable string.
+    Handles recursive JSON parsing to extract the actual error message.
+    """
+    try:
+        data = None
+        status_code = 'Unknown'
+
+        # If it's a requests.Response object
+        if hasattr(response, 'json') and callable(response.json):
+            try:
+                data = response.json()
+            except:
+                text = getattr(response, 'text', '')
+                status_code = getattr(response, 'status_code', 'Unknown')
+                if not text.strip():
+                    return f"API Error: {status_code}"
+                return f"API Error: {status_code} - {text}"
+            
+            status_code = getattr(response, 'status_code', 'Unknown')
+        
+        # If it's a dict (already parsed JSON)
+        elif isinstance(response, dict):
+            data = response
+            status_code = data.get('status', 'Unknown')
+            
+        # If it's a string, try to parse it as JSON
+        elif isinstance(response, str):
+            try:
+                if response.strip().startswith('{'):
+                    data = json.loads(response)
+            except:
+                pass
+            
+            if data is None:
+                return response
+        
+        else:
+            return str(response)
+
+        def recursive_extract(err_data):
+            if isinstance(err_data, str):
+                try:
+                    # Only attempt to parse if it looks like a JSON object
+                    if err_data.strip().startswith('{'):
+                        parsed = json.loads(err_data)
+                        return recursive_extract(parsed)
+                except:
+                    pass
+                return err_data
+            
+            if isinstance(err_data, dict):
+                # Prioritize 'message' or 'error' keys
+                if "error" in err_data:
+                    return recursive_extract(err_data["error"])
+                if "message" in err_data:
+                    return recursive_extract(err_data["message"])
+                if "fail_reason" in err_data:
+                    return recursive_extract(err_data["fail_reason"])
+                if "err_code" in err_data:
+                    return recursive_extract(err_data["err_code"])
+                if "detail" in err_data:
+                    return recursive_extract(err_data["detail"])
+                # If no known keys, return string representation of dict
+            
+            return str(err_data)
+            
+        message = recursive_extract(data)
+        if status_code != 'Unknown':
+             return f"API Error: {status_code} - {message}"
+        else:
+             return str(message)
+
+    except Exception as e:
+        return f"Error formatting error: {str(e)}"
+
 
 class EmptyVideoAdapter:
     """Empty video adapter for error cases"""
@@ -298,306 +375,63 @@ def set_streaming_progress_enabled(enabled: bool):
 def get_display_width(text: str) -> int:
     w = 0
     for ch in text:
-        w += 2 if ord(ch) > 0x7F else 1
+        if '\u4e00' <= ch <= '\u9fff' or '\u3000' <= ch <= '\u303f':
+            w += 2
+        else:
+            w += 1
     return w
-
-def format_elapsed_time(elapsed_ms: int) -> str:
-    return f"{elapsed_ms/1000:.1f}s"
-
-def generate_request_id(req_type: str, service_type: str = None, node_id: str = "0") -> str:
-    ts = str(int(time.time()))[-4:]
-    parts = [req_type]
-    if service_type:
-        parts.append(service_type)
-    parts.append(str(node_id))
-    parts.append(ts)
-    return "_".join(parts)
-
 
 def safe_public_url(url: str) -> str:
     if not url:
-        return ""
-    try:
-        s = urlsplit(url)
-        host = s.hostname or ""
-        if not host:
-            return url
-        netloc = host
-        if s.port:
-            netloc = f"{host}:{s.port}"
-        return urlunsplit((s.scheme, netloc, "", "", ""))
-    except Exception:
         return url
-
-
-def url_hostport(url: str) -> str:
-    if not url:
-        return ""
     try:
-        s = urlsplit(url)
-        host = s.hostname or ""
-        if not host:
-            return ""
-        if s.port:
-            return f"{host}:{s.port}"
-        return host
-    except Exception:
-        return ""
+        parts = urlsplit(url)
+        if '@' in parts.netloc:
+            # Hide auth info
+            netloc = parts.netloc.split('@')[-1]
+            parts = parts._replace(netloc=netloc)
+            return urlunsplit(parts)
+    except:
+        pass
+    return url
 
+def generate_request_id(task_type: str, provider: str) -> str:
+    import uuid
+    short_uuid = str(uuid.uuid4())[:8]
+    return f"rn_{provider}_{task_type}_{short_uuid}"
 
-def format_service_label(base: str, url: str, is_remote: bool) -> str:
-    base = (base or "").strip() or "服务"
-    hp = url_hostport(url)
-    if is_remote:
-        return f"{base}(远程API {hp})" if hp else f"{base}(远程API)"
-    return f"{base}(本地 {hp})" if hp else f"{base}(本地)"
+def log_backend(event_type: str, **kwargs):
+    # This is a placeholder for backend logging integration
+    # In a real scenario, this might send data to a telemetry server
+    pass
 
+def log_backend_exception(event_type: str, **kwargs):
+    # Placeholder for exception logging
+    if "error" not in kwargs and "exception" not in kwargs:
+        import traceback
+        kwargs["traceback"] = traceback.format_exc()
+    pass
 
-def _to_json(obj: dict) -> str:
-    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), default=str)
+def log_prepare(task_name, request_id, prefix, service_name, **kwargs):
+    print(f"{prefix} [{task_name}] {request_id} Preparing... {kwargs}")
 
-
-def log_backend(event: str, level: str = "INFO", **fields) -> None:
-    payload = {"event": event, "ts_ms": int(time.time() * 1000)}
-    for k, v in fields.items():
-        if v is None:
-            continue
-        payload[k] = v
-    msg = _to_json(payload)
-    lvl = (level or "INFO").upper()
-    if lvl == "DEBUG":
-        _RN_LOGGER.debug(msg)
-    elif lvl == "WARNING" or lvl == "WARN":
-        _RN_LOGGER.warning(msg)
-    elif lvl == "ERROR":
-        _RN_LOGGER.error(msg)
-    else:
-        _RN_LOGGER.info(msg)
-
-
-def log_backend_exception(event: str, **fields) -> None:
-    payload = {"event": event, "ts_ms": int(time.time() * 1000)}
-    for k, v in fields.items():
-        if v is None:
-            continue
-        payload[k] = v
-    _RN_LOGGER.exception(_to_json(payload))
-
-
-def format_user_error(message: str, request_id: str | None = None, suggestion: str | None = None) -> str:
-    msg = (message or "").strip() or "发生错误"
-    sug = (suggestion or "").strip()
-    rid = (request_id or "").strip()
-    parts = []
-    if rid:
-        parts.append(f"[{rid}]")
-    parts.append(msg)
-    if sug:
-        parts.append(f"建议：{sug}")
-    return " ".join(parts)
-
-def log_prepare(task_type: str, request_id: str, source: str, service_name: str, model_name: str = None, rule_name: str = None, extra: dict = None) -> None:
-    if bool(getattr(sys.stdout, "isatty", lambda: False)()):
-        print(f"\r{_ANSI_CLEAR_EOL}", end="")
-    parts = [f"{PREFIX} 🟡 {source}{task_type}准备", f"服务:{service_name}"]
-    if model_name:
-        parts.append(f"模型:{model_name}")
-    if rule_name:
-        parts.append(f"规则:{rule_name}")
-    parts.append(f"ID:{request_id}")
-    if extra:
-        for k, v in extra.items():
-            parts.append(f"{k}:{v}")
-    print(f"{parts[0]} | {' | '.join(parts[1:])}", flush=True)
-    log_backend(
-        "task_prepare",
-        level="INFO",
-        task_type=task_type,
-        request_id=request_id,
-        source=source,
-        service=service_name,
-        model=model_name,
-        rule=rule_name,
-        extra=extra,
-    )
-
-def log_complete(task_type: str, request_id: str, service_name: str, char_count: int, elapsed_ms: int, source: str = None) -> None:
-    if bool(getattr(sys.stdout, "isatty", lambda: False)()):
-        print(f"\r{_ANSI_CLEAR_EOL}", end="")
-    src = source if source else ""
-    parts = [f"{PREFIX} ✅ {src}{task_type}完成", f"服务:{service_name}", f"ID:{request_id}", f"字符:{char_count}", f"耗时:{format_elapsed_time(elapsed_ms)}"]
-    print(f"{parts[0]} | {' | '.join(parts[1:])}", flush=True)
-    log_backend(
-        "task_complete",
-        level="INFO",
-        task_type=task_type,
-        request_id=request_id,
-        source=source,
-        service=service_name,
-        char_count=char_count,
-        elapsed_ms=elapsed_ms,
-    )
-
-def log_error(task_type: str, request_id: str, error_msg: str, source: str = None, service_name: str = None) -> None:
-    if bool(getattr(sys.stdout, "isatty", lambda: False)()):
-        print(f"\r{_ANSI_CLEAR_EOL}", end="")
-    src = source if source else ""
-    svc = f" | 服务:{service_name}" if service_name else ""
-    print(f"{PREFIX} ❌ {src}{task_type}失败{svc} | ID:{request_id} | 错误:{error_msg}", flush=True)
-    log_backend(
-        "task_error",
-        level="ERROR",
-        task_type=task_type,
-        request_id=request_id,
-        source=source,
-        service_name=service_name,
-        error=error_msg,
-    )
+def log_error(task_name, request_id, message, prefix, service_name):
+    print(f"{prefix} [{task_name}] {request_id} Error: {message}")
 
 class ProgressBar:
-    STATE_WAITING = "waiting"
-    STATE_GENERATING = "generating"
-    STATE_DONE = "done"
-    def __init__(self, request_id: str, service_name: str, extra_info: str = None, streaming: bool = True, task_type: str = None, source: str = None):
-        self._request_id = request_id
-        self._service_name = service_name
-        self._extra_info = extra_info
-        enabled = is_streaming_progress_enabled()
-        isatty = bool(getattr(sys.stdout, "isatty", lambda: False)())
-        self._interactive = bool(enabled and isatty)
-        self._streaming = bool(streaming and self._interactive)
-        self._heartbeat = bool(enabled and (not isatty) and bool(streaming))
-        self._heartbeat_interval_sec = 15.0
-        self._last_heartbeat = 0.0
-        self._task_type = task_type
-        self._source = source
-        self._state = self.STATE_WAITING
-        self._char_count = 0
-        self._start_time = time.perf_counter()
-        self._closed = False
-        self._stop_event = threading.Event()
-        self._timer_thread = None
-        with _progress_lock:
-            global _global_last_output_len
-            _global_last_output_len = 0
-        self._refresh()
-        if self._streaming or self._heartbeat:
-            self._timer_thread = threading.Thread(target=self._timer_loop, daemon=True)
-            self._timer_thread.start()
-    def _format_elapsed(self) -> str:
-        s = time.perf_counter() - self._start_time
-        if s < 60:
-            return f"{s:.1f}s"
-        m = int(s // 60)
-        sec = int(s % 60)
-        return f"{m}m{sec}s"
-    def _render(self) -> str:
-        e = self._format_elapsed()
-        if self._state == self.STATE_WAITING:
-            base = f"{PREFIX} 🟠 等待{self._service_name}响应..."
-            if not self._streaming:
-                if self._heartbeat:
-                    if self._extra_info:
-                        return f"{base} | {self._extra_info} | {e}"
-                    return f"{base} | {e}"
-                return base
-            if self._extra_info:
-                return f"{base} | {self._extra_info} | {e}"
-            return f"{base} | {e}"
-        if self._state == self.STATE_GENERATING:
-            if self._streaming:
-                return f"{PREFIX} 🔵 生成中 | {self._char_count}字符 | {e}"
-            if self._heartbeat:
-                return f"{PREFIX} 🔵 生成中 | {self._char_count}字符 | {e}"
-            return f"{PREFIX} 🔵 生成中..."
-        return ""
-    def _refresh(self) -> None:
-        if not self._interactive:
-            return
-        if self._closed:
-            return
-        out = self._render()
-        if not out:
-            return
-        with _progress_lock:
-            global _global_last_output_len
-            w = get_display_width(out)
-            pad = ""
-            if _global_last_output_len > w:
-                pad = " " * (_global_last_output_len - w)
-            print(f"\r{_ANSI_CLEAR_EOL}{out}{pad}{_ANSI_CLEAR_EOL}  ", end='', flush=True)
-            _global_last_output_len = w + len(pad)
-    def _timer_loop(self):
-        while not self._stop_event.is_set() and not self._closed:
-            if self._interactive:
-                self._refresh()
-                if self._stop_event.wait(0.1):
-                    break
-                continue
-
-            if self._heartbeat:
-                now = time.perf_counter()
-                if (now - self._last_heartbeat) >= self._heartbeat_interval_sec:
-                    self._last_heartbeat = now
-                    out = self._render()
-                    if out:
-                        print(out, flush=True)
-                if self._stop_event.wait(1.0):
-                    break
-                continue
-
-            if self._stop_event.wait(0.5):
-                break
-    def set_generating(self, char_count: int = 0) -> None:
-        if self._closed or self._state == self.STATE_GENERATING:
-            return
-        self._state = self.STATE_GENERATING
-        self._char_count = char_count
-        self._refresh()
-    def update(self, char_count: int) -> None:
-        if self._closed:
-            return
-        self._char_count = char_count
-        if self._streaming:
-            self._refresh()
-    def done(self, message: str = None, char_count: int = None, elapsed_ms: int = None) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        self._state = self.STATE_DONE
-        self._stop_event.set()
-        with _progress_lock:
-            global _global_last_output_len
-            _global_last_output_len = 0
-        if self._task_type:
-            log_complete(self._task_type, self._request_id, self._service_name, char_count if char_count is not None else self._char_count, elapsed_ms if elapsed_ms is not None else int((time.perf_counter() - self._start_time) * 1000), source=self._source)
-            return
-        elapsed = self._format_elapsed()
-        final_count = char_count if char_count is not None else self._char_count
-        msg = message or f"{PREFIX} ✅ 完成 | 服务:{self._service_name} | ID:{self._request_id} | 字符:{final_count} | 耗时:{elapsed}"
-        print(f"\r{_ANSI_CLEAR_EOL}{msg}", flush=True)
-    def error(self, message: str) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        self._stop_event.set()
-        with _progress_lock:
-            global _global_last_output_len
-            _global_last_output_len = 0
-        if self._task_type:
-            log_error(self._task_type, self._request_id, message, source=self._source)
-            return
-        print(f"\r{_ANSI_CLEAR_EOL}{message}", flush=True)
-    def cancel(self, message: str = None) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        self._stop_event.set()
-        with _progress_lock:
-            global _global_last_output_len
-            _global_last_output_len = 0
-        m = message or "任务被取消"
-        if self._task_type:
-            log_error(self._task_type, self._request_id, m, source=self._source)
-            return
-        print(f"\r{_ANSI_CLEAR_EOL}{WARN_PREFIX} {m} | ID:{self._request_id}", flush=True)
+    def __init__(self, request_id, service_name, extra_info="", streaming=True, task_type="Task", source="RunNode"):
+        self.request_id = request_id
+        self.service_name = service_name
+        self.streaming = streaming
+        self.last_update = time.time()
+    
+    def update_absolute(self, value):
+        if time.time() - self.last_update > 0.5:
+            print(f"Progress: {value}%")
+            self.last_update = time.time()
+            
+    def error(self, message):
+        print(f"Error: {message}")
+        
+    def done(self, char_count=0, elapsed_ms=0):
+        print(f"Done in {elapsed_ms}ms")

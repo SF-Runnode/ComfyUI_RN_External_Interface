@@ -107,7 +107,7 @@ class Comfly_suno_description:
             pbar.update_absolute(20)
            
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "suno_music_description_failed",
@@ -219,7 +219,7 @@ class Comfly_suno_description:
                         break
                         
                 except Exception as e:
-                    rn_pbar.error(f"Error checking clip status: {str(e)}")
+                    rn_pbar.error(f"Error checking clip status: {format_runnode_error(str(e))}")
                     log_backend_exception(
                         "suno_music_description_poll_exception",
                         request_id=request_id,
@@ -320,7 +320,7 @@ class Comfly_suno_description:
             )
                 
         except Exception as e:
-            error_message = f"Error generating music: {str(e)}"
+            error_message = f"Error generating music: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
@@ -411,7 +411,7 @@ class Comfly_suno_lyrics:
             )
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "suno_lyrics_failed",
@@ -636,7 +636,7 @@ class Comfly_suno_custom:
             pbar.update_absolute(20)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "suno_music_custom_failed",
@@ -948,7 +948,7 @@ class Comfly_suno_upload:
             )
             
             if response.status_code != 200:
-                error_message = f"Failed to get upload URL: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "suno_audio_upload_failed",
@@ -998,7 +998,7 @@ class Comfly_suno_upload:
             upload_response = requests.post(upload_url, files=files, timeout=self.timeout)
             
             if upload_response.status_code != 204:
-                error_message = f"Failed to upload audio: {upload_response.status_code}"
+                error_message = format_runnode_error(upload_response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "suno_audio_upload_failed",
@@ -1140,7 +1140,7 @@ class Comfly_suno_upload:
                         rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
                         return (clip_id, title, tags, lyrics, json.dumps(response_info))
                     else:
-                        error_message = f"Failed to initialize clip: {init_response.status_code}"
+                        error_message = format_runnode_error(init_response)
                         rn_pbar.error(error_message)
                         log_backend(
                             "suno_audio_upload_failed",
@@ -1633,7 +1633,7 @@ class Comfly_suno_cover:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "suno_cover_failed",

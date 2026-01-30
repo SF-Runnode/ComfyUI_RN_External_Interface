@@ -186,17 +186,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
-def start_ai_helper():
-    import threading
-    import subprocess
-    import os
-    import sys
+from .AiHelper import init_server
+from server import PromptServer
 
-    def run_ai_helper():
-        ai_helper_path = os.path.join(os.path.dirname(__file__), "AiHelper.py")
-        subprocess.run([sys.executable, ai_helper_path])
-
-    ai_helper_thread = threading.Thread(target=run_ai_helper)
-    ai_helper_thread.start()
-
-start_ai_helper()
+init_server(PromptServer.instance.app)

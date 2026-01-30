@@ -444,13 +444,15 @@ class OllamaChat:
                         elapsed_ms=int((time.perf_counter() - remote_start) * 1000),
                     )
                 except Exception as e2:
-                    rn_pbar.error(
-                        format_user_error(
-                            "远程服务调用失败",
-                            request_id=req_id,
-                            suggestion="检查 Base URL 是否可访问，API Key 是否正确",
-                        )
-                    )
+                    error_msg = f"远程服务调用失败: {str(e2)}"
+                    if isinstance(e2, urllib.error.HTTPError):
+                        try:
+                            err_body = e2.read().decode('utf-8')
+                            error_msg = f"远程服务调用失败: {format_runnode_error(err_body)}"
+                        except:
+                            pass
+
+                    rn_pbar.error(f"{error_msg} (建议: 检查 Base URL 是否可访问，API Key 是否正确)")
                     log_backend_exception(
                         "ollama_chat_remote_failed",
                         request_id=req_id,
@@ -458,11 +460,7 @@ class OllamaChat:
                         model=model,
                     )
                     raise RuntimeError(
-                        format_user_error(
-                            "远程服务调用失败",
-                            request_id=req_id,
-                            suggestion="检查 Base URL 是否可访问，API Key 是否正确",
-                        )
+                        f"{error_msg} (建议: 检查 Base URL 是否可访问，API Key 是否正确)"
                     )
         else:
             try:

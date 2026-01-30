@@ -67,7 +67,7 @@ class Comfly_Flux_Kontext:
                 return None
                 
         except Exception as e:
-            print(f"Error uploading image: {str(e)}")
+            print(f"Error uploading image: {format_runnode_error(str(e))}")
             return None
     
     def generate_image(self, prompt, input_image=None, model="flux-kontext-pro", 
@@ -156,7 +156,7 @@ class Comfly_Flux_Kontext:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
                 if input_image is None:
@@ -194,7 +194,7 @@ class Comfly_Flux_Kontext:
                         generated_tensor = pil2tensor(generated_image)
                         generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        error_msg = f"Error downloading image from URL: {str(e)}"
+                        error_msg = f"Error downloading image from URL: {format_runnode_error(str(e))}"
                         rn_pbar.error(error_msg)
                         log_error("下载失败", request_id, error_msg, "RunNode/Flux-", "Flux")
                         
@@ -229,7 +229,7 @@ class Comfly_Flux_Kontext:
                 return (input_image, "")
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
             if input_image is None:
@@ -360,7 +360,7 @@ class Comfly_Flux_Kontext_Edit:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
                 if image is None:
@@ -398,7 +398,7 @@ class Comfly_Flux_Kontext_Edit:
                         generated_tensor = pil2tensor(generated_image)
                         generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        error_msg = f"Error downloading image from URL: {str(e)}"
+                        error_msg = f"Error downloading image from URL: {format_runnode_error(str(e))}"
                         rn_pbar.error(error_msg)
                         log_error("下载失败", request_id, error_msg, "RunNode/Flux-", "Flux")
                         
@@ -430,7 +430,7 @@ class Comfly_Flux_Kontext_Edit:
                 return (image, "")
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
             if image is None:
@@ -548,7 +548,7 @@ class Comfly_Flux_Kontext_bfl:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
                 return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
@@ -602,7 +602,7 @@ class Comfly_Flux_Kontext_bfl:
                     pbar.update_absolute(progress)
                         
                 except Exception as e:
-                    error_msg = f"Error checking generation status: {str(e)}"
+                    error_msg = f"Error checking generation status: {format_runnode_error(str(e))}"
                     rn_pbar.error(error_msg)
                     log_error("轮询异常", request_id, error_msg, "RunNode/Flux-", "Flux")
             
@@ -640,13 +640,13 @@ class Comfly_Flux_Kontext_bfl:
                 return (generated_tensor, image_url, json.dumps(result_info))
                 
             except Exception as e:
-                error_message = f"Error downloading generated image: {str(e)}"
+                error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_error("下载失败", request_id, error_message, "RunNode/Flux-", "Flux")
                 return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
             return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
@@ -789,7 +789,7 @@ class Comfly_Flux_2_Max:
             rn_pbar.update(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "flux_generate_failed",
@@ -917,7 +917,7 @@ class Comfly_Flux_2_Max:
                 return (generated_tensor, image_url, json.dumps(result_info, indent=2))
                 
             except Exception as e:
-                error_message = f"Error downloading generated image: {str(e)}"
+                error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_backend(
                     "flux_generate_failed",
@@ -931,7 +931,7 @@ class Comfly_Flux_2_Max:
                 return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend(
                 "flux_generate_failed",
@@ -1076,7 +1076,7 @@ class Comfly_Flux_2_Pro:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
                 return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
@@ -1135,7 +1135,7 @@ class Comfly_Flux_2_Pro:
                         return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
                         
                 except Exception as e:
-                    error_msg = f"Error checking generation status: {str(e)}"
+                    error_msg = f"Error checking generation status: {format_runnode_error(str(e))}"
                     rn_pbar.error(error_msg)
                     log_error("轮询异常", request_id, error_msg, "RunNode/Flux-", "Flux")
             
@@ -1174,13 +1174,13 @@ class Comfly_Flux_2_Pro:
                 return (generated_tensor, image_url, json.dumps(result_info))
                 
             except Exception as e:
-                error_message = f"Error downloading generated image: {str(e)}"
+                error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_error("下载失败", request_id, error_message, "RunNode/Flux-", "Flux")
                 return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
             return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
@@ -1382,7 +1382,7 @@ class Comfly_Flux_2_Flex:
                         return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
                         
                 except Exception as e:
-                    error_msg = f"Error checking generation status: {str(e)}"
+                    error_msg = f"Error checking generation status: {format_runnode_error(str(e))}"
                     rn_pbar.error(error_msg)
                     log_error("轮询异常", request_id, error_msg, "RunNode/Flux-", "Flux")
             
@@ -1418,12 +1418,12 @@ class Comfly_Flux_2_Flex:
                 return (generated_tensor, image_url, json.dumps(result_info))
                 
             except Exception as e:
-                error_message = f"Error downloading generated image: {str(e)}"
+                error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 print(error_message)
                 return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
             return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))

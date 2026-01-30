@@ -151,7 +151,7 @@ class Comfly_qwen_image:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "qwen_image_generate_failed",
@@ -198,7 +198,7 @@ class Comfly_qwen_image:
                             generated_tensor = pil2tensor(generated_image)
                             generated_images.append(generated_tensor)
                         except Exception as e:
-                            rn_pbar.error(f"Error downloading image from URL: {str(e)}")
+                            rn_pbar.error(f"Error downloading image from URL: {format_runnode_error(str(e))}")
                             log_backend_exception(
                                 "qwen_image_generate_download_failed",
                                 request_id=request_id,
@@ -264,7 +264,7 @@ class Comfly_qwen_image:
                 return (blank_tensor, response_info, "")
                 
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "qwen_image_generate_exception",
@@ -442,7 +442,7 @@ class Comfly_qwen_image_edit:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "qwen_image_edit_failed",
@@ -488,7 +488,7 @@ class Comfly_qwen_image_edit:
                             edited_tensor = pil2tensor(edited_image)
                             edited_images.append(edited_tensor)
                         except Exception as e:
-                            rn_pbar.error(f"Error downloading image from URL: {str(e)}")
+                            rn_pbar.error(f"Error downloading image from URL: {format_runnode_error(str(e))}")
                             log_backend_exception(
                                 "qwen_image_edit_download_failed",
                                 request_id=request_id,
@@ -550,7 +550,7 @@ class Comfly_qwen_image_edit:
                 return (image, response_info, "")
                 
         except Exception as e:
-            error_message = f"Error in image editing: {str(e)}"
+            error_message = f"Error in image editing: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "qwen_image_edit_exception",
@@ -723,7 +723,7 @@ class Comfly_Z_image_turbo:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "qwen_z_image_generate_failed",
@@ -769,14 +769,14 @@ class Comfly_Z_image_turbo:
                         img_response.raise_for_status()
                         generated_image = Image.open(BytesIO(img_response.content))
                     except Exception as e:
-                        rn_pbar.error(f"Error downloading image from URL: {str(e)}")
+                        rn_pbar.error(f"Error downloading image from URL: {format_runnode_error(str(e))}")
                         log_backend_exception(
                             "qwen_z_image_generate_download_failed",
                             request_id=request_id,
                             url=safe_public_url(image_url),
                             model=model,
                         )
-                        response_info += f"Error: {str(e)}\n"
+                        response_info += f"Error: {format_runnode_error(str(e))}\n"
             else:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
@@ -964,7 +964,7 @@ class Comfly_wan2_6_API:
                 raise Exception("Failed to encode image in any supported format")
                 
         except Exception as e:
-            print(f"[RunNode_WanVideo ERROR] Image base64 conversion error: {str(e)}")
+            print(f"[RunNode_WanVideo ERROR] Image base64 conversion error: {format_runnode_error(str(e))}")
             return None
 
     def generate_video(self, prompt, api_key, resolution, duration, image=None, audio_url="", prompt_extend=True, shot_type="multi", audio_enabled=True):
@@ -1123,28 +1123,9 @@ class Comfly_wan2_6_API:
                     return (EmptyVideoAdapter(), "No task ID in response", "")
             else:
                 # Error handling
-                status_code = response.status_code
-                error_message = "Unknown error"
+                error_message = format_runnode_error(response)
                 
-                try:
-                    if response.text:
-                        response_json = response.json()
-                        if isinstance(response_json, dict):
-                            if 'message' in response_json:
-                                error_message = str(response_json['message'])
-                            elif 'error' in response_json:
-                                error_obj = response_json['error']
-                                if isinstance(error_obj, dict) and 'message' in error_obj:
-                                    error_message = str(error_obj['message'])
-                                else:
-                                    error_message = str(error_obj)
-                            
-                            if len(error_message) > 200:
-                                error_message = error_message[:200] + "..."
-                except:
-                    error_message = response.text[:200] if response.text else "No details"
-                
-                print(f"[RunNode_WanVideo ERROR] API error ({status_code}): {error_message}")
+                print(f"[RunNode_WanVideo ERROR] {error_message}")
                 rn_pbar.error(error_message)
                 log_backend(
                     "qwen_wan_video_failed",
@@ -1152,15 +1133,15 @@ class Comfly_wan2_6_API:
                     request_id=request_id,
                     model="wan2.6-i2v",
                     stage="api_http_error",
-                    status_code=int(status_code),
+                    status_code=int(response.status_code),
                     error=error_message,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return (EmptyVideoAdapter(), f"API error: {status_code} - {error_message}", "")
+                return (EmptyVideoAdapter(), error_message, "")
                 
         except Exception as e:
-            print(f"[RunNode_WanVideo ERROR] Video generation error: {str(e)}")
-            error_msg = str(e)
+            print(f"[RunNode_WanVideo ERROR] Video generation error: {format_runnode_error(str(e))}")
+            error_msg = format_runnode_error(str(e))
             rn_pbar.error(error_msg)
             log_backend_exception(
                 "qwen_wan_video_exception",
@@ -1219,7 +1200,7 @@ class Comfly_wan2_6_API:
                     return None
                     
             except Exception as e:
-                print(f"[RunNode_WanVideo ERROR] Query error: {str(e)}")
+                print(f"[RunNode_WanVideo ERROR] Query error: {format_runnode_error(str(e))}")
                 return None
         
         print("[RunNode_WanVideo ERROR] Polling timeout")

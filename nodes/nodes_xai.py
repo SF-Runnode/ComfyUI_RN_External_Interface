@@ -69,7 +69,7 @@ class ComflyGrok3VideoApi:
                 return None
 
         except Exception as e:
-            msg = f"Error uploading image: {str(e)}"
+            msg = f"Error uploading image: {format_runnode_error(str(e))}"
             print(msg)
             log_backend_exception(
                 "xai_grok_upload_exception",
@@ -168,7 +168,7 @@ class ComflyGrok3VideoApi:
             )
 
             if response.status_code != 200:
-                error_message = f"API error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "xai_video_generate_failed",
@@ -330,7 +330,7 @@ class ComflyGrok3VideoApi:
                 return (video_adapter, task_id, json.dumps(response_data), video_url)
 
         except Exception as e:
-            error_message = f"Error generating video: {str(e)}"
+            error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             traceback.print_exc()
             log_backend_exception(
