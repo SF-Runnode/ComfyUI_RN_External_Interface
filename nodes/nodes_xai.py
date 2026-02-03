@@ -9,8 +9,9 @@ class ComflyGrok3VideoApi:
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
                 "model": (["grok-video-3"], {"default": "grok-video-3"}),
-                "ratio": (["2:3", "3:2", "1:1"], {"default": "1:1"}),
-                "resolution": (["720P", "1080P"], {"default": "720P"}),
+                "ratio": (["2:3", "3:2", "16:9", "9:16", "1:1"], {"default": "1:1"}),
+                "duration": ([6, 10], {"default": 10}),
+                "resolution": (["480P", "720P", "1080P"], {"default": "1080P"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
@@ -80,7 +81,7 @@ class ComflyGrok3VideoApi:
                 rn_pbar.error("上传参考图像失败，请检查网络或图像格式")
             return None
 
-    def generate_video(self, prompt, model, ratio, resolution, api_key="", image=None, seed=0):
+    def generate_video(self, prompt, model, ratio, duration, resolution, api_key="", image=None, seed=0):
         request_id = generate_request_id("video_gen", "xai")
         log_prepare("视频生成", request_id, "RunNode/xAI-", "xAI", model_name=model)
         rn_pbar = ProgressBar(
@@ -120,6 +121,7 @@ class ComflyGrok3VideoApi:
                 "prompt": prompt,
                 "model": model,
                 "ratio": ratio,
+                "duration": duration,
                 "resolution": resolution,
             }
 
