@@ -17,18 +17,10 @@ def downscale_input(image):
     return s
 
 
-def format_openai_error(response):
-    try:
-        data = response.json()
-        if "message" in data:
-            return f"API Error: {response.status_code} - {data['message']}"
-        if "error" in data:
-            if isinstance(data["error"], dict) and "message" in data["error"]:
-                 return f"API Error: {response.status_code} - {data['error']['message']}"
-            return f"API Error: {response.status_code} - {data['error']}"
-    except:
-        pass
-    return f"API Error: {response.status_code} - {response.text}"
+
+# Redirect to generic error formatter
+format_openai_error = format_runnode_error
+
 
 
 class Comfly_gpt_image_1_edit:
@@ -149,13 +141,13 @@ class Comfly_gpt_image_1_edit:
             
             except requests.exceptions.ConnectionError as e:
                 if attempt == max_retries:
-                    raise ConnectionError(f"Connection error after {max_retries} attempts: {str(e)}")
+                    raise ConnectionError(f"Connection error after {max_retries} attempts: {format_runnode_error(str(e))}")
                 wait_time = min(2 ** (attempt - 1), 60)
                 time.sleep(wait_time)
             
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code in (400, 401, 403):
-                    print(f"Client error: {str(e)}")
+                    print(f"Client error: {format_runnode_error(str(e))}")
                     raise
                 if attempt == max_retries:
                     raise
@@ -168,7 +160,7 @@ class Comfly_gpt_image_1_edit:
                 wait_time = min(2 ** (attempt - 1), 60)
                 time.sleep(wait_time)
     
-    def edit_image(self, prompt, model="gpt-image-1", n=1, quality="auto", 
+    def edit_image(self, image, prompt, model="gpt-image-1", n=1, quality="auto", 
               seed=0, api_key="", size="auto", clear_chats=True,
               background="auto", output_compression=100, output_format="png",
               max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0,
@@ -184,9 +176,9 @@ class Comfly_gpt_image_1_edit:
         config = get_config()
         baseurl = config.get('base_url', '')
 
-        all_images = [image1, image2, image3, image4, image5, 
+        all_images = [image, image1, image2, image3, image4, image5, 
                      image6, image7, image8, image9, image10]
-        all_masks = [mask1, mask2, mask3, mask4, mask5,
+        all_masks = [None, mask1, mask2, mask3, mask4, mask5,
                     mask6, mask7, mask8, mask9, mask10]
         raw_image_count = sum(1 for img in all_images if img is not None)
         raw_mask_count = sum(1 for m in all_masks if m is not None)
@@ -384,7 +376,7 @@ class Comfly_gpt_image_1_edit:
                     )
 
             except TimeoutError as e:
-                error_message = f"API timeout error: {str(e)}"
+                error_message = f"API timeout error: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_backend_exception(
                     "openai_image_edit_request_timeout",
@@ -394,7 +386,7 @@ class Comfly_gpt_image_1_edit:
                 )
                 return (original_image, error_message, self.format_conversation_history())
             except Exception as e:
-                error_message = f"API request error: {str(e)}"
+                error_message = f"API request error: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_backend_exception(
                     "openai_image_edit_request_failed",
@@ -449,16 +441,16 @@ class Comfly_gpt_image_1_edit:
                                 break
                             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
                                 if download_attempt == max_retries:
-                                    print(f"Failed to download image after {max_retries} attempts: {str(e)}")
+                                    print(f"Failed to download image after {max_retries} attempts: {format_runnode_error(str(e))}")
                                     continue
                                 wait_time = min(2 ** (download_attempt - 1), 60)
                                 print(f"Image download error (attempt {download_attempt}/{max_retries}). Retrying in {wait_time} seconds...")
                                 time.sleep(wait_time)
                             except Exception as e:
-                                print(f"Error downloading image from URL: {str(e)}")
+                                print(f"Error downloading image from URL: {format_runnode_error(str(e))}")
                                 break
                     except Exception as e:
-                        print(f"Error processing image URL: {str(e)}")
+                        print(f"Error processing image URL: {format_runnode_error(str(e))}")
 
             pbar.update_absolute(90)
 
@@ -523,7 +515,7 @@ class Comfly_gpt_image_1_edit:
                 return (original_image, error_message, self.format_conversation_history())
             
         except Exception as e:
-            error_message = f"Error in image editing: {str(e)}"
+            error_message = f"Error in image editing: {format_runnode_error(str(e))}"
             import traceback
             print(traceback.format_exc())  
             rn_pbar.error(error_message)
@@ -695,7 +687,7 @@ class Comfly_gpt_image_1:
                                 generated_tensor = pil2tensor(generated_image)
                                 generated_images.append(generated_tensor)
                         except Exception as e:
-                            print(f"Error downloading image from URL: {str(e)}")
+                            print(f"Error downloading image from URL: {format_runnode_error(str(e))}")
             else:
                 error_message = "No generated images in response"
                 print(error_message)
@@ -769,7 +761,7 @@ class Comfly_gpt_image_1:
                 return (blank_tensor, response_info)
                 
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "openai_image_generate_exception",
@@ -845,7 +837,7 @@ class ComflyChatGPTApi:
                     mime_type = "application/octet-stream"
                 return encoded_content, mime_type
         except Exception as e:
-            print(f"Error encoding file: {str(e)}")
+            print(f"Error encoding file: {format_runnode_error(str(e))}")
             return None, None
 
     def extract_image_urls(self, response_text):
@@ -887,16 +879,16 @@ class ComflyChatGPTApi:
             print(f"Timeout error downloading image from {url} (timeout: {timeout}s)")
             return None
         except requests.exceptions.SSLError as e:
-            print(f"SSL Error downloading image from {url}: {str(e)}")
+            print(f"SSL Error downloading image from {url}: {format_runnode_error(str(e))}")
             return None
         except requests.exceptions.ConnectionError:
             print(f"Connection error downloading image from {url}")
             return None
         except requests.exceptions.RequestException as e:
-            print(f"Request error downloading image from {url}: {str(e)}")
+            print(f"Request error downloading image from {url}: {format_runnode_error(str(e))}")
             return None
         except Exception as e:
-            print(f"Error downloading image from {url}: {str(e)}")
+            print(f"Error downloading image from {url}: {format_runnode_error(str(e))}")
             return None
 
     def format_conversation_history(self):
@@ -987,7 +979,7 @@ class ComflyChatGPTApi:
                 url=safe_public_url(self.api_endpoint),
                 model=model,
             )
-            raise Exception(f"Error in streaming response: {str(e)}")
+            raise Exception(f"Error in streaming response: {format_runnode_error(str(e))}")
 
     def process(self, prompt, model, clear_chats=True, files=None, image_url="", images=None, temperature=0.7, 
            max_tokens=4096, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, seed=-1,
@@ -1187,7 +1179,7 @@ class ComflyChatGPTApi:
                         rn_pbar.done(char_count=len(response_text))
                         return (combined_tensor, technical_response, image_urls_string, chat_history)
                 except Exception as e:
-                    rn_pbar.error(f"Error processing image URLs: {str(e)}")
+                    rn_pbar.error(f"Error processing image URLs: {format_runnode_error(str(e))}")
         
             if images is not None:
                 pbar.update_absolute(100)
@@ -1201,7 +1193,7 @@ class ComflyChatGPTApi:
                 return (blank_tensor, technical_response, image_urls_string, chat_history)  
                 
         except Exception as e:
-            error_message = f"Error calling ChatGPT API: {str(e)}"
+            error_message = f"Error calling ChatGPT API: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "openai_chat_exception",
@@ -1464,7 +1456,7 @@ class Comfly_sora2_openai:
                         break
                     elif status == "failed":
                         fail_reason = status_data.get("fail_reason", "Unknown error")
-                        error_message = f"Video generation failed: {fail_reason}"
+                        error_message = f"Video generation failed: {format_runnode_error(fail_reason)}"
                         rn_pbar.error(error_message)
                         log_backend(
                             "openai_video_generate_failed",
@@ -1481,7 +1473,7 @@ class Comfly_sora2_openai:
                 except Exception as e:
                     if "Task canceled by user" in str(e):
                          raise e
-                    rn_pbar.error(f"Error checking task status: {str(e)}")
+                    rn_pbar.error(f"Error checking task status: {format_runnode_error(str(e))}")
                     raise
             
             if not video_url:
@@ -1528,7 +1520,7 @@ class Comfly_sora2_openai:
             return (video_adapter, json.dumps(response_data), video_url, actual_seed)
             
         except Exception as e:
-            error_message = f"Error in video generation: {str(e)}"
+            error_message = f"Error in video generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
@@ -1731,14 +1723,16 @@ class Comfly_sora2:
 
                     if status in ["completed", "succeeded", "SUCCESS", "Succeeded"]:
                         video_url = status_data.get("video_url") or status_data.get("url") or (status_data.get("data") or {}).get("output")
+                        if video_url and isinstance(video_url, str):
+                            video_url = video_url.strip()
                         break
                     elif status in ["failed", "failure", "FAILED", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
                         fail_reason = status_data.get("fail_reason") or status_data.get("error") or "Unknown error"
-                        raise Exception(f"Video generation failed: {fail_reason}")
+                        raise Exception(f"Video generation failed: {format_runnode_error(fail_reason)}")
                     
                     # Check for early failure case (e.g. content violation) where status might be ambiguous but progress implies completion without success
                     start_time = status_data.get("start_time", 0)
-                    if start_time == 0 and progress_val == 100 and status not in ["completed", "succeeded", "SUCCESS", "Succeeded", "processing", "pending", "queued"]:
+                    if start_time == 0 and progress_val == 100 and status not in ["completed", "succeeded", "SUCCESS", "Succeeded", "processing", "pending", "queued", "in_progress"]:
                          fail_reason = status_data.get("fail_reason") or status_data.get("error") or f"Unknown error (status: {status})"
                          raise Exception(f"Video generation failed (early termination): {fail_reason}")
 
@@ -1749,7 +1743,7 @@ class Comfly_sora2:
                      
                      if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
                          raise e
-                     print(f"Error checking status: {e}")
+                     print(f"Error checking status: {format_runnode_error(str(e))}")
                      if "Video generation failed" in str(e):
                          raise
 
@@ -1790,7 +1784,7 @@ class Comfly_sora2:
             
             if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
                  raise e
-            error_message = f"Error in video generation: {str(e)}"
+            error_message = f"Error in video generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
@@ -2022,10 +2016,10 @@ class Comfly_sora2:
                     # Check for early failure case (e.g. content violation) where status might be ambiguous but progress implies completion without success
                     start_time = status_data.get("start_time", 0)
                     if start_time == 0 and progress_value == 100 and status not in ["completed", "succeeded", "SUCCESS", "Succeeded", "processing", "pending", "queued"]:
-                         fail_reason = status_data.get("fail_reason") or status_data.get("error") or f"Unknown error (status: {status})"
-                         error_message = f"Video generation failed (early termination): {fail_reason}"
-                         rn_pbar.error(error_message)
-                         log_backend(
+                        fail_reason = status_data.get("fail_reason") or status_data.get("error") or f"Unknown error (status: {status})"
+                        error_message = f"Video generation failed (early termination): {format_runnode_error(fail_reason)}"
+                        rn_pbar.error(error_message)
+                        log_backend(
                             "openai_video_v2_generate_failed",
                             level="ERROR",
                             request_id=request_id,
@@ -2035,12 +2029,12 @@ class Comfly_sora2:
                             fail_reason=str(fail_reason),
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                         raise Exception(error_message)
+                        raise Exception(error_message)
                         
                 except Exception as e:
                     if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
-                         raise e
-                    print(f"Error checking task status: {str(e)}")
+                        raise e
+                    print(f"Error checking task status: {format_runnode_error(str(e))}")
                     raise
             
             if not video_url:
@@ -2095,7 +2089,7 @@ class Comfly_sora2:
             
             if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
                  raise e
-            error_message = f"Error in video generation: {str(e)}"
+            error_message = f"Error in video generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
@@ -2499,7 +2493,7 @@ class Comfly_sora2_chat:
                 except Exception as e:
                     if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
                          raise e
-                    print(f"Error checking task status: {str(e)}")
+                    print(f"Error checking task status: {format_runnode_error(str(e))}")
                     raise
             
             if not video_url:
@@ -2553,7 +2547,7 @@ class Comfly_sora2_chat:
             
             if "Task canceled by user" in str(e) or "interrupted" in str(e).lower():
                  raise e
-            error_message = f"Error in video generation: {str(e)}"
+            error_message = f"Error in video generation: {format_runnode_error(str(e))}"
             print(error_message)
             import traceback
             traceback.print_exc()
@@ -2717,7 +2711,7 @@ class Comfly_sora2_character:
             return (character_id, username, permalink, profile_picture_url, json.dumps(response_data))
             
         except Exception as e:
-            error_message = f"Error creating character: {str(e)}"
+            error_message = f"Error creating character: {format_runnode_error(str(e))}"
             print(error_message)
             import traceback
             traceback.print_exc()
@@ -3195,7 +3189,7 @@ class OpenAISoraAPIPlus:
             try:
                 data = resp.json()
             except json.JSONDecodeError as json_error:
-                return ("", f"API响应格式错误: {str(json_error)}", "")
+                return ("", f"API响应格式错误: {format_runnode_error(json_error)}", "")
 
             # 错误字段
             if "error" in data and data["error"]:
@@ -4292,7 +4286,7 @@ class Comfly_sora2_batch_32:
                         return task_result
                 elif status == "failed":
                      fail_reason = status_data.get("error", {}).get("message") or status_data.get("fail_reason", "Unknown error")
-                     raise Exception(f"Generation failed: {fail_reason}")
+                     raise Exception(f"Generation failed: {format_runnode_error(fail_reason)}")
                      
             except Exception as e:
                 if attempts >= max_attempts:
@@ -4422,7 +4416,7 @@ class Comfly_sora2_batch_32:
                         return task_result
                 elif status == "FAILURE":
                     fail_reason = status_data.get("fail_reason", "Unknown error")
-                    raise Exception(f"Generation failed: {fail_reason}")
+                    raise Exception(f"Generation failed: {format_runnode_error(fail_reason)}")
                     
             except Exception as e:
                 if attempts >= max_attempts:
@@ -4516,7 +4510,7 @@ class Comfly_sora2_batch_32:
                 except Exception as e2:
                     if "Task canceled by user" in str(e2) or "interrupted" in str(e2).lower():
                         raise e2
-                    error_msg = f"V2 failed: {e}; V1 failed: {e2}"
+                    error_msg = f"V2 failed: {format_runnode_error(str(e))}; V1 failed: {format_runnode_error(str(e2))}"
 
         # Final failure handling
         task_result["error"] = error_msg
@@ -4660,7 +4654,7 @@ class Comfly_sora2_batch_32:
                         "status": "failed",
                         "video": EmptyVideoAdapter(),
                         "video_url": "",
-                        "error": f"任务执行异常：{str(e)}",
+                        "error": f"任务执行异常：{format_runnode_error(str(e))}",
                         "response": "",
                         "task_id": ""
                     }
@@ -4994,7 +4988,7 @@ class _ComflySora2BatchRunner:
                         return res
                 elif st in ["failed", "failure", "FAILED", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
                     fr = sd.get("error", {}).get("message") or sd.get("fail_reason", "未知错误")
-                    raise Exception(f"Generation failed: {fr}")
+                    raise Exception(f"Generation failed: {format_runnode_error(fr)}")
                 
                 # Check for early failure case
                 start_time = sd.get("start_time", 0)
@@ -5137,7 +5131,7 @@ class _ComflySora2BatchRunner:
                 start_time = sd.get("start_time", 0)
                 if start_time == 0 and pv == 100 and st not in ["SUCCESS", "success", "succeeded", "completed", "Succeeded", "processing", "pending", "queued"]:
                      fr = sd.get("fail_reason") or sd.get("error", {}).get("message") or f"Unknown error (status: {st})"
-                     raise Exception(f"Generation failed (early termination): {fr}")
+                     raise Exception(f"Generation failed (early termination): {format_runnode_error(fr)}")
                     
             except Exception as e:
                 if "Task canceled by user" in str(e):
@@ -5197,7 +5191,7 @@ class _ComflySora2BatchRunner:
                 if "Task canceled by user" in str(e):
                     raise e
                 if "Generation failed" in str(e):
-                    res["error"] = str(e)
+                    res["error"] = format_runnode_error(str(e))
                     self.task_progress[idx] = 100
                     log_backend(
                         "openai_video_group_batch_task_failed",
@@ -5206,7 +5200,7 @@ class _ComflySora2BatchRunner:
                         task_index=int(idx),
                         stage="v1_generation_failed",
                         model=payload.get("model", "sora-2"),
-                        error=str(e)
+                        error=format_runnode_error(str(e))
                     )
                     return res
 
@@ -5224,7 +5218,7 @@ class _ComflySora2BatchRunner:
                 if "Task canceled by user" in str(e):
                     raise e
                 if "Generation failed" in str(e):
-                    res["error"] = str(e)
+                    res["error"] = format_runnode_error(str(e))
                     self.task_progress[idx] = 100
                     log_backend(
                         "openai_video_group_batch_task_failed",
@@ -5233,7 +5227,7 @@ class _ComflySora2BatchRunner:
                         task_index=int(idx),
                         stage="v2_generation_failed",
                         model=payload.get("model", "sora-2"),
-                        error=str(e)
+                        error=format_runnode_error(str(e))
                     )
                     return res
 
@@ -5369,7 +5363,7 @@ class _ComflySora2BatchRunner:
                             "status": "failed",
                             "video": EmptyVideoAdapter(),
                             "video_url": "",
-                            "error": f"任务执行异常：{str(e)}",
+                            "error": f"任务执行异常：{format_runnode_error(str(e))}",
                             "response": "",
                             "task_id": ""
                         }
@@ -5381,9 +5375,9 @@ class _ComflySora2BatchRunner:
             print(f"RunNode OpenAI Global Batch Error: {e}")
             import traceback
             traceback.print_exc()
-            log_data["error"] = f"Global execution error: {str(e)}"
+            log_data["error"] = f"Global execution error: {format_runnode_error(str(e))}"
             if self.rn_pbar:
-                self.rn_pbar.error(f"全局执行错误: {str(e)}")
+                self.rn_pbar.error(f"全局执行错误: {format_runnode_error(str(e))}")
             
             # Fill empty results for tasks that might not have run
             if not tasks:
@@ -5626,4 +5620,4 @@ class Comfly_sora2_log_parser:
         except json.JSONDecodeError:
             return ("Invalid log format: Not a valid JSON string",)
         except Exception as e:
-            return (f"Log parsing error: {str(e)}",)
+            return (f"Log parsing error: {format_runnode_error(str(e))}",)

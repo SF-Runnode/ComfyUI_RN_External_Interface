@@ -192,7 +192,7 @@ class ComflyGeminiAPI:
             except requests.exceptions.Timeout:
                 raise TimeoutError(f"API request timed out after {self.timeout} seconds")
             except requests.exceptions.RequestException as e:
-                raise Exception(f"API request failed: {str(e)}")
+                raise Exception(f"API request failed: {format_runnode_error(str(e))}")
             
             pbar.update_absolute(40)
 
@@ -224,7 +224,7 @@ class ComflyGeminiAPI:
                             images.append(img_tensor)
                             
                         except Exception as img_error:
-                            print(f"Error processing image URL {i+1}: {str(img_error)}")
+                            print(f"Error processing image URL {i+1}: {format_runnode_error(str(img_error))}")
                             continue
                     
                     if images:
@@ -240,7 +240,7 @@ class ComflyGeminiAPI:
                         raise Exception("No images could be processed successfully")
                     
                 except Exception as e:
-                    print(f"Error processing image URLs: {str(e)}")
+                    print(f"Error processing image URLs: {format_runnode_error(str(e))}")
 
             pbar.update_absolute(100)
 
@@ -260,12 +260,12 @@ class ComflyGeminiAPI:
                 return (default_tensor, formatted_response, "")
             
         except TimeoutError as e:
-            error_message = f"API timeout error: {str(e)}"
+            error_message = f"API timeout error: {format_runnode_error(str(e))}"
             print(error_message)
             return self.handle_error(object_image, subject_image, scene_image, error_message, resolution)
             
         except Exception as e:
-            error_message = f"Error calling Gemini API: {str(e)}"
+            error_message = f"Error calling Gemini API: {format_runnode_error(str(e))}"
             print(error_message)
             return self.handle_error(object_image, subject_image, scene_image, error_message, resolution)
     
@@ -423,7 +423,10 @@ class ComflyGeminiTextOnly:
             return (text,)
 
         except Exception as e:
-            error_message = f"Error calling Gemini API: {str(e)}"
+            if hasattr(e, 'response') and e.response is not None:
+                error_message = format_runnode_error(e.response)
+            else:
+                error_message = f"Error calling Gemini API: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "google_gemini_chat_exception",
@@ -566,7 +569,7 @@ class Comfly_Googel_Veo3:
             )
 
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API提交失败", request_id, error_message, "RunNode/Google-", "Google")
                 log_backend(
@@ -615,7 +618,8 @@ class Comfly_Googel_Veo3:
                     )
                     
                     if status_response.status_code != 200:
-                        print(f"[Comfly_Googel_Veo3] Status check failed with code: {status_response.status_code}")
+                        error_message = format_runnode_error(status_response)
+                        print(f"[Comfly_Googel_Veo3] Status check failed: {error_message}")
                         continue
                         
                     status_result = status_response.json()
@@ -650,7 +654,7 @@ class Comfly_Googel_Veo3:
                         raise Exception(error_message)
 
                 except Exception as e:
-                    msg = f"Error checking generation status: {str(e)}"
+                    msg = f"Error checking generation status: {format_runnode_error(str(e))}"
                     rn_pbar.error(msg)
                     log_backend_exception("google_poll_exception", request_id=request_id, error=msg)
             
@@ -698,7 +702,7 @@ class Comfly_Googel_Veo3:
             return (video_adapter, video_url, response_text)
 
         except Exception as e:
-            error_message = f"Error generating video: {str(e)}"
+            error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception("google_veo3_generate_exception", request_id=request_id, error=error_message)
             raise
@@ -789,7 +793,7 @@ class Comfly_nano_banana:
         except requests.exceptions.Timeout:
             raise TimeoutError(f"API request timed out after {self.timeout} seconds")
         except Exception as e:
-            raise Exception(f"Error in streaming response: {str(e)}")
+            raise Exception(f"Error in streaming response: {format_runnode_error(str(e))}")
 
     def process(self, text, model="gemini-2.5-flash-image-preview", 
                 image1=None, image2=None, image3=None, image4=None,
@@ -862,7 +866,7 @@ class Comfly_nano_banana:
                 response_text = self.send_request_streaming(payload)
                 pbar.update_absolute(70)
             except Exception as e:
-                error_message = f"API Error: {str(e)}"
+                error_message = f"API Error: {format_runnode_error(str(e))}"
                 print(error_message)
                 return (default_image, error_message, "")
 
@@ -878,7 +882,7 @@ class Comfly_nano_banana:
                     pbar.update_absolute(100)
                     return (generated_tensor, response_text, f"data:image/png;base64,{base64_matches[0]}")
                 except Exception as e:
-                    print(f"Error processing base64 image data: {str(e)}")
+                    print(f"Error processing base64 image data: {format_runnode_error(str(e))}")
 
             image_pattern = r'!\[.*?\]\((.*?)\)'
             matches = re.findall(image_pattern, response_text)
@@ -903,14 +907,14 @@ class Comfly_nano_banana:
                     pbar.update_absolute(100)
                     return (generated_tensor, response_text, image_url)
                 except Exception as e:
-                    print(f"Error downloading image: {str(e)}")
-                    return (default_image, f"{response_text}\n\nError downloading image: {str(e)}", image_url)
+                    print(f"Error downloading image: {format_runnode_error(str(e))}")
+                    return (default_image, f"{response_text}\n\nError downloading image: {format_runnode_error(str(e))}", image_url)
             else:
                 pbar.update_absolute(100)
                 return (default_image, response_text, "")
                 
         except Exception as e:
-            error_message = f"Error processing request: {str(e)}"
+            error_message = f"Error processing request: {format_runnode_error(str(e))}"
             print(error_message)
             return (default_image, error_message, "")
 
@@ -993,7 +997,7 @@ class Comfly_nano_banana_fal:
                 return None
                 
         except Exception as e:
-            print(f"Error uploading image: {str(e)}")
+            print(f"Error uploading image: {format_runnode_error(str(e))}")
             return None
 
     def process(self, prompt, model, num_images=1, seed=0, image_way="image",
@@ -1096,7 +1100,8 @@ class Comfly_nano_banana_fal:
                 )
 
             if response.status_code != 200:
-                return (default_image, f"API Error: {response.status_code} - {response.text}")
+                error_msg = format_runnode_error(response)
+                return (default_image, error_msg)
                 
             result = response.json()
  
@@ -1130,6 +1135,7 @@ class Comfly_nano_banana_fal:
                     )
                     
                     if result_response.status_code != 200:
+                        print(f"Polling error: {format_runnode_error(result_response)}")
                         time.sleep(1)
                         continue
                         
@@ -1141,7 +1147,7 @@ class Comfly_nano_banana_fal:
                     time.sleep(1)
                     
                 except Exception as e:
-                    print(f"Error fetching result: {str(e)}")
+                    print(f"Error fetching result: {format_runnode_error(str(e))}")
                     time.sleep(1)
 
             if result_data is None:
@@ -1165,7 +1171,7 @@ class Comfly_nano_banana_fal:
                             generated_tensor = pil2tensor(generated_image)
                             generated_images.append(generated_tensor)
                     except Exception as e:
-                        print(f"Error downloading image: {str(e)}")
+                        print(f"Error downloading image: {format_runnode_error(str(e))}")
             
             if generated_images:
                 combined_tensor = torch.cat(generated_images, dim=0)
@@ -1175,7 +1181,7 @@ class Comfly_nano_banana_fal:
                 return (default_image, "Failed to process any images from the API response")
                 
         except Exception as e:
-            error_message = f"Error processing request: {str(e)}"
+            error_message = f"Error processing request: {format_runnode_error(str(e))}"
             print(error_message)
             import traceback
             traceback.print_exc()
@@ -1309,7 +1315,7 @@ class Comfly_nano_banana_edit:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 print(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -1350,7 +1356,7 @@ class Comfly_nano_banana_edit:
                         generated_tensor = pil2tensor(generated_image)
                         generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        print(f"Error downloading image from URL: {str(e)}")
+                        print(f"Error downloading image from URL: {format_runnode_error(str(e))}")
             
             pbar.update_absolute(100)
             
@@ -1365,7 +1371,7 @@ class Comfly_nano_banana_edit:
                 return (blank_tensor, error_message)
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             print(error_message)
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
@@ -1529,7 +1535,7 @@ class Comfly_nano_banana2_edit:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -1579,7 +1585,7 @@ class Comfly_nano_banana2_edit:
                         generated_tensor = pil2tensor(generated_image)
                         generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        rn_pbar.error(f"下载图片失败: {str(e)}")
+                        rn_pbar.error(f"下载图片失败: {format_runnode_error(str(e))}")
             
             pbar.update_absolute(100)
             
@@ -1599,7 +1605,7 @@ class Comfly_nano_banana2_edit:
                 return (blank_tensor, error_message, "")
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
@@ -1788,7 +1794,7 @@ class Comfly_nano_banana2_edit_S2A:
             pbar.update_absolute(30)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -1900,7 +1906,7 @@ class Comfly_nano_banana2_edit_S2A:
                                                 generated_tensor = pil2tensor(generated_image)
                                                 generated_tensors.append(generated_tensor)
                                         except Exception as e:
-                                            print(f"Error processing image item: {str(e)}")
+                                            print(f"Error processing image item: {format_runnode_error(str(e))}")
                                             continue
                                     
                                     if generated_tensors:
@@ -1939,7 +1945,7 @@ class Comfly_nano_banana2_edit_S2A:
                             rn_pbar.error(f"查询失败: {query_response.status_code}")
                             
                     except Exception as e:
-                        rn_pbar.error(f"查询任务状态异常: {str(e)}")
+                        rn_pbar.error(f"查询任务状态异常: {format_runnode_error(str(e))}")
                 
                 # 超时未完成
                 rn_pbar.error("任务轮询超时")
@@ -2009,7 +2015,7 @@ class Comfly_nano_banana2_edit_S2A:
                             generated_tensor = pil2tensor(generated_image)
                             generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        print(f"Error processing image item {i}: {str(e)}")
+                        print(f"Error processing image item {i}: {format_runnode_error(str(e))}")
                         continue
                 
                 pbar.update_absolute(100)
@@ -2053,14 +2059,14 @@ class Comfly_nano_banana2_edit_S2A:
                     
             else:
                 # 未知响应格式
-                error_message = f"Unexpected API response format: {result}"
+                error_message = f"Unexpected API response format: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
             
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
@@ -2086,7 +2092,7 @@ class Comfly_nano_banana2_edit_S2A:
             pbar.update_absolute(50)
             
             if response.status_code != 200:
-                error_message = f"Query Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 print(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -2157,7 +2163,7 @@ class Comfly_nano_banana2_edit_S2A:
                                 generated_tensor = pil2tensor(generated_image)
                                 generated_tensors.append(generated_tensor)
                         except Exception as e:
-                            print(f"Error processing image item {i}: {str(e)}")
+                            print(f"Error processing image item {i}: {format_runnode_error(str(e))}")
                             continue
                     
                     pbar.update_absolute(100)
@@ -2193,7 +2199,7 @@ class Comfly_nano_banana2_edit_S2A:
             
             elif actual_status == "failed" or actual_status == "error":
                 # 任务失败
-                error_msg = result.get("error", "Unknown error")
+                error_msg = format_runnode_error(result)
                 response_info = f"Task failed\n"
                 response_info += f"Task ID: {task_id}\n"
                 response_info += f"Error: {error_msg}"
@@ -2216,7 +2222,7 @@ class Comfly_nano_banana2_edit_S2A:
                 return (blank_tensor, "", "", json.dumps({"status": actual_status, "task_id": task_id, "message": f"Unknown task status: {actual_status}", "raw_response": result}))
                 
         except Exception as e:
-            error_message = f"Error querying task status: {str(e)}"
+            error_message = f"Error querying task status: {format_runnode_error(str(e))}"
             print(error_message)
             import traceback
             traceback.print_exc()
@@ -2434,7 +2440,7 @@ class _ComflyBanana2ImageBatchRunner:
                     data["seed"] = str(seed)
                 resp = requests.post(f"{baseurl}/v1/images/edits", headers=headers, data=data, files=files, timeout=self.timeout)
             if resp.status_code != 200:
-                res["error"] = f"HTTP {resp.status_code}: {resp.text}"
+                res["error"] = format_runnode_error(resp)
                 return res
             result = resp.json()
             tensors = []
@@ -2469,7 +2475,7 @@ class _ComflyBanana2ImageBatchRunner:
             res["error"] = "No image data"
             return res
         except Exception as e:
-            res["error"] = str(e)
+            res["error"] = format_runnode_error(str(e))
             return res
     def run(self, groups, max_workers, global_cfg):
         request_id = generate_request_id("image_batch", "google")
@@ -2532,7 +2538,7 @@ class _ComflyBanana2ImageBatchRunner:
                 try:
                     results[idx] = f.result()
                 except Exception as e:
-                    results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": str(e), "response": ""}
+                    results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": format_runnode_error(str(e)), "response": ""}
         output_images = []
         for i in range(1, max_workers + 1):
             output_images.append(results.get(i, {}).get("image", self._blank()))
@@ -2756,7 +2762,7 @@ class _ComflyBanana2ImageBatchRunnerS2A:
             params = {"async": "true"}
             resp = requests.post(f"{baseurl}/v1/images/edits", headers=headers, params=params, data=data, files=files, timeout=self.timeout)
         if resp.status_code != 200:
-            return None, f"HTTP {resp.status_code}: {resp.text}"
+            return None, format_runnode_error(resp)
         data = resp.json()
         task_id = data.get("task_id")
         if not task_id:
@@ -2803,7 +2809,7 @@ class _ComflyBanana2ImageBatchRunnerS2A:
                     return combined, (urls[0] if urls else ""), None
                 return self._blank(), "", "No image data in completed task"
             if actual_status in ["failed", "error", "FAILURE"]:
-                err = qr.get("error", "Unknown error")
+                err = format_runnode_error(qr)
                 return self._blank(w=1024, h=1024, color='red'), "", err
         return self._blank(), "", "Task polling timed out"
     def _process(self, idx, payload, poll_interval_sec=15, max_attempts=40):
@@ -2877,7 +2883,7 @@ class _ComflyBanana2ImageBatchRunnerS2A:
                 try:
                     results[idx] = f.result()
                 except Exception as e:
-                    results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": str(e), "response": ""}
+                    results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": format_runnode_error(str(e)), "response": ""}
         output_images = []
         for i in range(1, max_workers + 1):
             output_images.append(results.get(i, {}).get("image", self._blank()))

@@ -13,8 +13,8 @@ async function getStyles(e) {
     if (pb_cache[e]) {
         return pb_cache[e];
     }
-    // 从本地8080服务请求风格数据
-    const t = await fetch(`http://localhost:8080/mjstyle/${e}.json`);
+    // 从本地服务请求风格数据 (Use relative path via ComfyUI server)
+    const t = await fetch(`/mjstyle/${e}.json`);
     if (t.status === 200) {
         let s = await t.json();
         pb_cache[e] = s; // 存入缓存
