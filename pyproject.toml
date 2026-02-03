@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-rn-external-interface"
 description = "RunNode external interface nodes for ComfyUI"
-version = "1.19.0"
+version = "1.19.1"
 
 [tool.comfy]
 PublisherId = "SF-Runnode"
