@@ -157,7 +157,7 @@ class Comfly_kling_text2video:
             response.raise_for_status()
             result = response.json()
             if result["code"] != 0:
-                error_msg = f"API Error: {result['message']}"
+                error_msg = format_runnode_error(result)
                 rn_pbar.error(error_msg)
                 log_error("API提交失败", request_id, error_msg, "RunNode/Kling-", "Kling")
                 error_response = {"task_status": "failed", "task_status_msg": error_msg}
@@ -180,7 +180,7 @@ class Comfly_kling_text2video:
             return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
 
         except Exception as e:
-            error_msg = f"Error generating video: {str(e)}"
+            error_msg = f"Error generating video: {format_runnode_error(str(e))}"
             if "Task failed" not in str(e): # Already logged in wait_for_task
                  rn_pbar.error(error_msg)
                  log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
@@ -357,7 +357,7 @@ class Comfly_kling_image2video:
             )
 
             if response.status_code != 200:
-                error_message = f"Error: {response.status_code} {response.reason} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Kling-", "Kling")
                 error_response = {"task_status": "failed", "task_status_msg": error_message}
@@ -365,7 +365,7 @@ class Comfly_kling_image2video:
             
             result = response.json()
             if result["code"] != 0:
-                error_msg = f"API Error: {result['message']}"
+                error_msg = format_runnode_error(result)
                 rn_pbar.error(error_msg)
                 log_error("API提交失败", request_id, error_msg, "RunNode/Kling-", "Kling")
                 error_response = {"task_status": "failed", "task_status_msg": error_msg}
@@ -388,7 +388,7 @@ class Comfly_kling_image2video:
             return (video_adapter, video_url, task_id, video_id, json.dumps(response_data))
 
         except Exception as e:
-            error_msg = f"Error generating video: {str(e)}"
+            error_msg = f"Error generating video: {format_runnode_error(str(e))}"
             if "Task failed" not in str(e):
                  rn_pbar.error(error_msg)
                  log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
@@ -594,7 +594,7 @@ class Comfly_kling_multi_image2video:
             result = response.json()
             
             if result["code"] != 0:
-                error_message = f"API Error: {result['message']}"
+                error_message = format_runnode_error(result)
                 rn_pbar.error(error_message)
                 log_error("API提交失败", request_id, error_message, "RunNode/Kling-", "Kling")
                 error_response = {"task_status": "failed", "task_status_msg": error_message}
@@ -619,10 +619,10 @@ class Comfly_kling_multi_image2video:
         except Exception as e:
             # import traceback
             # traceback.print_exc()
-            error_msg = f"Error generating video: {str(e)}"
+            error_msg = f"Error generating video: {format_runnode_error(str(e))}"
             if "Task failed" not in str(e):
-                 rn_pbar.error(error_msg)
-                 log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
+                rn_pbar.error(error_msg)
+                log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
                  
             error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
@@ -686,8 +686,9 @@ class Comfly_video_extend:
             response.raise_for_status()
             result = response.json()
             if result["code"] != 0:
-                error_response = {"task_status": "failed", "task_status_msg": f"API Error: {result['message']}"}
-                rn_pbar.error(f"API Error: {result['message']}")
+                error_msg = format_runnode_error(result)
+                rn_pbar.error(error_msg)
+                error_response = {"task_status": "failed", "task_status_msg": error_msg}
                 return ("", "", json.dumps(error_response))
                 
             task_id = result["data"]["task_id"]
@@ -737,8 +738,8 @@ class Comfly_video_extend:
                     return ("", "", json.dumps(error_response))
                     
         except Exception as e:
-            error_response = {"task_status": "failed", "task_status_msg": f"Error extending video: {str(e)}"}
-            rn_pbar.error(f"Error extending video: {str(e)}")
+            error_response = {"task_status": "failed", "task_status_msg": f"Error extending video: {format_runnode_error(str(e))}"}
+            rn_pbar.error(f"Error extending video: {format_runnode_error(str(e))}")
             return ("", "", json.dumps(error_response))
 
 
@@ -902,8 +903,9 @@ class Comfly_lip_sync:
             response.raise_for_status()
             result = response.json()
             if result["code"] != 0:
-                error_response = {"task_status": "failed", "task_status_msg": f"API Error: {result['message']}"}
-                rn_pbar.error(f"API Error: {result['message']}")
+                error_msg = format_runnode_error(result)
+                error_response = {"task_status": "failed", "task_status_msg": error_msg}
+                rn_pbar.error(error_msg)
                 return ("", "", "", json.dumps(error_response))
                     
             task_id = result["data"]["task_id"]
@@ -949,7 +951,7 @@ class Comfly_lip_sync:
                     return ("", "", task_id, json.dumps(error_response))
                         
         except Exception as e:
-            error_response = {"task_status": "failed", "task_status_msg": f"Error in lip sync process: {str(e)}"}
-            rn_pbar.error(f"Error in lip sync process: {str(e)}")
+            error_response = {"task_status": "failed", "task_status_msg": f"Error in lip sync process: {format_runnode_error(str(e))}"}
+            rn_pbar.error(f"Error in lip sync process: {format_runnode_error(str(e))}")
             return ("", "", "", json.dumps(error_response))
    
