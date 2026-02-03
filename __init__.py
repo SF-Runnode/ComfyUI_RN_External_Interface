@@ -16,7 +16,7 @@ from .nodes.nodes_xai import *
 
 WEB_DIRECTORY = "./web"
 
-__version__ = "1.19.1"
+__version__ = "1.19.2"
 
 NODE_CLASS_MAPPINGS = {
     "RunNode_api_set": Comfly_api_set,
@@ -40,6 +40,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNodeChatGPTApi": ComflyChatGPTApi,
     "RunNode_sora2_openai": Comfly_sora2_openai,
     "RunNode_sora2": Comfly_sora2,
+    # "RunNode_Sora2_New": ComflySora2New,
     "RunNode_sora2_chat": Comfly_sora2_chat,
     "RunNode_sora2_character": Comfly_sora2_character,
     "RunNode_sora2_batch_32": Comfly_sora2_batch_32,
@@ -123,6 +124,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNodeChatGPTApi": "RunNode ChatGPT Api",
     "RunNode_sora2_openai": "RunNode Sora2 OpenAI",
     "RunNode_sora2": "RunNode Sora2",
+    # "RunNode_Sora2_New": "RunNode Sora2 New",
     "RunNode_sora2_chat": "RunNode Sora2 Chat",
     "RunNode_sora2_character": "RunNode Sora2 Character",
     "RunNode_sora2_batch_32": "RunNode Sora2 batch_32",

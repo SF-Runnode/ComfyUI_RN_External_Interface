@@ -85,6 +85,14 @@ def get_config():
 
         sora2_api_key = _sora2_key if _sora2_key and str(_sora2_key).strip() else api_key
 
+        _sora2_new_base = _env(["SORA2_NEW_BASE_URL", "COMFLY_SORA2_NEW_BASE_URL"])
+        if _sora2_new_base is None:
+             _sora2_new_base = provider_cfg.get('sora2_new_base_url')
+        
+        sora2_new_base_url = _sora2_new_base if _sora2_new_base and str(_sora2_new_base).strip() else base_url
+
+        sora2_new_api_key = _env(["SORA2_NEW_API_KEY", "COMFLY_SORA2_NEW_API_KEY"]) or provider_cfg.get('sora2_new_api_key', '')
+
         return {
             'api_key': api_key,
             'model': model,
@@ -95,6 +103,8 @@ def get_config():
             'sora2_prioritize_v1': sora2_prioritize_v1,
             'sora2_base_url': sora2_base_url,
             'sora2_api_key': sora2_api_key,
+            'sora2_new_base_url': sora2_new_base_url,
+            'sora2_new_api_key': sora2_new_api_key,
         }
     except Exception:
         return {}

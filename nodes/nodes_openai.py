@@ -5621,3 +5621,305 @@ class Comfly_sora2_log_parser:
             return ("Invalid log format: Not a valid JSON string",)
         except Exception as e:
             return (f"Log parsing error: {format_runnode_error(str(e))}",)
+
+
+class ComflySora2New:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            'required': {
+                'prompt': ('STRING', {'multiline': True}),
+                'model': (['sora-2'], {'default': 'sora-2'}),
+                'orientation': (['portrait', 'landscape'], {'default': 'portrait'}),
+                'size': (['small'], {'default': 'small'}),
+                'duration': (['10s', '15s'], {'default': '15s'}),
+            },
+            'optional': {
+                'api_key': ('STRING', {'default': ''}),
+                'reference_image': ('IMAGE',),
+                'seed': ('INT', {'default': 0, 'min': 0, 'max': 2147483647}),
+            }
+        }
+    
+    RETURN_TYPES = (IO.VIDEO, 'STRING', 'STRING')
+    RETURN_NAMES = ('video', 'video_url', 'response')
+    FUNCTION = 'process'
+    CATEGORY = 'RunNode/OpenAI'
+
+    def __init__(self):
+        config = get_config()
+        self.api_key = config.get('sora2_new_api_key') or config.get('api_key', '')
+        self.base_url = config.get('sora2_new_base_url', '')
+        self.timeout = 900
+        self.session = requests.Session()
+        self.model_mapping = {
+            'sora-2': 'sy_8',
+            'sora-2-pro': 'sy_ore'
+        }
+        self.duration_mapping = {
+            '10s': 300,
+            '15s': 450
+        }
+
+    def get_headers(self):
+        return {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': '69420',
+            'video-beta': '2025-10-20'
+        }
+    
+    def get_api_model(self, display_model):
+        return self.model_mapping.get(display_model, 'sy_8')
+    
+    def get_n_frames(self, duration):
+        return self.duration_mapping.get(duration, 450)
+    
+    def validate_parameters(self, model, size, duration):
+        if duration == '25s' and model == 'sora-2':
+            return False, '25s duration is only available for sora-2-pro model. Please select sora-2-pro or choose a shorter duration.'
+
+        if size == 'large' and duration == '25s':
+            return False, '25s duration cannot be used with large size. Please choose a smaller size or shorter duration.'
+        
+        return True, None
+    
+    def upload_image(self, image_tensor, api_model, request_id=None):
+        try:
+            pil_image = tensor2pil(image_tensor)[0]
+            img_byte_arr = io.BytesIO()
+            pil_image.save(img_byte_arr, format='JPEG')
+            img_byte_arr.seek(0)
+            
+            timestamp = int(time.time() * 1000)
+            filename = f'ai-generated-{timestamp}.jpg'
+            
+            files = {'file': (filename, img_byte_arr, 'image/jpeg')}
+            data = {
+                'url': '/video/upload',
+                'method': 'POST',
+                'filename': filename,
+                'model': api_model
+            }
+            
+            response = self.session.post(
+                f'{self.base_url}/api/request',
+                headers=self.get_headers(),
+                data=data,
+                files=files,
+                timeout=self.timeout
+            )
+            
+            if response.status_code != 200:
+                msg = f'Upload error: {response.status_code} - {response.text}'
+                print(msg)
+                if request_id:
+                     log_backend('sora2_upload_failed', level='ERROR', request_id=request_id, error=msg)
+                return None
+                
+            result = response.json()
+            file_id = result.get('file_id')
+            
+            if file_id:
+                return file_id
+            else:
+                msg = f'No file_id in response: {result}'
+                print(msg)
+                return None
+                
+        except Exception as e:
+            msg = f'Error uploading image: {str(e)}'
+            print(msg)
+            if request_id:
+                log_backend_exception('sora2_upload_exception', request_id=request_id, error=str(e))
+            return None
+
+    def create_video(self, prompt, display_model, orientation, size, duration, seed=0, reference_image=None, request_id=None):
+        try:
+            api_model = self.get_api_model(display_model)
+            n_frames = self.get_n_frames(duration)
+ 
+            payload = {
+                'url': '/video/create',
+                'method': 'POST',
+                'data': {
+                    'prompt': prompt,
+                    'model': api_model,
+                    'orientation': orientation,
+                    'size': size,
+                    'n_frames': n_frames,
+                    'style': ''
+                }
+            }
+
+            if seed > 0:
+                payload['data']['seed'] = seed
+            
+            if reference_image is not None:
+                file_id = self.upload_image(reference_image, api_model, request_id)
+                if file_id:
+                    payload['data']['reference_images'] = [{'kind': 'upload', 'file_id': file_id}]
+                else:
+                    print('Warning: Failed to upload reference image, continuing without it')
+            
+            response = self.session.post(
+                f'{self.base_url}/api/request',
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code != 200:
+                error_message = f'Create video error: {response.status_code} - {response.text}'
+                return None, error_message, api_model
+                
+            result = response.json()
+            task_id = result.get('task_id')
+            
+            if not task_id:
+                error_message = 'No task_id in response'
+                return None, error_message, api_model
+                
+            return task_id, None, api_model
+            
+        except Exception as e:
+            error_message = f'Error creating video: {str(e)}'
+            return None, error_message, None
+
+    def check_status(self, task_id, api_model):
+        try:
+            payload = {
+                'url': '/video/status',
+                'method': 'GET',
+                'params': {'id': task_id, 'model': api_model}
+            }
+            
+            response = self.session.post(
+                f'{self.base_url}/api/request',
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code != 200:
+                return None
+                
+            return response.json()
+        except Exception:
+            return None
+
+    def process(self, prompt, model, orientation, size, duration, api_key='', reference_image=None, seed=0):
+        request_id = generate_request_id('video_gen', 'sora2')
+        log_prepare('视频生成', request_id, 'RunNode/Sora2-', 'Sora2', model_name=model)
+        
+        rn_pbar = ProgressBar(
+            request_id,
+            'Sora2',
+            extra_info=f'模型:{model}',
+            streaming=True,
+            task_type='视频生成',
+            source='RunNode/Sora2-'
+        )
+        _rn_start = time.perf_counter()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            config = get_config()
+            self.api_key = config.get('sora2_new_api_key') or config.get('api_key', '')
+            
+        if not self.api_key:
+            error_message = 'API key is required'
+            rn_pbar.error(error_message)
+            log_backend('sora2_video_failed', level='ERROR', request_id=request_id, stage='missing_api_key')
+            return ('', '', json.dumps({'status': 'error', 'message': error_message}))
+
+        is_valid, error_message = self.validate_parameters(model, size, duration)
+        if not is_valid:
+            rn_pbar.error(error_message)
+            log_backend('sora2_video_failed', level='ERROR', request_id=request_id, stage='invalid_params', error=error_message)
+            return ('', '', json.dumps({'status': 'error', 'message': error_message}))
+        
+        try:
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update_absolute(10)
+            
+            task_id, error, api_model = self.create_video(
+                prompt=prompt,
+                display_model=model,
+                orientation=orientation,
+                size=size,
+                duration=duration,
+                seed=seed,
+                reference_image=reference_image,
+                request_id=request_id
+            )
+            
+            if error or not task_id:
+                rn_pbar.error(error or 'Failed to create task')
+                log_backend('sora2_video_failed', level='ERROR', request_id=request_id, stage='create_task_failed', error=error)
+                return ('', '', json.dumps({'status': 'error', 'message': error or 'Failed to create task'}))
+            
+            pbar.update_absolute(30)
+            log_backend('sora2_video_start', request_id=request_id, task_id=task_id, model=model)
+            
+            max_attempts = 300
+            attempts = 0
+            video_url = None
+            
+            while attempts < max_attempts:
+                time.sleep(10)
+                attempts += 1
+                
+                status_data = self.check_status(task_id, api_model)
+                
+                if not status_data:
+                    continue
+                
+                status = status_data.get('status', '')
+                progress = status_data.get('progress', 0)
+                
+                # Update progress
+                try:
+                    pbar_val = min(90, 30 + int(progress * 0.6))
+                    pbar.update_absolute(pbar_val)
+                    if progress > 0:
+                        rn_pbar.update(progress) # Optional if we want detailed progress
+                except:
+                    pass
+
+                if status == 'completed':
+                    video_url = status_data.get('video_url')
+                    if video_url:
+                        break
+                elif status in ['failed', 'error']:
+                    error_message = f'Video generation failed: {status}'
+                    rn_pbar.error(error_message)
+                    log_backend('sora2_video_failed', level='ERROR', request_id=request_id, stage='task_failed', error=error_message)
+                    return ('', '', json.dumps({'status': 'error', 'message': error_message}))
+            
+            if not video_url:
+                error_message = 'Video generation timed out'
+                rn_pbar.error(error_message)
+                log_backend('sora2_video_failed', level='ERROR', request_id=request_id, stage='timeout')
+                return ('', task_id, json.dumps({'status': 'timeout', 'task_id': task_id}))
+
+            pbar.update_absolute(100)
+            video_adapter = ComflyVideoAdapter(video_url)
+            
+            rn_pbar.done()
+            log_backend(
+                'sora2_video_done',
+                request_id=request_id,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000)
+            )
+            
+            return (video_adapter, video_url, json.dumps({'status': 'success', 'url': video_url}))
+            
+        except Exception as e:
+            error_message = f'Error: {str(e)}'
+            rn_pbar.error(error_message)
+            log_backend_exception('sora2_video_exception', request_id=request_id, error=str(e))
+            return ('', '', json.dumps({'status': 'error', 'message': error_message}))
