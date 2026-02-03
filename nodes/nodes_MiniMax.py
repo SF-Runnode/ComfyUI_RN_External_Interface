@@ -155,7 +155,7 @@ class Comfly_MiniMax_video:
             result = response.json()
             
             if "base_resp" not in result or result["base_resp"]["status_code"] != 0:
-                error_message = f"API returned error: {result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
+                error_message = f"API returned error: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 log_error("API返回错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
                 return (None, "", json.dumps({"status": "error", "message": error_message}))
@@ -236,7 +236,7 @@ class Comfly_MiniMax_video:
                             break
                             
                     elif status == "Failed":
-                        error_message = f"Video generation failed: {status_result.get('base_resp', {}).get('status_msg', 'Unknown error')}"
+                        error_message = f"Video generation failed: {format_runnode_error(status_result)}"
                         rn_pbar.error(error_message)
                         log_error("视频生成失败", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
                         raise Exception(error_message)

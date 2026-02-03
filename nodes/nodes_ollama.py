@@ -444,7 +444,7 @@ class OllamaChat:
                         elapsed_ms=int((time.perf_counter() - remote_start) * 1000),
                     )
                 except Exception as e2:
-                    error_msg = f"远程服务调用失败: {str(e2)}"
+                    error_msg = f"远程服务调用失败: {format_runnode_error(str(e2))}"
                     if isinstance(e2, urllib.error.HTTPError):
                         try:
                             err_body = e2.read().decode('utf-8')

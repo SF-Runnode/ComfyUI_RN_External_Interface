@@ -357,11 +357,11 @@ class Comfly_kling_image2video:
             )
 
             if response.status_code != 200:
-            error_message = format_runnode_error(response)
-            rn_pbar.error(error_message)
-            log_error("API请求失败", request_id, error_message, "RunNode/Kling-", "Kling")
-            error_response = {"task_status": "failed", "task_status_msg": error_message}
-            return ("", "", "", "", json.dumps(error_response))
+                error_message = format_runnode_error(response)
+                rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Kling-", "Kling")
+                error_response = {"task_status": "failed", "task_status_msg": error_message}
+                return ("", "", "", "", json.dumps(error_response))
             
             result = response.json()
             if result["code"] != 0:
@@ -622,7 +622,7 @@ class Comfly_kling_multi_image2video:
             error_msg = f"Error generating video: {format_runnode_error(str(e))}"
             if "Task failed" not in str(e):
                 rn_pbar.error(error_msg)
-                 log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
+                log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
                  
             error_response = {"task_status": "failed", "task_status_msg": error_msg}
             return ("", "", "", "", json.dumps(error_response))
@@ -686,8 +686,9 @@ class Comfly_video_extend:
             response.raise_for_status()
             result = response.json()
             if result["code"] != 0:
-                error_response = {"task_status": "failed", "task_status_msg": f"API Error: {result['message']}"}
-                rn_pbar.error(f"API Error: {result['message']}")
+                error_msg = format_runnode_error(result)
+                rn_pbar.error(error_msg)
+                error_response = {"task_status": "failed", "task_status_msg": error_msg}
                 return ("", "", json.dumps(error_response))
                 
             task_id = result["data"]["task_id"]

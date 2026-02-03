@@ -16,7 +16,7 @@ from .nodes.nodes_xai import *
 
 WEB_DIRECTORY = "./web"
 
-__version__ = "1.18.9"
+__version__ = "1.19.0"
 
 NODE_CLASS_MAPPINGS = {
     "RunNode_api_set": Comfly_api_set,

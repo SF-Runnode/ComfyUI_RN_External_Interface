@@ -99,6 +99,13 @@ def format_runnode_error(response):
                     return recursive_extract(err_data["err_code"])
                 if "detail" in err_data:
                     return recursive_extract(err_data["detail"])
+                if "base_resp" in err_data:
+                    base_resp = err_data["base_resp"]
+                    if isinstance(base_resp, dict) and "status_msg" in base_resp:
+                        return recursive_extract(base_resp["status_msg"])
+                    return recursive_extract(base_resp)
+                if "status_msg" in err_data:
+                    return recursive_extract(err_data["status_msg"])
                 # If no known keys, return string representation of dict
             
             return str(err_data)
@@ -415,6 +422,9 @@ def log_backend_exception(event_type: str, **kwargs):
 def log_prepare(task_name, request_id, prefix, service_name, **kwargs):
     print(f"{prefix} [{task_name}] {request_id} Preparing... {kwargs}")
 
+def log_complete(task_name, request_id, prefix, service_name, **kwargs):
+    print(f"{prefix} [{task_name}] {request_id} Completed. {kwargs}")
+
 def log_error(task_name, request_id, message, prefix, service_name):
     print(f"{prefix} [{task_name}] {request_id} Error: {message}")
 
@@ -430,6 +440,9 @@ class ProgressBar:
             print(f"Progress: {value}%")
             self.last_update = time.time()
             
+    def update(self, value):
+        self.update_absolute(value)
+
     def error(self, message):
         print(f"Error: {message}")
         

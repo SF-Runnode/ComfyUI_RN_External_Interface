@@ -160,7 +160,7 @@ class Comfly_gpt_image_1_edit:
                 wait_time = min(2 ** (attempt - 1), 60)
                 time.sleep(wait_time)
     
-    def edit_image(self, prompt, model="gpt-image-1", n=1, quality="auto", 
+    def edit_image(self, image, prompt, model="gpt-image-1", n=1, quality="auto", 
               seed=0, api_key="", size="auto", clear_chats=True,
               background="auto", output_compression=100, output_format="png",
               max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0,
@@ -176,9 +176,9 @@ class Comfly_gpt_image_1_edit:
         config = get_config()
         baseurl = config.get('base_url', '')
 
-        all_images = [image1, image2, image3, image4, image5, 
+        all_images = [image, image1, image2, image3, image4, image5, 
                      image6, image7, image8, image9, image10]
-        all_masks = [mask1, mask2, mask3, mask4, mask5,
+        all_masks = [None, mask1, mask2, mask3, mask4, mask5,
                     mask6, mask7, mask8, mask9, mask10]
         raw_image_count = sum(1 for img in all_images if img is not None)
         raw_mask_count = sum(1 for m in all_masks if m is not None)
@@ -1723,6 +1723,8 @@ class Comfly_sora2:
 
                     if status in ["completed", "succeeded", "SUCCESS", "Succeeded"]:
                         video_url = status_data.get("video_url") or status_data.get("url") or (status_data.get("data") or {}).get("output")
+                        if video_url and isinstance(video_url, str):
+                            video_url = video_url.strip()
                         break
                     elif status in ["failed", "failure", "FAILED", "Failure", "canceled", "cancelled", "timeout", "rejected"]:
                         fail_reason = status_data.get("fail_reason") or status_data.get("error") or "Unknown error"
@@ -1730,7 +1732,7 @@ class Comfly_sora2:
                     
                     # Check for early failure case (e.g. content violation) where status might be ambiguous but progress implies completion without success
                     start_time = status_data.get("start_time", 0)
-                    if start_time == 0 and progress_val == 100 and status not in ["completed", "succeeded", "SUCCESS", "Succeeded", "processing", "pending", "queued"]:
+                    if start_time == 0 and progress_val == 100 and status not in ["completed", "succeeded", "SUCCESS", "Succeeded", "processing", "pending", "queued", "in_progress"]:
                          fail_reason = status_data.get("fail_reason") or status_data.get("error") or f"Unknown error (status: {status})"
                          raise Exception(f"Video generation failed (early termination): {fail_reason}")
 
@@ -2017,7 +2019,7 @@ class Comfly_sora2:
                         fail_reason = status_data.get("fail_reason") or status_data.get("error") or f"Unknown error (status: {status})"
                         error_message = f"Video generation failed (early termination): {format_runnode_error(fail_reason)}"
                         rn_pbar.error(error_message)
-                         log_backend(
+                        log_backend(
                             "openai_video_v2_generate_failed",
                             level="ERROR",
                             request_id=request_id,
@@ -3187,7 +3189,7 @@ class OpenAISoraAPIPlus:
             try:
                 data = resp.json()
             except json.JSONDecodeError as json_error:
-                return ("", f"API响应格式错误: {str(json_error)}", "")
+                return ("", f"API响应格式错误: {format_runnode_error(json_error)}", "")
 
             # 错误字段
             if "error" in data and data["error"]:

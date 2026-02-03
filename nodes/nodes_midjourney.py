@@ -262,14 +262,14 @@ class Comfly_upload(ComflyBaseNode):
 
                             if data.get("status") == "FAILURE":
                                 fail_reason = data.get("fail_reason", "Unknown failure reason")
-                                error_message = f"Image upload failed: {fail_reason}"
+                                error_message = f"Image upload failed: {format_runnode_error(fail_reason)}"
                                 print(error_message)
                                 raise Exception(error_message)
                                 
                             if "result" in data and data["result"]:
                                 return data["result"][0]
                             else:
-                                error_message = f"Unexpected response from Midjourney API: {data}"
+                                error_message = f"Unexpected response from Midjourney API: {format_runnode_error(data)}"
                                 raise Exception(error_message)
                         except aiohttp.client_exceptions.ContentTypeError:
                             text_response = await response.text()
@@ -350,7 +350,7 @@ class Comfly_upload(ComflyBaseNode):
                     rn_pbar.done(char_count=len(image_url))
                     return (image_url,)
                 else:
-                    error_message = f"Unexpected response from Midjourney API: {result}"
+                    error_message = f"Unexpected response from Midjourney API: {format_runnode_error(result)}"
                     rn_pbar.error(error_message)
                     log_error("API响应异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
                     raise Exception(error_message)
@@ -565,7 +565,7 @@ class Comfly_Mj(ComflyBaseNode):
  
                     if task_result.get("status") == "FAILURE":
                         fail_reason = task_result.get("fail_reason", "Unknown failure reason")
-                        error_message = f"Midjourney task failed: {fail_reason}"
+                        error_message = f"Midjourney task failed: {format_runnode_error(fail_reason)}"
                         rn_pbar.error(error_message)
                         log_error("任务执行失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
                         raise Exception(error_message)  
@@ -642,7 +642,7 @@ class Comfly_Mj(ComflyBaseNode):
                 error_message = f"Error submitting Midjourney task: {response.status_code}"
                 try:
                     error_details = response.text
-                    error_message += f" - {error_details}"
+                    error_message += f" - {format_runnode_error(error_details)}"
                 except:
                     pass
                 log_error("API提交失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
@@ -653,7 +653,7 @@ class Comfly_Mj(ComflyBaseNode):
                 
                 if data.get("status") == "FAILURE":
                     fail_reason = data.get("fail_reason", "Unknown failure reason")
-                    error_message = f"Midjourney task failed: {fail_reason}"
+                    error_message = f"Midjourney task failed: {format_runnode_error(fail_reason)}"
                     log_error("任务提交被拒", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
                     raise Exception(error_message)
                     
@@ -687,7 +687,7 @@ class Comfly_Mj(ComflyBaseNode):
                 error_message = f"Error fetching Midjourney task result: {response.status_code}"
                 try:
                     error_details = response.text
-                    error_message += f" - {error_details}"
+                    error_message += f" - {format_runnode_error(error_details)}"
                 except:
                     pass
                 # Don't log error here as it might be transient, caller handles retry or logging
@@ -814,7 +814,7 @@ class Comfly_Mju(ComflyBaseNode):
 
             if task_result.get("status") == "FAILURE":
                 fail_reason = task_result.get("fail_reason", "Unknown failure reason")
-                error_message = f"Original task failed: {fail_reason}"
+                error_message = f"Original task failed: {format_runnode_error(fail_reason)}"
                 print(error_message)
                 raise self.MidjourneyError(error_message)
 
@@ -904,7 +904,7 @@ class Comfly_Mju(ComflyBaseNode):
 
                 if task_result.get("status") == "FAILURE":
                     fail_reason = task_result.get("fail_reason", "Unknown failure reason")
-                    error_message = f"Task failed: {fail_reason}"
+                    error_message = f"Task failed: {format_runnode_error(fail_reason)}"
                     print(error_message)
                     raise self.MidjourneyError(error_message)
 
@@ -1036,7 +1036,7 @@ class Comfly_Mju(ComflyBaseNode):
                         error_message = f"Error submitting Midjourney action: {response.status}"
                         try:
                             error_details = await response.text()
-                            error_message += f" - {error_details}"
+                            error_message += f" - {format_runnode_error(error_details)}"
                         except:
                             pass
                         raise Exception(error_message)
@@ -1077,7 +1077,7 @@ class Comfly_Mju(ComflyBaseNode):
                         error_message = f"Error fetching Midjourney task result: {response.status}"
                         try:
                             error_details = await response.text()
-                            error_message += f" - {error_details}"
+                            error_message += f" - {format_runnode_error(error_details)}"
                         except:
                             pass
                         raise Exception(error_message)
@@ -1149,7 +1149,7 @@ class Comfly_Mju(ComflyBaseNode):
                         error_message = f"Error submitting Midjourney task: {response.status}"
                         try:
                             error_details = await response.text()
-                            error_message += f" - {error_details}"
+                            error_message += f" - {format_runnode_error(error_details)}"
                         except:
                             pass
                         raise Exception(error_message)
@@ -1391,7 +1391,7 @@ class Comfly_Mjv(ComflyBaseNode):
                     return (blank_tensor,)
 
             except Exception as e:
-                error_message = f"Error processing action: {str(e)}"
+                error_message = f"Error processing action: {format_runnode_error(str(e))}"
                 print(error_message)
                 blank_image = Image.new('RGB', (512, 512), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -1410,7 +1410,7 @@ class Comfly_Mjv(ComflyBaseNode):
 
                 if task_result.get("status") == "FAILURE":
                     fail_reason = task_result.get("fail_reason", "Unknown failure reason")
-                    error_message = f"Task failed: {fail_reason}"
+                    error_message = f"Task failed: {format_runnode_error(fail_reason)}"
                     print(error_message)
                     raise Exception(error_message)
 
@@ -1453,7 +1453,7 @@ class Comfly_Mjv(ComflyBaseNode):
                     print(error_message)
                     try:
                         error_details = await response.text()
-                        error_message += f" - {error_details}"
+                        error_message += f" - {format_runnode_error(error_details)}"
                     except:
                         pass
                     raise Exception(error_message)
@@ -1684,7 +1684,7 @@ class Comfly_Mj_swap_face(ComflyBaseNode):
                 
                 elif status == "FAILURE":
                     fail_reason = task_result.get("fail_reason", "Unknown failure")
-                    error_message = f"Task failed: {fail_reason}"
+                    error_message = f"Task failed: {format_runnode_error(fail_reason)}"
                     print(error_message)
                     return (source_image, error_message)
                 
@@ -2154,7 +2154,7 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                 
             result = response.json()
             if result.get("code") != 1:
-                error_message = f"API Error: {result.get('description', 'Unknown error')}"
+                error_message = format_runnode_error(result)
                 rn_pbar.error(error_message)
                 empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
                 return (*empty_adapters, "", error_message)

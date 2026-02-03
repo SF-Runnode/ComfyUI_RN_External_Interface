@@ -224,7 +224,7 @@ class ComflyGeminiAPI:
                             images.append(img_tensor)
                             
                         except Exception as img_error:
-                            print(f"Error processing image URL {i+1}: {str(img_error)}")
+                            print(f"Error processing image URL {i+1}: {format_runnode_error(str(img_error))}")
                             continue
                     
                     if images:
@@ -2059,7 +2059,7 @@ class Comfly_nano_banana2_edit_S2A:
                     
             else:
                 # 未知响应格式
-                error_message = f"Unexpected API response format: {result}"
+                error_message = f"Unexpected API response format: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
@@ -2199,7 +2199,7 @@ class Comfly_nano_banana2_edit_S2A:
             
             elif actual_status == "failed" or actual_status == "error":
                 # 任务失败
-                error_msg = result.get("error", "Unknown error")
+                error_msg = format_runnode_error(result)
                 response_info = f"Task failed\n"
                 response_info += f"Task ID: {task_id}\n"
                 response_info += f"Error: {error_msg}"

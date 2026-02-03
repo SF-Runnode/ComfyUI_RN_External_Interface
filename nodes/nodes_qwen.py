@@ -825,7 +825,7 @@ class Comfly_Z_image_turbo:
                 return (blank_tensor, "", response_info)
                 
         except Exception as e:
-            error_message = f"Error in image generation: {str(e)}"
+            error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()

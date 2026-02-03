@@ -320,7 +320,7 @@ class Comfly_suno_description:
             )
                 
         except Exception as e:
-            error_message = f"Error generating music: {format_runnode_error(str(e))}"
+            error_message = f"Error generating music: {str(e)}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
@@ -518,7 +518,7 @@ class Comfly_suno_lyrics:
             return (lyrics_text, json.dumps(success_response), generated_title, tags)
                 
         except Exception as e:
-            error_message = f"Error generating lyrics: {str(e)}"
+            error_message = f"Error generating lyrics: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "suno_lyrics_exception",
@@ -1307,7 +1307,7 @@ class Comfly_suno_upload_extend:
             pbar.update_absolute(20)
             
             if response.status_code != 200:
-                error_message = f"API Error: {response.status_code} - {response.text}"
+                error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_backend(
                     "suno_upload_extend_failed",
