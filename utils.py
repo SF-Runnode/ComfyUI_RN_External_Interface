@@ -419,11 +419,16 @@ def log_backend_exception(event_type: str, **kwargs):
         kwargs["traceback"] = traceback.format_exc()
     pass
 
-def log_prepare(task_name, request_id, prefix, service_name, **kwargs):
-    print(f"{prefix} [{task_name}] {request_id} Preparing... {kwargs}")
+def log_prepare(task_name, request_id, prefix, service_name, model_version=None, speed=None, **kwargs):
+    info = f" {kwargs}" if kwargs else ""
+    if model_version: info += f" model_version={model_version}"
+    if speed: info += f" speed={speed}"
+    print(f"{prefix} [{task_name}] {request_id} Preparing...{info}")
 
-def log_complete(task_name, request_id, prefix, service_name, **kwargs):
-    print(f"{prefix} [{task_name}] {request_id} Completed. {kwargs}")
+def log_complete(task_name, request_id, prefix, service_name, image_url=None, **kwargs):
+    info = f" {kwargs}" if kwargs else ""
+    if image_url: info += f" image_url={image_url}"
+    print(f"{prefix} [{task_name}] {request_id} Completed.{info}")
 
 def log_error(task_name, request_id, message, prefix, service_name):
     print(f"{prefix} [{task_name}] {request_id} Error: {message}")
@@ -442,6 +447,10 @@ class ProgressBar:
             
     def update(self, value):
         self.update_absolute(value)
+
+    def set_generating(self):
+        if self.streaming:
+            print(f"Generating...")
 
     def error(self, message):
         print(f"Error: {message}")

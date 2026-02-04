@@ -49,7 +49,10 @@ class Comfly_MiniMax_video:
         if image_tensor is None:
             return None
             
-        pil_image = tensor2pil(image_tensor)[0]
+        pil_images = tensor2pil(image_tensor)
+        if not pil_images:
+            return None
+        pil_image = pil_images[0]
         buffered = BytesIO()
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
@@ -70,7 +73,7 @@ class Comfly_MiniMax_video:
         
         log_prepare("视频生成", request_id, "RunNode/MiniMax-", "MiniMax", **log_params)
         rn_pbar = ProgressBar(request_id, "MiniMax", streaming=True, task_type="视频生成", source="RunNode/MiniMax-")
-        rn_pbar.set_generating(0)
+        rn_pbar.set_generating()
         
         if api_key.strip():
             self.api_key = api_key
@@ -111,13 +114,22 @@ class Comfly_MiniMax_video:
 
             if model in ["T2V-01", "T2V-01-Director"]:
                 if first_frame_image is not None or last_frame_image is not None:
-                    rn_pbar.error(f"Model {model} only supports text-to-video. Image inputs will be ignored.")
+                    error_message = f"Model {model} only supports text-to-video. Image inputs will be ignored."
+                    rn_pbar.error(error_message)
+                    log_error("参数错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
+                    return (None, "", json.dumps({"status": "error", "message": error_message}))
                 
             elif model in ["I2V-01-Director", "I2V-01-live", "I2V-01"]:
                 if first_frame_image is None:
-                    rn_pbar.error(f"Model {model} requires first_frame_image for image-to-video generation.")
+                    error_message = f"Model {model} requires first_frame_image for image-to-video generation."
+                    rn_pbar.error(error_message)
+                    log_error("参数错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
+                    return (None, "", json.dumps({"status": "error", "message": error_message}))
                 if last_frame_image is not None:
-                    rn_pbar.error(f"Model {model} doesn't support last_frame_image. It will be ignored.")
+                    error_message = f"Model {model} doesn't support last_frame_image. It will be ignored."
+                    rn_pbar.error(error_message)
+                    log_error("参数错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
+                    return (None, "", json.dumps({"status": "error", "message": error_message}))
 
             if first_frame_image is not None and model != "T2V-01" and model != "T2V-01-Director":
                 image_base64 = self.image_to_base64(first_frame_image)

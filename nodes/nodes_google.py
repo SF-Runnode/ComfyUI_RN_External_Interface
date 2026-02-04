@@ -100,15 +100,24 @@ class ComflyGeminiAPI:
     def process(self, prompt, model, resolution, num_images, temperature, top_p, seed, timeout=120, 
                 object_image=None, subject_image=None, scene_image=None, api_key=""):
 
+        request_id = generate_request_id("image_gen", "google")
+        log_prepare("Google绘图", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="Google绘图", source="RunNode/Google-")
+        _rn_start = time.perf_counter()
+
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
 
+        if not self.api_key:
+            error_message = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
+            raise ValueError(error_message)
+
         self.timeout = timeout
+        rn_pbar.set_generating()
         
         try:
 
@@ -190,9 +199,15 @@ class ComflyGeminiAPI:
                 response.raise_for_status()
                 result = response.json()
             except requests.exceptions.Timeout:
-                raise TimeoutError(f"API request timed out after {self.timeout} seconds")
+                error_message = f"API request timed out after {self.timeout} seconds"
+                rn_pbar.error(error_message)
+                log_error("请求超时", request_id, error_message, "RunNode/Google-", "Google")
+                raise TimeoutError(error_message)
             except requests.exceptions.RequestException as e:
-                raise Exception(f"API request failed: {format_runnode_error(str(e))}")
+                error_message = f"API request failed: {format_runnode_error(str(e))}"
+                rn_pbar.error(error_message)
+                log_error("请求失败", request_id, error_message, "RunNode/Google-", "Google")
+                raise Exception(error_message)
             
             pbar.update_absolute(40)
 
@@ -235,14 +250,37 @@ class ComflyGeminiAPI:
                             combined_tensor = images[0] if images else None
                             
                         pbar.update_absolute(100)
+                        
+                        rn_pbar.done(char_count=len(response_text))
+                        log_complete(
+                            "Google绘图",
+                            request_id,
+                            "RunNode/Google-",
+                            "Google",
+                            char_count=len(response_text),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                            image_url=first_image_url
+                        )
                         return (combined_tensor, formatted_response, first_image_url)
                     else:
-                        raise Exception("No images could be processed successfully")
+                        raise ValueError("No images could be processed successfully")
                     
                 except Exception as e:
-                    print(f"Error processing image URLs: {format_runnode_error(str(e))}")
+                    error_message = f"Error processing image URLs: {format_runnode_error(str(e))}"
+                    rn_pbar.error(error_message)
+                    log_error("图片处理失败", request_id, error_message, "RunNode/Google-", "Google")
+                    raise ValueError(error_message)
 
             pbar.update_absolute(100)
+            rn_pbar.done(char_count=len(response_text))
+            log_complete(
+                "Google绘图",
+                request_id,
+                "RunNode/Google-",
+                "Google",
+                char_count=len(response_text),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000)
+            )
 
             reference_image = None
             if object_image is not None:
@@ -261,31 +299,26 @@ class ComflyGeminiAPI:
             
         except TimeoutError as e:
             error_message = f"API timeout error: {format_runnode_error(str(e))}"
-            print(error_message)
-            return self.handle_error(object_image, subject_image, scene_image, error_message, resolution)
+            if 'rn_pbar' in locals():
+                rn_pbar.error(error_message)
+                log_error("超时错误", request_id, error_message, "RunNode/Google-", "Google")
+            else:
+                print(error_message)
+            raise ValueError(error_message)
             
         except Exception as e:
             error_message = f"Error calling Gemini API: {format_runnode_error(str(e))}"
-            print(error_message)
-            return self.handle_error(object_image, subject_image, scene_image, error_message, resolution)
+            if 'rn_pbar' in locals():
+                rn_pbar.error(error_message)
+                log_backend_exception("google_image_exception", request_id=request_id, error=error_message)
+            else:
+                print(error_message)
+            raise ValueError(error_message)
     
     def handle_error(self, object_image, subject_image, scene_image, error_message, resolution="1024x1024"):
         """Handle errors with appropriate image output"""
-        if object_image is not None:
-            return (object_image, error_message, "")
-        elif subject_image is not None:
-            return (subject_image, error_message, "")
-        elif scene_image is not None:
-            return (scene_image, error_message, "")
-        else:
-            if resolution in ["object_image size", "subject_image size", "scene_image size"]:
-                target_size = (1024, 1024)  
-            else:
-                target_size = self.parse_resolution(resolution)
-                
-            default_image = Image.new('RGB', target_size, color='white')
-            default_tensor = pil2tensor(default_image)
-            return (default_tensor, error_message, "")
+        # Deprecated: raising exceptions directly instead
+        raise ValueError(error_message)
 
 
 class ComflyGeminiTextOnly:
@@ -351,7 +384,7 @@ class ComflyGeminiTextOnly:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
-            return (error_message,)
+            raise ValueError(error_message)
 
         try:
             content = [{"type": "text", "text": prompt}]
@@ -434,7 +467,7 @@ class ComflyGeminiTextOnly:
                 url=safe_public_url(f"{baseurl}/v1/chat/completions"),
                 model=model,
             )
-            return (error_message,)
+            raise ValueError(error_message)
 
 
 class Comfly_Googel_Veo3:
@@ -504,7 +537,7 @@ class Comfly_Googel_Veo3:
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Google-", "Google")
             error_response = {"code": "error", "message": error_msg}
-            return ("", "", json.dumps(error_response))
+            raise ValueError(error_msg)
 
         rn_pbar.set_generating()
 
@@ -581,7 +614,7 @@ class Comfly_Googel_Veo3:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                return ("", "", json.dumps({"code": "error", "message": error_message}))
+                raise ValueError(error_message)
                 
             result = response.json()
                 
@@ -590,7 +623,7 @@ class Comfly_Googel_Veo3:
                 error_message = "No task ID returned from API"
                 rn_pbar.error(error_message)
                 log_error("任务ID缺失", request_id, error_message, "RunNode/Google-", "Google")
-                return ("", "", json.dumps({"code": "error", "message": error_message}))
+                raise ValueError(error_message)
             
             pbar.update_absolute(30)
             log_backend("google_poll_start", request_id=request_id, task_id=task_id)
@@ -651,12 +684,14 @@ class Comfly_Googel_Veo3:
                         error_message = f"Video generation failed: {fail_reason}"
                         rn_pbar.error(error_message)
                         log_error("生成失败", request_id, fail_reason, "RunNode/Google-", "Google")
-                        raise Exception(error_message)
+                        raise ValueError(error_message)
 
                 except Exception as e:
                     msg = f"Error checking generation status: {format_runnode_error(str(e))}"
                     rn_pbar.error(msg)
                     log_backend_exception("google_poll_exception", request_id=request_id, error=msg)
+                    if isinstance(e, ValueError):
+                        raise e
             
             if not video_url:
                 error_message = "Failed to retrieve video URL after multiple attempts"
@@ -669,7 +704,7 @@ class Comfly_Googel_Veo3:
                     task_id=task_id,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                raise Exception(error_message)
+                raise TimeoutError(error_message)
 
             pbar.update_absolute(95)
 
@@ -692,6 +727,7 @@ class Comfly_Googel_Veo3:
             log_complete(
                 "视频生成",
                 request_id,
+                "RunNode/Google-",
                 "Google",
                 char_count=len(response_text),
                 elapsed_ms=elapsed_ms,
@@ -793,11 +829,16 @@ class Comfly_nano_banana:
         except requests.exceptions.Timeout:
             raise TimeoutError(f"API request timed out after {self.timeout} seconds")
         except Exception as e:
-            raise Exception(f"Error in streaming response: {format_runnode_error(str(e))}")
+            raise ValueError(f"Error in streaming response: {format_runnode_error(str(e))}")
 
     def process(self, text, model="gemini-2.5-flash-image-preview", 
                 image1=None, image2=None, image3=None, image4=None,
                 temperature=1.0, top_p=0.95, apikey="", seed=0, max_tokens=32768):
+        request_id = generate_request_id("chat_vision", "google")
+        log_prepare("图文理解", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图文理解", source="RunNode/Google-")
+        _rn_start = time.perf_counter()
+
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -818,7 +859,10 @@ class Comfly_nano_banana:
 
         try:
             if not self.api_key:
-                return (default_image, "API key not provided. Please set your API key.", "")
+                error_message = "API key not provided. Please set your API key."
+                rn_pbar.error(error_message)
+                log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
+                raise ValueError(error_message)
 
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
@@ -829,7 +873,7 @@ class Comfly_nano_banana:
             for idx, img in enumerate([image1, image2, image3, image4], 1):
                 if img is not None:
                     batch_size = img.shape[0]
-                    print(f"Processing image{idx} with {batch_size} batch size")
+                    # print(f"Processing image{idx} with {batch_size} batch size")
                     
                     for i in range(batch_size):
                         single_image = img[i:i+1]
@@ -841,7 +885,7 @@ class Comfly_nano_banana:
                             })
                             images_added += 1
 
-            print(f"Total of {images_added} images added to the request")
+            # print(f"Total of {images_added} images added to the request")
 
             messages = [{
                 "role": "user",
@@ -861,14 +905,16 @@ class Comfly_nano_banana:
                 payload["seed"] = seed
 
             pbar.update_absolute(30)
+            rn_pbar.set_generating()
 
             try:
                 response_text = self.send_request_streaming(payload)
                 pbar.update_absolute(70)
             except Exception as e:
                 error_message = f"API Error: {format_runnode_error(str(e))}"
-                print(error_message)
-                return (default_image, error_message, "")
+                rn_pbar.error(error_message)
+                log_backend_exception("google_vision_exception", request_id=request_id, error=error_message)
+                raise ValueError(error_message)
 
             base64_pattern = r'data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)'
             base64_matches = re.findall(base64_pattern, response_text)
@@ -880,9 +926,14 @@ class Comfly_nano_banana:
                     generated_tensor = pil2tensor(generated_image)
                     
                     pbar.update_absolute(100)
+                    rn_pbar.done(char_count=len(response_text))
+                    log_complete("图文理解", request_id, "RunNode/Google-", "Google", char_count=len(response_text), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000), source="RunNode/Google-")
                     return (generated_tensor, response_text, f"data:image/png;base64,{base64_matches[0]}")
                 except Exception as e:
-                    print(f"Error processing base64 image data: {format_runnode_error(str(e))}")
+                    error_message = f"Error processing base64 image data: {format_runnode_error(str(e))}"
+                    rn_pbar.error(error_message)
+                    log_error("数据解析失败", request_id, error_message, "RunNode/Google-", "Google")
+                    raise ValueError(error_message)
 
             image_pattern = r'!\[.*?\]\((.*?)\)'
             matches = re.findall(image_pattern, response_text)
@@ -905,18 +956,26 @@ class Comfly_nano_banana:
                     generated_tensor = pil2tensor(generated_image)
                     
                     pbar.update_absolute(100)
+                    rn_pbar.done(char_count=len(response_text))
+                    log_complete("图文理解", request_id, "RunNode/Google-", "Google", char_count=len(response_text), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000), source="RunNode/Google-")
                     return (generated_tensor, response_text, image_url)
                 except Exception as e:
-                    print(f"Error downloading image: {format_runnode_error(str(e))}")
-                    return (default_image, f"{response_text}\n\nError downloading image: {format_runnode_error(str(e))}", image_url)
+                    error_message = f"Error downloading image: {format_runnode_error(str(e))}"
+                    rn_pbar.error(error_message)
+                    log_error("图片下载失败", request_id, error_message, "RunNode/Google-", "Google")
+                    raise ValueError(error_message)
             else:
                 pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_text))
+                log_complete("图文理解", request_id, "RunNode/Google-", "Google", char_count=len(response_text), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000), source="RunNode/Google-")
                 return (default_image, response_text, "")
                 
         except Exception as e:
             error_message = f"Error processing request: {format_runnode_error(str(e))}"
-            print(error_message)
-            return (default_image, error_message, "")
+            if 'rn_pbar' in locals():
+                rn_pbar.error(error_message)
+            log_backend_exception("google_vision_process_exception", request_id=request_id if 'request_id' in locals() else "unknown", error=error_message)
+            raise ValueError(error_message)
 
 
 class Comfly_nano_banana_fal:
@@ -997,11 +1056,17 @@ class Comfly_nano_banana_fal:
                 return None
                 
         except Exception as e:
-            print(f"Error uploading image: {format_runnode_error(str(e))}")
-            return None
+            error_message = f"Error uploading image: {format_runnode_error(str(e))}"
+            print(error_message)
+            raise ValueError(error_message)
 
     def process(self, prompt, model, num_images=1, seed=0, image_way="image",
                 image1=None, image2=None, image3=None, image4=None, apikey=""):
+        request_id = generate_request_id("img_gen_fal", "google")
+        log_prepare("图像生成(FAL)", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像生成(FAL)", source="RunNode/Google-")
+        _rn_start = time.perf_counter()
+
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -1022,7 +1087,10 @@ class Comfly_nano_banana_fal:
         
         try:
             if not self.api_key:
-                return (default_image, "API key not provided. Please set your API key.")
+                error_message = "API key not provided. Please set your API key."
+                rn_pbar.error(error_message)
+                log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
+                raise ValueError(error_message)
 
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
@@ -1053,6 +1121,7 @@ class Comfly_nano_banana_fal:
                         print(f"Failed to upload image {idx+1}/{total_images}")
 
             pbar.update_absolute(20)
+            rn_pbar.set_generating()
             
             if model.endswith("/edit"):
                 api_endpoint = f"{baseurl}/fal-ai/{model}"
@@ -1101,21 +1170,24 @@ class Comfly_nano_banana_fal:
 
             if response.status_code != 200:
                 error_msg = format_runnode_error(response)
-                return (default_image, error_msg)
+                rn_pbar.error(error_msg)
+                raise ValueError(error_msg)
                 
             result = response.json()
  
             if "request_id" not in result:
-                return (default_image, "No request_id in response: " + str(result))
+                error_message = "No request_id in response: " + str(result)
+                rn_pbar.error(error_message)
+                raise ValueError(error_message)
             
-            request_id = result.get("request_id")
+            request_id_api = result.get("request_id")
             response_url = result.get("response_url", "")
  
             if "queue.fal.run" in response_url:
                 response_url = response_url.replace("https://queue.fal.run", baseurl)
 
             if not response_url:
-                response_url = f"{baseurl}/fal-ai/{model}/requests/{request_id}"
+                response_url = f"{baseurl}/fal-ai/{model}/requests/{request_id_api}"
             
             pbar.update_absolute(50)
 
@@ -1151,10 +1223,15 @@ class Comfly_nano_banana_fal:
                     time.sleep(1)
 
             if result_data is None:
-                return (default_image, "Failed to retrieve results after multiple attempts")
+                error_message = "Failed to retrieve results after multiple attempts"
+                rn_pbar.error(error_message)
+                log_error("生成超时", request_id, error_message, "RunNode/Google-", "Google")
+                raise ValueError(error_message)
 
             if "images" not in result_data or not result_data["images"]:
-                return (default_image, "No images in response: " + str(result_data))
+                error_message = "No images in response: " + str(result_data)
+                rn_pbar.error(error_message)
+                raise ValueError(error_message)
 
             generated_images = []
             
@@ -1176,16 +1253,26 @@ class Comfly_nano_banana_fal:
             if generated_images:
                 combined_tensor = torch.cat(generated_images, dim=0)
                 pbar.update_absolute(100)
-                return (combined_tensor, f"Successfully generated {len(generated_images)} images using {model}")
+                msg = f"Successfully generated {len(generated_images)} images using {model}"
+                rn_pbar.done(char_count=len(msg))
+                log_complete("图像生成(FAL)", request_id, "RunNode/Google-", "Google", char_count=len(msg), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000), source="RunNode/Google-")
+                return (combined_tensor, msg)
             else:
-                return (default_image, "Failed to process any images from the API response")
+                error_message = "Failed to process any images from the API response"
+                rn_pbar.error(error_message)
+                raise ValueError(error_message)
                 
         except Exception as e:
             error_message = f"Error processing request: {format_runnode_error(str(e))}"
             print(error_message)
             import traceback
             traceback.print_exc()
-            return (default_image, error_message)
+            try:
+                rn_pbar.error(error_message)
+            except:
+                pass
+            log_backend_exception("google_fal_process_exception", request_id=request_id if 'request_id' in locals() else "unknown", error=error_message)
+            raise ValueError(error_message)
 
 
 class Comfly_nano_banana_edit:
@@ -1236,21 +1323,21 @@ class Comfly_nano_banana_edit:
     
     def generate_image(self, prompt, mode="text2img", model="nano-banana", aspect_ratio="1:1", 
                       image1=None, image2=None, image3=None, image4=None,
-                      apikey="", response_format="url", seed=0):  
+                      apikey="", response_format="url", seed=0):
+        request_id = generate_request_id("img_gen", "google")
+        log_prepare("图像生成", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像生成", source="RunNode/Google-")
+        rn_pbar.set_generating()
+
         if apikey.strip():
             self.api_key = apikey
-            # config = get_config()
-            # config['api_key'] = apikey
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, error_message)
+            rn_pbar.error(error_message)
+            raise ValueError(error_message)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -1316,19 +1403,15 @@ class Comfly_nano_banana_edit:
             
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
-                print(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message)
+                rn_pbar.error(error_message)
+                raise ValueError(error_message)
                 
             result = response.json()
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
-                print(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message)
+                rn_pbar.error(error_message)
+                raise ValueError(error_message)
             
             generated_tensors = []
             response_info = f"Generated {len(result['data'])} images using {model}\n"
@@ -1356,26 +1439,26 @@ class Comfly_nano_banana_edit:
                         generated_tensor = pil2tensor(generated_image)
                         generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        print(f"Error downloading image from URL: {format_runnode_error(str(e))}")
+                        rn_pbar.error(f"Error downloading image from URL: {format_runnode_error(str(e))}")
             
             pbar.update_absolute(100)
             
             if generated_tensors:
                 combined_tensor = torch.cat(generated_tensors, dim=0)
+                try:
+                    rn_pbar.done(char_count=len(response_info))
+                except:
+                    pass
                 return (combined_tensor, response_info)
             else:
                 error_message = "Failed to process any images"
-                print(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message)
+                rn_pbar.error(error_message)
+                raise ValueError(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
-            print(error_message)
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, error_message)
+            rn_pbar.error(error_message)
+            raise ValueError(error_message)
 
 
 class Comfly_nano_banana2_edit:
@@ -1455,9 +1538,7 @@ class Comfly_nano_banana2_edit:
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, error_message, "")
+            raise ValueError(error_message)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -1537,18 +1618,14 @@ class Comfly_nano_banana2_edit:
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message, "")
+                raise ValueError(error_message)
                 
             result = response.json()
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message, "")
+                raise ValueError(error_message)
             
             generated_tensors = []
             image_urls = []
@@ -1600,18 +1677,14 @@ class Comfly_nano_banana2_edit:
             else:
                 error_message = "Failed to process any images"
                 rn_pbar.error(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message, "")
+                raise ValueError(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, error_message, "")
+            raise ValueError(error_message)
 
 
 class Comfly_nano_banana2_edit_S2A:
@@ -1692,9 +1765,7 @@ class Comfly_nano_banana2_edit_S2A:
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+            raise ValueError(error_message)
         
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -1796,9 +1867,7 @@ class Comfly_nano_banana2_edit_S2A:
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+                raise ValueError(error_message)
                 
             result = response.json()
             print(f"API response: {result}")
@@ -1934,25 +2003,26 @@ class Comfly_nano_banana2_edit_S2A:
                                 
                             elif actual_status == "failed" or actual_status == "error" or actual_status == "FAILURE":
                                 # 任务失败
-                                error_msg = query_result.get("error", "Unknown error")
+                                error_msg = query_result.get("error")
+                                if not error_msg and "data" in query_result and isinstance(query_result["data"], dict):
+                                    error_msg = query_result["data"].get("error")
+                                if not error_msg:
+                                    error_msg = "Unknown error"
+                                
                                 rn_pbar.error(f"任务失败: {error_msg}")
-                                blank_image = Image.new('RGB', (1024, 1024), color='red')
-                                blank_tensor = pil2tensor(blank_image)
-                                pbar.update_absolute(100)
-                                return (blank_tensor, "", "", json.dumps({"status": "failed", "task_id": returned_task_id, "message": error_msg}))
+                                raise ValueError(f"Task failed: {error_msg}")
                                 
                         else:
                             rn_pbar.error(f"查询失败: {query_response.status_code}")
                             
+                    except ValueError as e:
+                        raise e
                     except Exception as e:
                         rn_pbar.error(f"查询任务状态异常: {format_runnode_error(str(e))}")
                 
                 # 超时未完成
                 rn_pbar.error("任务轮询超时")
-                blank_image = Image.new('RGB', (512, 512), color='yellow')
-                blank_tensor = pil2tensor(blank_image)
-                pbar.update_absolute(100)
-                return (blank_tensor, "", returned_task_id, json.dumps({"status": "timeout", "task_id": returned_task_id, "message": "Task polling timed out. Please query manually."}))
+                raise TimeoutError("Task polling timed out. Please query manually.")
                 
             elif "data" in result and result["data"]:
                 # 同步模式：直接返回图片数据
@@ -2070,9 +2140,7 @@ class Comfly_nano_banana2_edit_S2A:
             rn_pbar.error(error_message)
             import traceback
             traceback.print_exc()
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+            raise ValueError(error_message)
     
     def _query_task_status(self, task_id, pbar):
         """查询异步任务状态"""
@@ -2094,9 +2162,7 @@ class Comfly_nano_banana2_edit_S2A:
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 print(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "", "", json.dumps({"status": "query_failed", "task_id": task_id, "message": error_message}))
+                raise ValueError(error_message)
             
             result = response.json()
             print(f"Task status response: {result}")
@@ -2175,15 +2241,11 @@ class Comfly_nano_banana2_edit_S2A:
                     else:
                         error_message = "No valid images in completed task"
                         print(error_message)
-                        blank_image = Image.new('RGB', (1024, 1024), color='white')
-                        blank_tensor = pil2tensor(blank_image)
-                        return (blank_tensor, "", "", json.dumps({"status": "failed", "task_id": task_id, "message": error_message}))
+                        raise ValueError(error_message)
                 else:
                     error_message = "Task completed but no image data"
                     print(error_message)
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "", "", json.dumps({"status": "failed", "task_id": task_id, "message": error_message}))
+                    raise ValueError(error_message)
             
             elif actual_status == "processing" or actual_status == "pending" or actual_status == "in_progress":
                 # 任务还在处理中
@@ -2200,35 +2262,19 @@ class Comfly_nano_banana2_edit_S2A:
             elif actual_status == "failed" or actual_status == "error":
                 # 任务失败
                 error_msg = format_runnode_error(result)
-                response_info = f"Task failed\n"
-                response_info += f"Task ID: {task_id}\n"
-                response_info += f"Error: {error_msg}"
-                
-                blank_image = Image.new('RGB', (512, 512), color='red')
-                blank_tensor = pil2tensor(blank_image)
-                pbar.update_absolute(100)
-                return (blank_tensor, "", "", json.dumps({"status": "failed", "task_id": task_id, "message": error_msg}))
+                raise ValueError(f"Task failed: {error_msg}")
             
             else:
                 # 未知状态
-                response_info = f"Unknown task status\n"
-                response_info += f"Task ID: {task_id}\n"
-                response_info += f"Status: {actual_status}\n"
-                response_info += f"Response: {result}"
-                
-                blank_image = Image.new('RGB', (512, 512), color='gray')
-                blank_tensor = pil2tensor(blank_image)
-                pbar.update_absolute(100)
-                return (blank_tensor, "", "", json.dumps({"status": actual_status, "task_id": task_id, "message": f"Unknown task status: {actual_status}", "raw_response": result}))
+                error_msg = f"Unknown task status: {actual_status}"
+                raise ValueError(error_msg)
                 
         except Exception as e:
             error_message = f"Error querying task status: {format_runnode_error(str(e))}"
             print(error_message)
             import traceback
             traceback.print_exc()
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, "", "", json.dumps({"status": "query_error", "task_id": task_id, "message": error_message}))
+            raise ValueError(error_message)
 
 
 class Comfly_banana2_edit_group:
@@ -2539,6 +2585,20 @@ class _ComflyBanana2ImageBatchRunner:
                     results[idx] = f.result()
                 except Exception as e:
                     results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": format_runnode_error(str(e)), "response": ""}
+        
+        # Check if all tasks failed
+        failed_count = 0
+        error_messages = []
+        for i in range(1, max_workers + 1):
+            r = results.get(i, {})
+            if r.get("status") == "failed":
+                failed_count += 1
+                error_messages.append(f"Task {i} error: {r.get('error')}")
+
+        if failed_count == max_workers and max_workers > 0:
+             error_summary = "\n".join(error_messages)
+             raise ValueError(f"All {max_workers} batch tasks failed:\n{error_summary}")
+
         output_images = []
         for i in range(1, max_workers + 1):
             output_images.append(results.get(i, {}).get("image", self._blank()))
@@ -2884,6 +2944,20 @@ class _ComflyBanana2ImageBatchRunnerS2A:
                     results[idx] = f.result()
                 except Exception as e:
                     results[idx] = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": format_runnode_error(str(e)), "response": ""}
+        
+        # Check if all tasks failed
+        failed_count = 0
+        error_messages = []
+        for i in range(1, max_workers + 1):
+            r = results.get(i, {})
+            if r.get("status") == "failed":
+                failed_count += 1
+                error_messages.append(f"Task {i} error: {r.get('error')}")
+
+        if failed_count == max_workers and max_workers > 0:
+             error_summary = "\n".join(error_messages)
+             raise ValueError(f"All {max_workers} batch tasks failed:\n{error_summary}")
+
         output_images = []
         for i in range(1, max_workers + 1):
             output_images.append(results.get(i, {}).get("image", self._blank()))

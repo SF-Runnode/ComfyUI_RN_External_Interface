@@ -62,22 +62,19 @@ class Comfly_Doubao_Seedream:
         rn_pbar.set_generating()
         if apikey.strip():
             self.api_key = apikey
-            # config = get_config()
-            # config['api_key'] = apikey
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
+            log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message)
             
         try:
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
+            rn_pbar.update(10, "Initializing...")
 
             final_size = size
             if size == "Custom":
@@ -85,6 +82,7 @@ class Comfly_Doubao_Seedream:
                 if not is_valid:
                     error_message = result
                     rn_pbar.error(error_message)
+                    log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
@@ -102,6 +100,7 @@ class Comfly_Doubao_Seedream:
             if seed != -1:
                 payload["seed"] = seed
             
+            rn_pbar.update(30, "Submitting task...")
             response = requests.post(
                 f"{baseurl}/v1/images/generations",
                 headers=self.get_headers(),
@@ -109,22 +108,22 @@ class Comfly_Doubao_Seedream:
                 timeout=self.timeout
             )
             
-            pbar.update_absolute(30)
-            
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
                 
             result = response.json()
             
-            pbar.update_absolute(50)
+            rn_pbar.update(50, "Processing response...")
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -137,6 +136,7 @@ class Comfly_Doubao_Seedream:
                 if not image_url:
                     error_message = "No image URL in response"
                     rn_pbar.error(error_message)
+                    log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
@@ -148,6 +148,7 @@ class Comfly_Doubao_Seedream:
                 except Exception as e:
                     error_message = f"Error downloading image: {format_runnode_error(str(e))}"
                     rn_pbar.error(error_message)
+                    log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
@@ -156,13 +157,14 @@ class Comfly_Doubao_Seedream:
                 if not b64_data:
                     error_message = "No base64 data in response"
                     rn_pbar.error(error_message)
+                    log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, error_message)
                     
                 image_data = BytesIO(base64.b64decode(b64_data))
             
-            pbar.update_absolute(80)
+            rn_pbar.update(80, "Converting image...")
 
             try:
                 pil_image = Image.open(image_data)
@@ -177,13 +179,19 @@ class Comfly_Doubao_Seedream:
                     "url": image_url if image_url else "base64 data"
                 }
                 
-                pbar.update_absolute(100)
+                rn_pbar.update(100, "Done")
                 rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
+                
+                safe_url = safe_public_url(image_url) if image_url else ""
+                log_complete("Doubao任务完成", request_id, "RunNode/Doubao-", "Doubao", 
+                             image_count=1, first_url=safe_url)
+                             
                 return (tensor_image, json.dumps(response_info, indent=2))
                 
             except Exception as e:
                 error_message = f"Error processing image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message)
@@ -191,6 +199,7 @@ class Comfly_Doubao_Seedream:
         except Exception as e:
             error_message = f"Error generating image: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
+            log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message)
@@ -321,8 +330,7 @@ class Comfly_Doubao_Seedream_4:
             return (blank_tensor, error_message, "")
             
         try:
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
+            rn_pbar.update(10, "Initializing...")
 
             if aspect_ratio == "Custom":
 
@@ -368,7 +376,7 @@ class Comfly_Doubao_Seedream_4:
             if image_urls:
                 payload["image"] = image_urls
             
-            log_backend("doubao_submit_start", request_id=request_id)
+            rn_pbar.update(30, "Submitting task to API...")
             
             response = requests.post(
                 f"{baseurl}/v1/images/generations",
@@ -376,8 +384,6 @@ class Comfly_Doubao_Seedream_4:
                 json=payload,
                 timeout=self.timeout
             )
-            
-            pbar.update_absolute(30)
             
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
@@ -389,7 +395,7 @@ class Comfly_Doubao_Seedream_4:
                 
             result = response.json()
             
-            pbar.update_absolute(50)
+            rn_pbar.update(50, "Processing response...")
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
@@ -420,8 +426,9 @@ class Comfly_Doubao_Seedream_4:
                         tensor_image = pil2tensor(pil_image)
                         generated_images.append(tensor_image)
                     except Exception as e:
-                        rn_pbar.error(f"下载图片失败: {format_runnode_error(str(e))}")
-                        log_backend_exception(f"下载图片失败: {format_runnode_error(str(e))}", request_id=request_id)
+                        err_msg = f"下载图片失败: {format_runnode_error(str(e))}"
+                        rn_pbar.error(err_msg)
+                        log_error(err_msg, request_id, "RunNode/Doubao-", "Doubao")
                 else:
                     b64_data = item.get("b64_json")
                     if not b64_data:
@@ -433,7 +440,7 @@ class Comfly_Doubao_Seedream_4:
                     tensor_image = pil2tensor(pil_image)
                     generated_images.append(tensor_image)
             
-            pbar.update_absolute(80)
+            rn_pbar.update(80, "Converting images...")
             if not generated_images:
                 error_message = "Failed to process any images"
                 rn_pbar.error(error_message)
@@ -464,7 +471,7 @@ class Comfly_Doubao_Seedream_4:
             
             response_info["images_generated"] = len(generated_images)
             
-            pbar.update_absolute(100)
+            rn_pbar.update(100, "Done")
             rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
             first_image_url = image_urls[0] if image_urls else ""
             log_complete("Doubao任务完成", request_id, "RunNode/Doubao-", "Doubao", 
@@ -528,7 +535,7 @@ class Comfly_Doubao_Seedream_4_5:
                 "2:3": "1664x2496",
                 "3:2": "2496x1664",
                 "21:9": "3024x1296",
-                "9:21": "1296*3024"
+                "9:21": "1296x3024"
             },
 
             "4K": {
@@ -586,13 +593,13 @@ class Comfly_Doubao_Seedream_4_5:
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Doubao")
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
             
         try:
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
+            rn_pbar.update(10, "Initializing...")
 
             if aspect_ratio == "Custom":
 
@@ -601,13 +608,11 @@ class Comfly_Doubao_Seedream_4_5:
                 scaled_height = int(height * scale_factor)
     
                 final_size = f"{scaled_width}x{scaled_height}"
-                print(f"Using custom dimensions with {resolution} scaling: {final_size}")
             else:
                 if resolution in self.size_mapping and aspect_ratio in self.size_mapping[resolution]:
                     final_size = self.size_mapping[resolution][aspect_ratio]
                 else:
                     final_size = "2048x2048"
-                    print(f"Warning: Combination of {resolution} resolution and {aspect_ratio} aspect ratio not found. Using {final_size}.")
             
             payload = {
                 "model": model,
@@ -645,22 +650,24 @@ class Comfly_Doubao_Seedream_4_5:
                 timeout=self.timeout
             )
             
-            pbar.update_absolute(30)
+            rn_pbar.update(30, "Submitting task to API...")
             
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
                 
             result = response.json()
             
-            pbar.update_absolute(50)
+            rn_pbar.update(50, "Processing response...")
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
+                log_error("数据缺失", request_id, error_message, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -686,7 +693,9 @@ class Comfly_Doubao_Seedream_4_5:
                         tensor_image = pil2tensor(pil_image)
                         generated_images.append(tensor_image)
                     except Exception as e:
-                        print(f"Error downloading image: {format_runnode_error(str(e))}")
+                        error_msg = f"Error downloading image: {format_runnode_error(str(e))}"
+                        rn_pbar.error(error_msg)
+                        log_error("下载失败", request_id, error_msg, "RunNode/Doubao-", "Doubao")
                 else:
                     b64_data = item.get("b64_json")
                     if not b64_data:
@@ -698,10 +707,11 @@ class Comfly_Doubao_Seedream_4_5:
                     tensor_image = pil2tensor(pil_image)
                     generated_images.append(tensor_image)
             
-            pbar.update_absolute(80)
+            rn_pbar.update(80, "Converting images...")
             if not generated_images:
                 error_message = "Failed to process any images"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("处理失败", request_id, error_message, "RunNode/Doubao-", "Doubao")
                 blank_image = Image.new('RGB', (1024, 1024), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
@@ -728,14 +738,19 @@ class Comfly_Doubao_Seedream_4_5:
             
             response_info["images_generated"] = len(generated_images)
             
-            pbar.update_absolute(100)
-            rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
+            rn_pbar.update(100, "Done")
             first_image_url = image_urls[0] if image_urls else ""
+            safe_url = safe_public_url(first_image_url)
+            log_complete("Doubao任务完成", request_id, "RunNode/Doubao-", "Doubao", 
+                         image_count=len(generated_images), first_url=safe_url)
+            rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
+            
             return (combined_tensor, json.dumps(response_info, indent=2), first_image_url)
                 
         except Exception as e:
             error_message = f"Error generating image: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
+            log_error("系统异常", request_id, error_message, "RunNode/Doubao-", "Doubao")
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
@@ -778,6 +793,11 @@ class Comfly_Doubao_Seededit:
     
     def edit_image(self, image, prompt, model, response_format="url", size="adaptive", 
                 guidance_scale=5.5, apikey="", seed=-1, watermark=True):
+        request_id = generate_request_id("img_edit", "doubao")
+        log_prepare("图像编辑", request_id, "RunNode/Doubao-", "SeedEdit", model_name=model)
+        rn_pbar = ProgressBar(request_id, "SeedEdit", streaming=True, task_type="图像编辑", source="RunNode/Doubao-")
+        rn_pbar.set_generating()
+
         if apikey.strip():
             self.api_key = apikey
             # config = get_config()
@@ -788,12 +808,12 @@ class Comfly_Doubao_Seededit:
             
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
             return (image, error_message)
             
         try:
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
+            rn_pbar.update(10, "Initializing...")
 
             pil_image = tensor2pil(image)[0]
 
@@ -821,20 +841,22 @@ class Comfly_Doubao_Seededit:
                 timeout=self.timeout
             )
             
-            pbar.update_absolute(30)
+            rn_pbar.update(30, "Submitting task to API...")
             
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
                 return (image, error_message)
                 
             result = response.json()
             
-            pbar.update_absolute(50)
+            rn_pbar.update(50, "Processing response...")
             
             if "data" not in result or not result["data"]:
                 error_message = "No image data in response"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("数据缺失", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
                 return (image, error_message)
             
             image_url = None
@@ -844,7 +866,8 @@ class Comfly_Doubao_Seededit:
                 image_url = result["data"][0].get("url")
                 if not image_url:
                     error_message = "No image URL in response"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("数据缺失", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
                     return (image, error_message)
                     
                 try:
@@ -853,18 +876,20 @@ class Comfly_Doubao_Seededit:
                     image_data = BytesIO(img_response.content)
                 except Exception as e:
                     error_message = f"Error downloading image: {format_runnode_error(str(e))}"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("下载失败", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
                     return (image, error_message)
             else:
                 b64_data = result["data"][0].get("b64_json")
                 if not b64_data:
                     error_message = "No base64 data in response"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("数据缺失", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
                     return (image, error_message)
                     
                 image_data = BytesIO(base64.b64decode(b64_data))
             
-            pbar.update_absolute(80)
+            rn_pbar.update(80, "Converting image...")
 
             try:
                 edited_pil_image = Image.open(image_data)
@@ -879,17 +904,25 @@ class Comfly_Doubao_Seededit:
                     "url": image_url if image_url else "base64 data"
                 }
                 
-                pbar.update_absolute(100)
+                rn_pbar.update(100, "Done")
+                rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
+                
+                safe_url = safe_public_url(image_url) if image_url else ""
+                log_complete("Doubao图像编辑完成", request_id, "RunNode/Doubao-", "SeedEdit", 
+                             image_count=1, first_url=safe_url)
+                             
                 return (edited_tensor, json.dumps(response_info, indent=2))
                 
             except Exception as e:
                 error_message = f"Error processing edited image: {format_runnode_error(str(e))}"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("处理失败", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
                 return (image, error_message)
                 
         except Exception as e:
             error_message = f"Error editing image: {format_runnode_error(str(e))}"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_error("系统异常", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
             return (image, error_message)
 
 
@@ -950,7 +983,7 @@ class ComflyJimengApi:
         }
         return language_map.get(language_str, 0)
     
-    def upload_image(self, image_tensor):
+    def upload_image(self, image_tensor, request_id=None):
         """Upload image to the file endpoint and return the URL"""
         try:
             pil_image = tensor2pil(image_tensor)[0]
@@ -974,16 +1007,25 @@ class ComflyJimengApi:
             if 'url' in result:
                 return result['url']
             else:
-                print(f"Unexpected response from file upload API: {result}")
+                msg = f"Unexpected response from file upload API: {result}"
+                if request_id:
+                    log_error("上传异常", request_id, msg, "RunNode/Doubao-", "Jimeng")
                 return None
                 
         except Exception as e:
-            print(f"Error uploading image: {format_runnode_error(str(e))}")
+            msg = f"Error uploading image: {format_runnode_error(str(e))}"
+            if request_id:
+                log_error("上传失败", request_id, msg, "RunNode/Doubao-", "Jimeng")
             return None
     
     def generate_image(self, prompt, scale=2.5, seed=-1, width=1328, height=1328, use_pre_llm=False, 
                       add_logo=False, logo_position="右下角", logo_language="中文", 
                       logo_text="", logo_opacity=0.3, api_key="", image=None, image_url=""):
+        request_id = generate_request_id("img_gen", "jimeng")
+        log_prepare("Jimeng图像生成", request_id, "RunNode/Doubao-", "Jimeng")
+        rn_pbar = ProgressBar(request_id, "Jimeng", streaming=True, task_type="图像生成", source="RunNode/Doubao-")
+        rn_pbar.set_generating()
+
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -995,25 +1037,24 @@ class ComflyJimengApi:
         try:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
-                print(error_message)
+                rn_pbar.error(error_message)
+                log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Jimeng")
 
                 blank_image = Image.new('RGB', (width, height), color='white')
                 blank_tensor = pil2tensor(blank_image)
                 return (blank_tensor, error_message, "")
 
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
+            rn_pbar.update(10, "Initializing...")
 
             uploaded_image_url = None
             if image is not None:
-                pbar.update_absolute(20)
-                print("Uploading image...")
-                uploaded_image_url = self.upload_image(image)
+                rn_pbar.update(20, "Uploading image...")
+                uploaded_image_url = self.upload_image(image, request_id)
                 if uploaded_image_url:
                     if not prompt.strip():
                         prompt = "Generate a 3D style version of this image"
                 else:
-                    print("Image upload failed, proceeding without image")
+                    rn_pbar.error("Image upload failed, proceeding without image")
 
             final_image_url = uploaded_image_url if uploaded_image_url else image_url
 
@@ -1067,7 +1108,7 @@ class ComflyJimengApi:
                 api_url = f"{baseurl}/v1/chat/completions"
                 headers = self.get_headers()
 
-                pbar.update_absolute(30)
+                rn_pbar.update(30, "Submitting task...")
 
                 response = requests.post(
                     api_url,
@@ -1099,7 +1140,6 @@ class ComflyJimengApi:
                 image_urls = self.extract_image_urls(full_response)
                 if image_urls:
                     image_url = image_urls[0]
-                    print(f"Found image URL in response: {image_url}")
 
                 if image_url:
                     response_info = f"**Image Generation with {model_name}**\n\n"
@@ -1112,11 +1152,18 @@ class ComflyJimengApi:
                         img_response.raise_for_status()
                         generated_image = Image.open(BytesIO(img_response.content))
                         generated_tensor = pil2tensor(generated_image)
-                        pbar.update_absolute(100)
+                        rn_pbar.update(100, "Done")
+                        
+                        safe_url = safe_public_url(image_url)
+                        log_complete("Jimeng任务完成", request_id, "RunNode/Doubao-", "Jimeng", 
+                                     image_count=1, first_url=safe_url)
+                        rn_pbar.done(char_count=len(full_response))
+                        
                         return (generated_tensor, response_info, image_url)
                     except Exception as e:
                         error_message = f"Error downloading result image: {format_runnode_error(str(e))}"
-                        print(error_message)
+                        rn_pbar.error(error_message)
+                        log_error("下载失败", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                         if image is not None:
                             return (image, response_info + f"\n\nError: {error_message}", image_url)
                         else:
@@ -1125,7 +1172,8 @@ class ComflyJimengApi:
                             return (blank_tensor, response_info + f"\n\nError: {error_message}", image_url)
                 else:
                     error_message = "No image URL found in response"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("数据缺失", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                     response_info = f"**Error: {error_message}**\n\nFull response: {full_response}"
                     if image is not None:
                         return (image, response_info, "")
@@ -1154,7 +1202,8 @@ class ComflyJimengApi:
                     )
                 except requests.exceptions.Timeout:
                     error_message = f"API request timed out after {self.timeout} seconds"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("API超时", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                     response_info += f"Error: {error_message}"
                     blank_image = Image.new('RGB', (width, height), color='white')
                     blank_tensor = pil2tensor(blank_image)
@@ -1162,7 +1211,8 @@ class ComflyJimengApi:
 
                 if response.status_code != 200:
                     error_message = format_runnode_error(response)
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("API请求失败", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                     response_info += f"Error: {error_message}"
                     blank_image = Image.new('RGB', (width, height), color='white')
                     blank_tensor = pil2tensor(blank_image)
@@ -1170,11 +1220,12 @@ class ComflyJimengApi:
                     
                 result = response.json()
                 
-                pbar.update_absolute(70)
+                rn_pbar.update(70, "Processing result...")
 
                 if result.get("code") != 10000:
                     error_message = format_runnode_error(result)
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("API返回错误", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                     response_info += f"Error: {error_message}"
                     blank_image = Image.new('RGB', (width, height), color='white')
                     blank_tensor = pil2tensor(blank_image)
@@ -1189,27 +1240,30 @@ class ComflyJimengApi:
                         response_info += f"VLM Description: {result['data']['vlm_result']}\n"
                 else:
                     error_message = "No image URL found in response"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("数据缺失", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                     response_info += f"Error: {error_message}\nFull response: {json.dumps(result, indent=2)}"
                     blank_image = Image.new('RGB', (width, height), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, response_info, "")
                 
-                print(f"Found image URL: {image_url}")
+                # print(f"Found image URL: {image_url}")
 
                 try:
                     img_response = requests.get(image_url, timeout=self.timeout)
                     img_response.raise_for_status()
                 except requests.exceptions.Timeout:
                     error_message = f"Timeout while downloading result image after {self.timeout} seconds"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("下载超时", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                     response_info += f"Error: {error_message}"
                     blank_image = Image.new('RGB', (width, height), color='white')
                     blank_tensor = pil2tensor(blank_image)
                     return (blank_tensor, response_info, image_url)  
                 except Exception as e:
                     error_message = f"Error downloading result image: {format_runnode_error(str(e))}"
-                    print(error_message)
+                    rn_pbar.error(error_message)
+                    log_error("下载失败", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                     response_info += f"Error: {error_message}"
                     blank_image = Image.new('RGB', (width, height), color='white')
                     blank_tensor = pil2tensor(blank_image)
@@ -1219,7 +1273,7 @@ class ComflyJimengApi:
                 
                 generated_tensor = pil2tensor(generated_image)
                 
-                pbar.update_absolute(100)
+                rn_pbar.update(100, "Done")
             
                 if "request_id" in result:
                     response_info += f"Request ID: {result['request_id']}\n"
@@ -1227,11 +1281,17 @@ class ComflyJimengApi:
                 if "time_elapsed" in result:
                     response_info += f"Processing Time: {result['time_elapsed']}\n"
                 
+                safe_url = safe_public_url(image_url)
+                log_complete("Jimeng任务完成", request_id, "RunNode/Doubao-", "Jimeng", 
+                             image_count=1, first_url=safe_url)
+                rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
+                
                 return (generated_tensor, response_info, image_url)
                 
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
-            print(error_message)
+            rn_pbar.error(error_message)
+            log_error("系统异常", request_id, error_message, "RunNode/Doubao-", "Jimeng")
             blank_image = Image.new('RGB', (width, height), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, error_message, "")
@@ -1281,7 +1341,7 @@ class ComflyJimengVideoApi:
             "Authorization": f"Bearer {self.api_key}"
         }
     
-    def upload_image(self, image_tensor):
+    def upload_image(self, image_tensor, request_id=None):
         """Upload image to the file endpoint and return the URL"""
         try:
             pil_image = tensor2pil(image_tensor)[0]
@@ -1305,29 +1365,36 @@ class ComflyJimengVideoApi:
             if 'url' in result:
                 return result['url']
             else:
-                print(f"Unexpected response from file upload API: {result}")
+                msg = f"Unexpected response from file upload API: {result}"
+                if request_id:
+                    log_error(msg, request_id, "RunNode/Doubao-", "JimengVideo")
                 return None
                 
         except Exception as e:
-            print(f"Error uploading image: {format_runnode_error(str(e))}")
+            msg = f"Error uploading image: {format_runnode_error(str(e))}"
+            if request_id:
+                log_error(msg, request_id, "RunNode/Doubao-", "JimengVideo")
             return None
     
     def generate_video(self, prompt, duration, aspect_ratio, cfg_scale, api_key="", image=None, seed=0):
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
+        request_id = generate_request_id("video_gen", "jimeng")
+        
         if not self.api_key:
-            error_response = {"code": "error", "message": "API key not found in Comflyapi.json"}
-            raise Exception(error_response["message"])
+            error_message = "API key not found in Comflyapi.json"
+            log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
+            raise Exception(error_message)
+            
+        log_prepare("Jimeng视频生成", request_id, "RunNode/Doubao-", "JimengVideo")
+        rn_pbar = ProgressBar(request_id, "JimengVideo", streaming=True, task_type="视频生成", source="RunNode/Doubao-")
+        rn_pbar.set_generating()
             
         try:
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
+            rn_pbar.update(10, "Initializing...")
 
             payload = {
                 "prompt": prompt,
@@ -1341,16 +1408,16 @@ class ComflyJimengVideoApi:
 
             image_url = None
             if image is not None:
-                pbar.update_absolute(20)
-                image_url = self.upload_image(image)
+                rn_pbar.update(20, "Uploading reference image...")
+                image_url = self.upload_image(image, request_id)
                 if image_url:
                     payload["image_url"] = image_url
                 else:
                     error_message = "Failed to upload image. Please check your image and try again."
-                    print(error_message)
+                    log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
                     raise Exception(error_message)
 
-            pbar.update_absolute(30)
+            rn_pbar.update(30, "Submitting task...")
             response = requests.post(
                 f"{baseurl}/jimeng/submit/videos",
                 headers=self.get_headers(),
@@ -1360,23 +1427,23 @@ class ComflyJimengVideoApi:
             
             if response.status_code != 200:
                 error_message = f"API error: {response.status_code} - {response.text}"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
                 raise Exception(error_message)
                 
             result = response.json()
             
             if result.get("code") != "success":
                 error_message = f"API returned error: {result.get('message', 'Unknown error')}"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
                 raise Exception(error_message)
                 
             task_id = result.get("data")
             if not task_id:
                 error_message = "No task ID returned from API"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
                 raise Exception(error_message)
             
-            pbar.update_absolute(40)
+            rn_pbar.update(40, f"Task submitted (ID: {task_id}), waiting for generation...")
             video_url = None
             attempts = 0
             max_attempts = 18  
@@ -1389,7 +1456,7 @@ class ComflyJimengVideoApi:
 
                 if elapsed_time > max_wait_time:
                     error_message = f"Video generation timeout after {elapsed_time:.1f} seconds (max: {max_wait_time}s)"
-                    print(error_message)
+                    log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
                     raise Exception(error_message)
                 
                 time.sleep(5)  
@@ -1415,13 +1482,17 @@ class ComflyJimengVideoApi:
                     status = data.get("status", "")
 
                     try:
-                        if progress.endswith('%'):
+                        if isinstance(progress, str) and progress.endswith('%'):
                             progress_num = int(progress.rstrip('%'))
                             pbar_value = min(90, 40 + progress_num * 50 / 100)
-                            pbar.update_absolute(pbar_value)
+                            rn_pbar.update(pbar_value, f"Generating: {progress}")
+                        else:
+                            # Fallback progress calculation
+                            progress_value = min(80, 40 + (attempts * 40 // max_attempts))
+                            rn_pbar.update(progress_value, f"Generating... ({attempts}/{max_attempts})")
                     except (ValueError, AttributeError):
                         progress_value = min(80, 40 + (attempts * 40 // max_attempts))
-                        pbar.update_absolute(progress_value)
+                        rn_pbar.update(progress_value, f"Generating... ({attempts}/{max_attempts})")
 
                     if status == "SUCCESS":
                         video_url = None
@@ -1451,7 +1522,7 @@ class ComflyJimengVideoApi:
                     elif status == "FAILED":
                         fail_reason = data.get("fail_reason", "Unknown error")
                         error_message = f"Video generation failed: {fail_reason}"
-                        print(error_message)
+                        log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
                         raise Exception(error_message)
                     
                     elif status in ["PENDING", "PROCESSING", "RUNNING"]:
@@ -1462,23 +1533,28 @@ class ComflyJimengVideoApi:
                 except requests.exceptions.Timeout:
                     continue
                 except Exception as e:
+                    # Don't fail the loop on transient errors
                     continue
             
             if not video_url:
                 error_message = f"Video generation timeout or failed to retrieve video URL after {attempts} attempts, elapsed time: {elapsed_time:.1f}s"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
                 raise Exception(error_message)
 
             if video_url:
-                pbar.update_absolute(95)
-                print(f"Video generation completed, URL: {video_url}")            
+                rn_pbar.update(95, "Video generated, finalizing...")
+                
+                safe_url = safe_public_url(video_url)
+                log_complete("Jimeng视频生成完成", request_id, "RunNode/Doubao-", "JimengVideo", 
+                             video_url=safe_url)
+                rn_pbar.done(char_count=len(json.dumps({"code": "success", "url": video_url})))
                 
                 video_adapter = ComflyVideoAdapter(video_url)
                 return (video_adapter, task_id, json.dumps({"code": "success", "url": video_url}), video_url)
             
         except Exception as e:
             error_message = f"Error generating video: {format_runnode_error(str(e))}"
-            print(error_message)
+            log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
             import traceback
             traceback.print_exc()
             raise
@@ -1540,18 +1616,21 @@ class ComflySeededit:
                    logo_language="中文", logo_text="", api_key=""):
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
+            
+        request_id = generate_request_id("img_edit", "doubao")
+        log_prepare("Doubao图像编辑", request_id, "RunNode/Doubao-", "SeedEdit")
+        rn_pbar = ProgressBar(request_id, "SeedEdit", streaming=True, task_type="图像编辑", source="RunNode/Doubao-")
+        rn_pbar.set_generating()
             
         try:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 return (image, error_message, "")
                 
+            rn_pbar.update(10, "Processing input image...")
             # Convert tensor to PIL image
             pil_image = tensor2pil(image)[0]
             
@@ -1559,10 +1638,6 @@ class ComflySeededit:
             buffered = BytesIO()
             pil_image.save(buffered, format="JPEG")
             img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-            
-            # Initialize progress bar
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
             
             position_value = self.get_logo_position_value(logo_position)
             language_value = self.get_logo_language_value(logo_language)
@@ -1597,6 +1672,7 @@ class ComflySeededit:
             response_info += f"Seed: {seed}\n"
             response_info += f"Time: {timestamp}\n\n"
             
+            rn_pbar.update(30, "Submitting edit request...")
             try:
                 response = requests.post(
                     api_url,
@@ -1606,25 +1682,25 @@ class ComflySeededit:
                 )
             except requests.exceptions.Timeout:
                 error_message = f"API request timed out after {self.timeout} seconds"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 response_info += f"Error: {error_message}"
                 return (image, response_info, "")
             
             # Check for status code
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 response_info += f"Error: {error_message}"
                 return (image, response_info, "")
                 
             result = response.json()
             
-            pbar.update_absolute(70)
+            rn_pbar.update(70, "Processing result...")
             
             # Check for API errors
             if result.get("code") != 10000:
                 error_message = format_runnode_error(result)
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 response_info += f"Error: {error_message}"
                 return (image, response_info, "")
             
@@ -1638,11 +1714,11 @@ class ComflySeededit:
                     response_info += f"VLM Description: {result['data']['vlm_result']}\n"
             else:
                 error_message = "No image URL found in response"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 response_info += f"Error: {error_message}\nFull response: {json.dumps(result, indent=2)}"
                 return (image, response_info, "")
             
-            print(f"Found image URL: {image_url}")
+            rn_pbar.update(80, "Downloading result image...")
             
             # Download the image
             try:
@@ -1650,12 +1726,12 @@ class ComflySeededit:
                 img_response.raise_for_status()
             except requests.exceptions.Timeout:
                 error_message = f"Timeout while downloading result image after {self.timeout} seconds"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 response_info += f"Error: {error_message}"
                 return (image, response_info, image_url)  # Return the URL even though download failed
             except Exception as e:
                 error_message = f"Error downloading result image: {format_runnode_error(str(e))}"
-                print(error_message)
+                log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 response_info += f"Error: {error_message}"
                 return (image, response_info, image_url)  # Return the URL even though download failed
                 
@@ -1664,7 +1740,7 @@ class ComflySeededit:
             # Convert back to tensor
             edited_tensor = pil2tensor(edited_image)
             
-            pbar.update_absolute(100)
+            rn_pbar.update(100, "Done")
         
             if "request_id" in result:
                 response_info += f"Request ID: {result['request_id']}\n"
@@ -1672,10 +1748,14 @@ class ComflySeededit:
             if "time_elapsed" in result:
                 response_info += f"Processing Time: {result['time_elapsed']}\n"
             
+            safe_url = safe_public_url(image_url)
+            log_complete("Doubao图像编辑完成", request_id, "RunNode/Doubao-", "SeedEdit", first_url=safe_url)
+            rn_pbar.done(char_count=len(json.dumps(response_info, ensure_ascii=False)))
+            
             return (edited_tensor, response_info, image_url)
             
         except Exception as e:
             error_message = f"Error in image editing: {format_runnode_error(str(e))}"
-            print(error_message)
+            log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
             # Return original image on error with error message
             return (image, error_message, "")

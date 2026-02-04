@@ -1022,7 +1022,7 @@ class ComflyChatGPTApi:
             
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
-            rn_pbar.set_generating(0)
+            rn_pbar.set_generating()
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
            
             if seed < 0:

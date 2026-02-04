@@ -2,6 +2,46 @@ from ..comfly_config import *
 from .__init__ import *
 
 
+def kling_wait_for_task(task_type, task_id, headers, rn_pbar, pbar, request_id):
+    start_time = time.time()
+    while True:
+        time.sleep(2)
+        try:
+            response = requests.get(
+                f"{baseurl}/kling/v1/videos/{task_type}/{task_id}",
+                headers=headers,
+                timeout=60
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            if result["code"] != 0:
+                error_msg = format_runnode_error(result)
+                raise Exception(f"API Error: {error_msg}")
+            
+            data = result["data"]
+            task_status = data["task_status"]
+            
+            if task_status == "processing":
+                # Kling API doesn't always provide progress percentage, so we fake it or just wait
+                pass
+            elif task_status == "succeed":
+                video_url = data["task_result"]["videos"][0]["url"]
+                video_id = data["task_result"]["videos"][0]["id"]
+                return video_url, video_id, data
+            elif task_status == "failed":
+                error_msg = data.get("task_status_msg", "Unknown error")
+                rn_pbar.error(f"Task failed: {error_msg}")
+                raise Exception(f"Task failed: {error_msg}")
+                
+        except Exception as e:
+            if "Task failed" in str(e):
+                raise e
+            # For network errors, we might want to retry, but for now let's raise
+            # to be consistent with other nodes
+            raise e
+
+
 class Comfly_kling_text2video:
     @classmethod
     def INPUT_TYPES(cls):

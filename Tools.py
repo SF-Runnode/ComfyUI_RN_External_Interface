@@ -42,7 +42,7 @@ class Comfly_api_set:
             cfg = get_config()
             cfg['api_key'] = apikey
             save_config(cfg)
-        log_complete("API设置", request_id, "Config", char_count=len(baseurl), elapsed_ms=0, source="RunNode-")
+        log_complete("API设置", request_id, "RunNode-", "Config", char_count=len(baseurl), elapsed_ms=0, source="RunNode-")
         return (apikey,)
 
 class Comfly_LLm_API:

@@ -1,3 +1,8 @@
+import requests
+import json
+import time
+import re
+import traceback
 from ..comfly_config import *
 from .__init__ import *
 
@@ -38,7 +43,7 @@ class Comfly_suno_description:
         request_id = generate_request_id("music_gen", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="description")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
-        rn_pbar.set_generating(0)
+        rn_pbar.set_generating()
         _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
@@ -141,31 +146,29 @@ class Comfly_suno_description:
                 error_message = "Expected at least 2 clips in the response"
                 rn_pbar.error(error_message)
                 log_backend(
-                    "suno_music_description_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    stage="insufficient_clips",
-                    task_id=str(task_id),
-                    clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
-                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
+                "suno_music_description_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="insufficient_clips",
+                task_id=str(task_id),
+                clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            raise Exception(error_message)
                 
             clip_ids = [clip["id"] for clip in result["clips"]]
             if len(clip_ids) < 2:
                 error_message = "Expected at least 2 clip IDs"
                 rn_pbar.error(error_message)
                 log_backend(
-                    "suno_music_description_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    stage="missing_clip_ids",
-                    task_id=str(task_id),
-                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", "", task_id, error_message, "", "", "", "")
+                "suno_music_description_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_clip_ids",
+                task_id=str(task_id),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            raise Exception(error_message)
                 
             pbar.update_absolute(30)
             max_attempts = 30
@@ -322,7 +325,6 @@ class Comfly_suno_description:
         except Exception as e:
             error_message = f"Error generating music: {str(e)}"
             rn_pbar.error(error_message)
-            import traceback
             traceback.print_exc()
             log_backend_exception(
                 "suno_music_description_exception",
@@ -685,16 +687,14 @@ class Comfly_suno_custom:
                 error_message = "Expected at least 2 clip IDs"
                 rn_pbar.error(error_message)
                 log_backend(
-                    "suno_music_custom_failed",
-                    level="ERROR",
-                    request_id=request_id,
-                    stage="missing_clip_ids",
-                    task_id=str(task_id),
-                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
-                )
-                empty_audio = create_audio_object("")
-                return (empty_audio, empty_audio, "", "", task_id, error_message, 
-                    "", "", "", "", "", "")
+                "suno_music_custom_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_clip_ids",
+                task_id=str(task_id),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            raise Exception(error_message)
                 
             pbar.update_absolute(30)
             max_attempts = 30
@@ -840,7 +840,6 @@ class Comfly_suno_custom:
         except Exception as e:
             error_message = f"Error generating music: {str(e)}"
             rn_pbar.error(error_message)
-            import traceback
             traceback.print_exc()
             log_backend_exception(
                 "suno_music_custom_exception",

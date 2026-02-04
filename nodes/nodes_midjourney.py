@@ -86,6 +86,51 @@ class ComflyBaseNode:
             raise e
 
 
+    def midjourney_upload_image_sync(self, image, request_id=None):
+        pil_image = tensor2pil(image)[0]
+        buffered = BytesIO()
+        pil_image.save(buffered, format="PNG")
+        image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+        payload = {
+            "base64Array": [f"data:image/png;base64,{image_base64}"],
+            "instanceId": "",
+            "notifyHook": ""
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.midjourney_api_url[self.speed]}/mj/submit/upload-discord-images",
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "FAILURE":
+                    error_message = format_runnode_error(result)
+                    if request_id:
+                        log_error("图片上传失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                    raise Exception(error_message)
+                    
+                if "result" in result and result["result"]:
+                    return result["result"][0]
+                else:
+                    error_message = f"Unexpected response: {format_runnode_error(result)}"
+                    if request_id:
+                        log_error("图片上传异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                    raise Exception(error_message)
+            else:
+                error_message = format_runnode_error(response)
+                if request_id:
+                    log_error("图片上传请求失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                raise Exception(error_message)
+        except Exception as e:
+            if request_id:
+                log_backend_exception(f"Exception in upload_image: {str(e)}", request_id=request_id)
+            raise e
+
     def extract_taskId(self, U, action, index):
         pattern = fr'"customId": "MJ::JOB::{action}::{index}::(.*?)"'
         match = re.search(pattern, U)
@@ -239,69 +284,6 @@ class Comfly_upload(ComflyBaseNode):
     FUNCTION = "upload_image"
     CATEGORY = "RunNode/Midjourney"
 
-    async def upload_image_to_midjourney(self, image):
-
-        image = tensor2pil(image)[0]
-        buffered = BytesIO()
-        image_format = "PNG" 
-        image.save(buffered, format=image_format)
-        image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-        payload = {
-            "base64Array": [f"data:image/{image_format.lower()};base64,{image_base64}"],
-            "instanceId": "",
-            "notifyHook": ""
-        }
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f"{self.midjourney_api_url[self.speed]}/mj/submit/upload-discord-images", headers=self.get_headers(), json=payload, timeout=self.timeout) as response:
-                    if response.status == 200:
-                        try:
-                            data = await response.json()
-
-                            if data.get("status") == "FAILURE":
-                                fail_reason = data.get("fail_reason", "Unknown failure reason")
-                                error_message = f"Image upload failed: {format_runnode_error(fail_reason)}"
-                                print(error_message)
-                                raise Exception(error_message)
-                                
-                            if "result" in data and data["result"]:
-                                return data["result"][0]
-                            else:
-                                error_message = f"Unexpected response from Midjourney API: {format_runnode_error(data)}"
-                                raise Exception(error_message)
-                        except aiohttp.client_exceptions.ContentTypeError:
-                            text_response = await response.text()
-                            try:
-                                import json
-                                data = json.loads(text_response)
-                                if data.get("status") == "FAILURE":
-                                    error_message = format_runnode_error(data)
-                                    print(error_message)
-                                    raise Exception(error_message)
-                                    
-                                if "result" in data and data["result"]:
-                                    return data["result"][0]
-                            except (json.JSONDecodeError, KeyError):
-                                if text_response and len(text_response) < 100:
-                                    return text_response.strip()
-                                raise Exception(f"Invalid response format: {text_response}")
-                    else:
-                        try:
-                            error_text = await response.text()
-                        except:
-                            error_text = ""
-                        
-                        error_message = format_runnode_error(error_text)
-                        if not error_message.startswith("API Error") and str(response.status) not in error_message:
-                             error_message = f"API Error: {response.status} - {error_message}"
-                        raise Exception(error_message)
-                        
-        except asyncio.TimeoutError:
-            error_message = f"Timeout error: Request to upload image timed out after {self.timeout} seconds"
-            raise Exception(error_message)
-        
     def upload_image(self, image, api_key=""):
         request_id = generate_request_id("mj_upload", "midjourney")
         log_prepare("Midjourney图片上传", request_id, "RunNode/Midjourney-", "Midjourney")
@@ -309,63 +291,21 @@ class Comfly_upload(ComflyBaseNode):
 
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
         try:
-            pil_image = tensor2pil(image)[0]
-            buffered = BytesIO()
-            pil_image.save(buffered, format="PNG")
-            image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-            payload = {
-                "base64Array": [f"data:image/png;base64,{image_base64}"],
-                "instanceId": "",
-                "notifyHook": ""
-            }
-            
             log_backend("mj_upload_start", request_id=request_id)
             
-            response = requests.post(
-                f"{self.midjourney_api_url[self.speed]}/mj/submit/upload-discord-images",
-                headers=self.get_headers(),
-                json=payload,
-                timeout=self.timeout
-            )
+            image_url = self.midjourney_upload_image_sync(image, request_id)
             
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("status") == "FAILURE":
-                    error_message = format_runnode_error(result)
-                    rn_pbar.error(error_message)
-                    log_error("图片上传失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
-                    raise Exception(error_message)
-                    
-                if "result" in result and result["result"]:
-                    image_url = result["result"][0]
-                    log_complete("图片上传成功", request_id, "RunNode/Midjourney-", "Midjourney", image_url=safe_public_url(image_url))
-                    rn_pbar.done(char_count=len(image_url))
-                    return (image_url,)
-                else:
-                    error_message = f"Unexpected response from Midjourney API: {format_runnode_error(result)}"
-                    rn_pbar.error(error_message)
-                    log_error("API响应异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
-                    raise Exception(error_message)
-            else:
-                error_message = format_runnode_error(response)
-                rn_pbar.error(error_message)
-                log_error("API请求失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
-                raise Exception(error_message)
+            log_complete("图片上传成功", request_id, "RunNode/Midjourney-", "Midjourney", image_url=safe_public_url(image_url))
+            rn_pbar.done(char_count=len(image_url))
+            return (image_url,)
                 
         except Exception as e:
-            if "Image upload failed" in str(e):
-                raise e
-            error_message = f"Error in upload_image: {format_runnode_error(str(e))}"
-            rn_pbar.error(error_message)
-            log_error("未捕获异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+            rn_pbar.error(str(e))
+            # Error already logged in midjourney_upload_image_sync
             raise e
         
 
@@ -445,14 +385,13 @@ class Comfly_Mj(ComflyBaseNode):
 
     def process_input(self, speed, text, text_en="", image=None, model_version=None, ar=None, no=None, c=None, s=None, iw=None, r=None, sw=None, cw=None, sv=None, video=False, tile=False, seed=0, cref="none", oref="none", sref="none", positive="", api_key=""):
         request_id = generate_request_id("mj_generate", "midjourney")
+        
         log_prepare("Midjourney生成", request_id, "RunNode/Midjourney-", "Midjourney", model_version=model_version, speed=speed)
+        
         rn_pbar = ProgressBar(request_id, "Midjourney", streaming=True, task_type="图像生成", source="RunNode/Midjourney-")
 
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
@@ -463,6 +402,16 @@ class Comfly_Mj(ComflyBaseNode):
 
         if positive:
             prompt += f" {positive}"
+
+        if self.image is not None:
+            try:
+                log_backend("mj_upload_start_internal", request_id=request_id)
+                image_url = self.midjourney_upload_image_sync(self.image, request_id)
+                prompt = f"{image_url} {prompt}"
+                log_backend("mj_upload_success_internal", request_id=request_id, url=image_url)
+            except Exception as e:
+                rn_pbar.error(f"Image upload failed: {str(e)}")
+                raise e
 
         if model_version:
             prompt += f" --{model_version}"
@@ -500,24 +449,8 @@ class Comfly_Mj(ComflyBaseNode):
         log_backend("mj_prompt_ready", request_id=request_id, prompt=prompt)
 
         try:
-            if self.image is not None:
-                # TODO: Implement image processing logging if needed, though process_image seems not fully implemented/used here or relies on inherited methods not fully shown?
-                # For now, let's assume text processing is the main path or image path needs similar updates.
-                # But looking at previous code, process_image was called but not defined in the snippet I saw.
-                # Wait, I saw process_image call in previous code but I didn't see the definition in the file content I read.
-                # Assuming it exists or is inherited. But ComflyBaseNode doesn't have it.
-                # Let's check if I missed it. I read up to line 412.
-                # Ah, line 464 calls self.process_image(). 
-                # If it's not defined, this code would fail. But user said "fix", implying it might be working or I missed it.
-                # Let's focus on the text path which is clearly defined.
-                image_url, text = self.process_image() # This might be risky if I don't see the code.
-                # However, looking at the file structure, maybe I should search for process_image.
-                # For now, let's keep it as is but wrap in try-except for logging.
-                pass 
-                # Actually, I can't leave it as pass. I need to keep original logic.
-                image_url, text = self.process_image()
-            elif self.text:
-                pbar = comfy.utils.ProgressBar(100) # Changed from 10 to 100 for better granularity
+            if self.text:
+                pbar = comfy.utils.ProgressBar(100)
                 image_url, text, taskId = self.process_text(pbar, ar, no, c, s, iw, tile, r, video, sw, cw, sv, seed, request_id, rn_pbar)
                 
                 response = requests.get(image_url)
@@ -536,8 +469,6 @@ class Comfly_Mj(ComflyBaseNode):
         except Exception as e:
             if "Midjourney task failed" in str(e):
                 raise e
-            # Only log if it wasn't already logged
-            # But simple way is just log generic error
             rn_pbar.error(f"Process failed: {format_runnode_error(str(e))}")
             log_error("处理失败", request_id, format_runnode_error(str(e)), "RunNode/Midjourney-", "Midjourney")
             raise e
@@ -592,10 +523,10 @@ class Comfly_Mj(ComflyBaseNode):
             image_url = task_result.get("imageUrl", "")
             prompt = task_result.get("prompt", text)
 
-            U1 = self.generate_custom_id(task_result.get("id", taskId), "upsample", 1)
-            U2 = self.generate_custom_id(task_result.get("id", taskId), "upsample", 2)
-            U3 = self.generate_custom_id(task_result.get("id", taskId), "upsample", 3)
-            U4 = self.generate_custom_id(task_result.get("id", taskId), "upsample", 4)
+            U1 = self.generate_custom_id("upsample", 1, task_result.get("id", taskId))
+            U2 = self.generate_custom_id("upsample", 2, task_result.get("id", taskId))
+            U3 = self.generate_custom_id("upsample", 3, task_result.get("id", taskId))
+            U4 = self.generate_custom_id("upsample", 4, task_result.get("id", taskId))
 
             return image_url, prompt, U1, U2, U3, U4, taskId 
         
@@ -715,14 +646,14 @@ class Comfly_Mj(ComflyBaseNode):
     
         return image_url, text, self.taskId
 
-    def generate_custom_id(self, taskId, action, index):
-        uuid = self.generateUUID()
+    def generate_custom_id(self, action, index, job_id=None):
+        uuid_val = job_id if job_id else self.generateUUID()
         if action in ["upsample_v6_2x_subtle", "upsample_v6_2x_creative", "pan_left", "pan_right", "pan_up", "pan_down"]:
-            return f"MJ::JOB::{action}::{index}::{uuid}::SOLO"
+            return f"MJ::JOB::{action}::{index}::{uuid_val}::SOLO"
         elif action == "Outpaint::50":
-            return f"MJ::Outpaint::50::{index}::{uuid}::SOLO"
+            return f"MJ::Outpaint::50::{index}::{uuid_val}::SOLO"
         else:
-            return f"MJ::JOB::{action}::{index}::{uuid}"
+            return f"MJ::JOB::{action}::{index}::{uuid_val}"
     
     
 class Comfly_Mju(ComflyBaseNode):
@@ -750,11 +681,11 @@ class Comfly_Mju(ComflyBaseNode):
     CATEGORY = "RunNode/Midjourney"
 
     def run(self, taskId, U1=False, U2=False, U3=False, U4=False, api_key=""):
+        request_id = generate_request_id("mj_upscale", "midjourney")
+        log_prepare("Midjourney操作", request_id, "RunNode/Midjourney-", "Midjourney", taskId=taskId)
+
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
         
@@ -766,31 +697,36 @@ class Comfly_Mju(ComflyBaseNode):
                     new_loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(new_loop)
                     try:
-                        return new_loop.run_until_complete(self.process_input(taskId, U1, U2, U3, U4))
+                        return new_loop.run_until_complete(self.process_input(taskId, request_id, U1, U2, U3, U4))
                     finally:
                         new_loop.close()
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(run_async)
-                    return future.result()
+                    result = future.result()
+                    log_complete("Midjourney操作成功", request_id, "RunNode/Midjourney-", "Midjourney")
+                    return result
                     
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    results = loop.run_until_complete(self.process_input(taskId, U1, U2, U3, U4))
+                    results = loop.run_until_complete(self.process_input(taskId, request_id, U1, U2, U3, U4))
+                    log_complete("Midjourney操作成功", request_id, "RunNode/Midjourney-", "Midjourney")
+                    return results
                 finally:
                     loop.close()
-                return results
                 
         except Exception as e:
-            print(f"Error in run method: {format_runnode_error(str(e))}")
+            error_message = f"Error in run method: {format_runnode_error(str(e))}"
+            log_error("操作失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+            
             blank_image = Image.new('RGB', (512, 512), color='white')
             blank_tensor = pil2tensor(blank_image)
             return (blank_tensor, "")
 
 
-    async def process_input(self, taskId, U1=False, U2=False, U3=False, U4=False):
+    async def process_input(self, taskId, request_id, U1=False, U2=False, U3=False, U4=False):
         try:
             if not any([U1, U2, U3, U4]):
                 raise self.MidjourneyError("NO_ACTION_SELECTED")
@@ -810,12 +746,12 @@ class Comfly_Mju(ComflyBaseNode):
                 action = "upsample"
                 index = 4
 
-            task_result = await self.midjourney_fetch_task_result(taskId)
+            task_result = await self.midjourney_fetch_task_result(taskId, request_id)
 
             if task_result.get("status") == "FAILURE":
                 fail_reason = task_result.get("fail_reason", "Unknown failure reason")
                 error_message = f"Original task failed: {format_runnode_error(fail_reason)}"
-                print(error_message)
+                log_error("原始任务失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
                 raise self.MidjourneyError(error_message)
 
             messageId = None
@@ -827,7 +763,7 @@ class Comfly_Mju(ComflyBaseNode):
                     try:
                         properties = json.loads(properties)
                     except json.JSONDecodeError as e:
-                        print(f"Failed to parse properties JSON: {e}")
+                        # log_error("JSON解析失败", request_id, f"Failed to parse properties JSON: {e}", "RunNode/Midjourney-", "Midjourney")
                         properties = {}
 
                 if isinstance(properties, dict):
@@ -851,14 +787,14 @@ class Comfly_Mju(ComflyBaseNode):
                                         break
                                 
                 except (json.JSONDecodeError, TypeError, AttributeError) as e:
-                    print(f"Error processing buttons: {format_runnode_error(str(e))}")
+                    log_error("按钮解析失败", request_id, f"Error processing buttons: {format_runnode_error(str(e))}", "RunNode/Midjourney-", "Midjourney")
 
             if not messageId:
                 possible_fields = ['messageId', 'message_id', 'id', 'task_id']
                 for field in possible_fields:
                     if field in task_result and task_result[field]:
                         messageId = task_result[field]
-                        print(f"Found messageId in field '{field}': {messageId}")
+                        # print(f"Found messageId in field '{field}': {messageId}")
                         break
 
             if not messageId:
@@ -874,22 +810,22 @@ class Comfly_Mju(ComflyBaseNode):
                     match = re.search(pattern, response_str)
                     if match:
                         messageId = match.group(1)
-                        print(f"Found messageId using pattern: {messageId}")
+                        # print(f"Found messageId using pattern: {messageId}")
                         break
 
             if not messageId:
                 messageId = taskId
-                print(f"Using taskId as messageId: {messageId}")
+                # print(f"Using taskId as messageId: {messageId}")
 
             if not messageId:
                 error_message = "Could not find messageId in task result"
-                print(error_message)
-                print(f"Task result structure: {json.dumps(task_result, indent=2)}")
+                log_error("ID未找到", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                # print(f"Task result structure: {json.dumps(task_result, indent=2)}")
                 raise self.MidjourneyError(error_message)
 
             custom_id = self.generate_custom_id(action, index, messageId)
 
-            response = await self.midjourney_submit_action(action, taskId, index, custom_id)
+            response = await self.midjourney_submit_action(action, taskId, index, custom_id, request_id)
 
             if isinstance(response, str) and response.startswith("Error"):
                 raise self.MidjourneyError(response)
@@ -900,12 +836,12 @@ class Comfly_Mju(ComflyBaseNode):
             new_task_id = response["result"]
             while True:
                 await asyncio.sleep(1)
-                task_result = await self.midjourney_fetch_task_result(new_task_id)
+                task_result = await self.midjourney_fetch_task_result(new_task_id, request_id)
 
                 if task_result.get("status") == "FAILURE":
                     fail_reason = task_result.get("fail_reason", "Unknown failure reason")
                     error_message = f"Task failed: {format_runnode_error(fail_reason)}"
-                    print(error_message)
+                    log_error("任务失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
                     raise self.MidjourneyError(error_message)
 
                 if task_result.get("status") == "SUCCESS":

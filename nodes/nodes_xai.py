@@ -1,7 +1,6 @@
 from ..comfly_config import *
 from .__init__ import *
 
-
 class ComflyGrok3VideoApi:
     @classmethod
     def INPUT_TYPES(cls):
@@ -26,7 +25,9 @@ class ComflyGrok3VideoApi:
     CATEGORY = "RunNode/xAI"
 
     def __init__(self):
-        self.api_key = get_config().get("api_key", "")
+        config = get_config()
+        self.api_key = config.get("api_key", "")
+        self.base_url = config.get("base_url", "")
         self.timeout = 300
 
     def get_headers(self):
@@ -45,7 +46,7 @@ class ComflyGrok3VideoApi:
             files = {"file": ("image.png", file_content, "image/png")}
 
             response = requests.post(
-                f"{baseurl}/v1/files",
+                f"{self.base_url}/v1/files",
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 files=files,
                 timeout=self.timeout,
@@ -58,12 +59,11 @@ class ComflyGrok3VideoApi:
                 return result["url"]
             else:
                 msg = f"Unexpected response from file upload API: {result}"
-                print(msg)
                 log_backend(
                     "xai_grok_upload_unexpected_response",
                     level="ERROR",
                     request_id=request_id,
-                    url=safe_public_url(baseurl),
+                    url=safe_public_url(self.base_url),
                 )
                 if rn_pbar is not None:
                     rn_pbar.error("文件上传返回异常，请稍后重试")
@@ -71,11 +71,10 @@ class ComflyGrok3VideoApi:
 
         except Exception as e:
             msg = f"Error uploading image: {format_runnode_error(str(e))}"
-            print(msg)
             log_backend_exception(
                 "xai_grok_upload_exception",
                 request_id=request_id,
-                url=safe_public_url(baseurl),
+                url=safe_public_url(self.base_url),
             )
             if rn_pbar is not None:
                 rn_pbar.error("上传参考图像失败，请检查网络或图像格式")
@@ -99,6 +98,9 @@ class ComflyGrok3VideoApi:
         else:
             self.api_key = get_config().get("api_key", "")
 
+        if not self.base_url:
+            self.base_url = get_config().get("base_url", "")
+
         if not self.api_key:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
@@ -111,7 +113,21 @@ class ComflyGrok3VideoApi:
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
             error_response = {"code": "error", "message": error_message}
-            return ("", "", json.dumps(error_response), "")
+            return (None, "", json.dumps(error_response), "")
+
+        if not self.base_url:
+            error_message = "Base URL not configured"
+            rn_pbar.error(error_message)
+            log_backend(
+                "xai_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_base_url",
+                model=model,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            error_response = {"code": "error", "message": error_message}
+            return (None, "", json.dumps(error_response), "")
 
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -146,14 +162,14 @@ class ComflyGrok3VideoApi:
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
                     error_response = {"code": "error", "message": error_message}
-                    return ("", "", json.dumps(error_response), "")
+                    return (None, "", json.dumps(error_response), "")
 
             pbar.update_absolute(30)
 
             log_backend(
                 "xai_video_generate_start",
                 request_id=request_id,
-                url=safe_public_url(baseurl),
+                url=safe_public_url(self.base_url),
                 model=model,
                 prompt_len=len(prompt or ""),
                 ratio=ratio,
@@ -163,7 +179,7 @@ class ComflyGrok3VideoApi:
             )
 
             response = requests.post(
-                f"{baseurl}/v2/videos/generations",
+                f"{self.base_url}/v2/videos/generations",
                 headers=self.get_headers(),
                 json=payload,
                 timeout=self.timeout,
@@ -182,7 +198,7 @@ class ComflyGrok3VideoApi:
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
                 error_response = {"code": "error", "message": error_message}
-                return ("", "", json.dumps(error_response), "")
+                return (None, "", json.dumps(error_response), "")
 
             result = response.json()
 
@@ -199,7 +215,7 @@ class ComflyGrok3VideoApi:
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
                 error_response = {"code": "error", "message": error_message}
-                return ("", "", json.dumps(error_response), "")
+                return (None, "", json.dumps(error_response), "")
 
             pbar.update_absolute(40)
 
@@ -227,14 +243,14 @@ class ComflyGrok3VideoApi:
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
                     error_response = {"code": "error", "message": error_message}
-                    return ("", task_id, json.dumps(error_response), "")
+                    return (None, task_id, json.dumps(error_response), "")
 
                 time.sleep(5)
                 attempts += 1
 
                 try:
                     status_response = requests.get(
-                        f"{baseurl}/v2/videos/generations/{task_id}",
+                        f"{self.base_url}/v2/videos/generations/{task_id}",
                         headers=self.get_headers(),
                         timeout=30,
                     )
@@ -278,7 +294,7 @@ class ComflyGrok3VideoApi:
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
                         error_response = {"code": "error", "message": error_message}
-                        return ("", task_id, json.dumps(error_response), "")
+                        return (None, task_id, json.dumps(error_response), "")
                     elif status in ["NOT_START", "IN_PROGRESS"]:
                         continue
                     else:
@@ -304,7 +320,7 @@ class ComflyGrok3VideoApi:
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
                 error_response = {"code": "error", "message": error_message}
-                return ("", task_id, json.dumps(error_response), "")
+                return (None, task_id, json.dumps(error_response), "")
 
             if video_url:
                 pbar.update_absolute(95)
@@ -323,7 +339,7 @@ class ComflyGrok3VideoApi:
                 log_backend(
                     "xai_video_generate_done",
                     request_id=request_id,
-                    url=safe_public_url(baseurl),
+                    url=safe_public_url(self.base_url),
                     model=model,
                     task_id=task_id,
                     video_url=safe_public_url(video_url),
@@ -338,10 +354,10 @@ class ComflyGrok3VideoApi:
             log_backend_exception(
                 "xai_video_generate_exception",
                 request_id=request_id,
-                url=safe_public_url(baseurl),
+                url=safe_public_url(self.base_url),
                 model=model,
             )
             error_response = {"code": "error", "message": error_message}
-            return ("", "", json.dumps(error_response), "")
+            return (None, "", json.dumps(error_response), "")
 
 

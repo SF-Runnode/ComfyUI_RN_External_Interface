@@ -51,7 +51,7 @@ class Comfly_qwen_image:
         request_id = generate_request_id("image_gen", "qwen")
         log_prepare("图像生成", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像生成", source="RunNode/Qwen-")
-        rn_pbar.set_generating(0)
+        rn_pbar.set_generating()
         _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
@@ -329,7 +329,7 @@ class Comfly_qwen_image_edit:
         request_id = generate_request_id("image_edit", "qwen")
         log_prepare("图像编辑", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像编辑", source="RunNode/Qwen-")
-        rn_pbar.set_generating(0)
+        rn_pbar.set_generating()
         _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
@@ -607,7 +607,7 @@ class Comfly_Z_image_turbo:
         request_id = generate_request_id("z_img_gen", "qwen")
         log_prepare("图像生成", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像生成", source="RunNode/Qwen-")
-        rn_pbar.set_generating(0)
+        rn_pbar.set_generating()
         _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
@@ -630,7 +630,7 @@ class Comfly_Z_image_turbo:
             )
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, "", error_message)
+            return (blank_tensor, "", request_id, error_message)
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -653,7 +653,7 @@ class Comfly_Z_image_turbo:
                     )
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "", error_message)
+                    return (blank_tensor, "", request_id, error_message)
                 
                 try:
                     width, height = map(int, custom_size.split('x'))
@@ -662,7 +662,7 @@ class Comfly_Z_image_turbo:
                         print(error_message)
                         blank_image = Image.new('RGB', (1024, 1024), color='white')
                         blank_tensor = pil2tensor(blank_image)
-                        return (blank_tensor, "", error_message)
+                        return (blank_tensor, "", request_id, error_message)
                 except ValueError:
                     error_message = "Invalid custom size format. Use 'widthxheight' (e.g. 1280x720)"
                     rn_pbar.error(error_message)
@@ -677,7 +677,7 @@ class Comfly_Z_image_turbo:
                     )
                     blank_image = Image.new('RGB', (1024, 1024), color='white')
                     blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "", error_message)
+                    return (blank_tensor, "", request_id, error_message)
 
             try:
                 width, height = map(int, actual_size.split('x'))
@@ -736,7 +736,7 @@ class Comfly_Z_image_turbo:
                 )
                 blank_image = Image.new('RGB', (width, height), color='white')
                 blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "", error_message)
+                return (blank_tensor, "", request_id, error_message)
                 
             result = response.json()
 
@@ -791,7 +791,7 @@ class Comfly_Z_image_turbo:
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (width, height), color='white')
                 blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "", response_info)
+                return (blank_tensor, "", request_id, response_info)
             
             pbar.update_absolute(90)
             
@@ -807,7 +807,7 @@ class Comfly_Z_image_turbo:
                     has_url=bool(image_url),
                 )
                 rn_pbar.done(char_count=len(response_info))
-                return (generated_tensor, image_url, response_info)
+                return (generated_tensor, image_url, request_id, response_info)
             else:
                 error_message = "Failed to process image"
                 rn_pbar.error(error_message)
@@ -822,7 +822,7 @@ class Comfly_Z_image_turbo:
                 response_info += f"Error: {error_message}\n"
                 blank_image = Image.new('RGB', (width, height), color='white')
                 blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "", response_info)
+                return (blank_tensor, "", request_id, response_info)
                 
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
@@ -837,7 +837,7 @@ class Comfly_Z_image_turbo:
             )
             blank_image = Image.new('RGB', (1024, 1024), color='white')
             blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, "", error_message)
+            return (blank_tensor, "", request_id, error_message)
 
 
 
@@ -971,7 +971,7 @@ class Comfly_wan2_6_API:
         request_id = generate_request_id("wan_video", "qwen")
         log_prepare("视频生成", request_id, "RunNode/Qwen-", "WanX")
         rn_pbar = ProgressBar(request_id, "WanX", streaming=True, task_type="视频生成", source="RunNode/Qwen-")
-        rn_pbar.set_generating(0)
+        rn_pbar.set_generating()
         _rn_start = time.perf_counter()
         log_backend(
             "qwen_wan_video_start",
@@ -1173,7 +1173,7 @@ class Comfly_wan2_6_API:
                         if video_url:
                             print(f"[RunNode_WanVideo INFO] Video ready: {video_url}")
                             if rn_pbar is not None:
-                                rn_pbar.set_generating(100)
+                                rn_pbar.update_absolute(100)
                             return video_url
                         else:
                             print(f"[RunNode_WanVideo ERROR] No video URL: {result}")
@@ -1188,7 +1188,7 @@ class Comfly_wan2_6_API:
                         print(f"[RunNode_WanVideo INFO] Status: {task_status} ({elapsed:.1f}s elapsed, {remaining:.1f}s remaining)")
                         if rn_pbar is not None:
                             progress = min(95, int((elapsed / max_poll_time) * 100))
-                            rn_pbar.set_generating(progress)
+                            rn_pbar.update_absolute(progress)
                         time.sleep(poll_interval)
                         continue
                     else:
