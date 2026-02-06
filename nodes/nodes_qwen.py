@@ -908,8 +908,13 @@ class Comfly_wan2_6_API:
                 final_size_mb = len(best_result.split(',')[1]) / (1024 * 1024)
                 
                 if final_size_mb > 3.0:
-                    
-                
+                    log_backend(
+                        "qwen_image_size_warning",
+                        level="WARNING",
+                        size_mb=round(final_size_mb, 2),
+                        message="Base64 data is large, may cause API issues",
+                    )
+
                 return best_result
             else:
                 raise Exception("Failed to encode image in any supported format")
