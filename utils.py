@@ -10,6 +10,7 @@ import torchaudio
 import folder_paths
 from PIL import Image
 from typing import List, Union
+import re
 
 def pil2tensor(image: Union[Image.Image, List[Image.Image]]) -> torch.Tensor:
     if isinstance(image, list):
@@ -111,13 +112,32 @@ def format_runnode_error(response):
             return str(err_data)
             
         message = recursive_extract(data)
+        message_str = str(message)
+        message_str = sanitize_sensitive_network_info(message_str)
         if status_code != 'Unknown':
-             return f"API Error: {status_code} - {message}"
+             return sanitize_sensitive_network_info(f"API Error: {status_code} - {message_str}")
         else:
-             return str(message)
+             return sanitize_sensitive_network_info(message_str)
 
     except Exception as e:
-        return f"Error formatting error: {str(e)}"
+        return sanitize_sensitive_network_info(f"Error formatting error: {str(e)}")
+
+def sanitize_sensitive_network_info(text: str) -> str:
+    try:
+        t = str(text)
+        t = re.sub(r"(host=')([^']+)(')", r"\1<hidden-host>\3", t)
+        t = re.sub(r"(host=")([^"]+)(")", r"\1<hidden-host>\3", t)
+        t = re.sub(r"(port=)(\d+)", r"\1<hidden-port>", t)
+        t = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "<hidden-ip>", t)
+        t = re.sub(r"\b(?:[0-9A-Fa-f]{1,4}:){2,7}[0-9A-Fa-f]{1,4}\b", "<hidden-ipv6>", t)
+        t = re.sub(r"\b::(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4}\b", "<hidden-ipv6>", t)
+        t = re.sub(r"(Connection to )([^\s]+)", r"\1<hidden-host>", t)
+        hide_url_hosts = os.environ.get("RUNNODE_HIDE_URL_HOSTS", "true").lower() != "false"
+        if hide_url_hosts:
+            t = re.sub(r"(https?://)([^/\s]+)", r"\1<hidden-host>", t)
+        return t
+    except Exception:
+        return str(text)
 
 
 class EmptyVideoAdapter:
@@ -357,6 +377,12 @@ _ANSI_CLEAR_EOL = "\033[K"
 _global_last_output_len = 0
 _progress_lock = threading.Lock()
 _streaming_progress_enabled = (os.environ.get("RUNNODE_STREAMING_PROGRESS", "true").lower() != "false")
+_heartbeat_lock = threading.Lock()
+_last_heartbeat = {}
+try:
+    _HEARTBEAT_INTERVAL_SEC = max(1, int(os.environ.get("RUNNODE_HEARTBEAT_INTERVAL_SEC", "15")))
+except Exception:
+    _HEARTBEAT_INTERVAL_SEC = 15
 
 def _enable_windows_vt():
     if os.name == 'nt':
@@ -408,11 +434,25 @@ def generate_request_id(task_type: str, provider: str) -> str:
     return f"rn_{provider}_{task_type}_{short_uuid}"
 
 def log_backend(event_type: str, **kwargs):
-    # This is a placeholder for backend logging integration
-    # In a real scenario, this might send data to a telemetry server
+    hb_enabled = os.environ.get("RUNNODE_HEARTBEAT_LOG", "true").lower() != "false"
     if "task_id" in kwargs and "check" not in event_type.lower():
         task_id = kwargs["task_id"]
         print(f"{PREFIX} [Task Info] Task ID: {task_id}")
+    if hb_enabled and "check" in event_type.lower():
+        rid = kwargs.get("request_id")
+        tid = kwargs.get("task_id")
+        key = f"{event_type}:{rid or ''}:{tid or ''}"
+        now = time.time()
+        with _heartbeat_lock:
+            last = _last_heartbeat.get(key, 0)
+            if now - last >= _HEARTBEAT_INTERVAL_SEC:
+                _last_heartbeat[key] = now
+                info = ""
+                if rid:
+                    info += f" request_id={rid}"
+                if tid:
+                    info += f" task_id={tid}"
+                print(f"{PREFIX} Heartbeat {event_type}{info}")
     pass
 
 def log_backend_exception(event_type: str, **kwargs):
@@ -441,9 +481,9 @@ def format_service_label(service_name, url, has_api_key):
 def log_error(message, request_id=None, detail=None, source="RunNode", service_name=None):
     """Log error message"""
     if service_name:
-        print(f"{ERROR_PREFIX} [{source}] {service_name} Error: {message} - {detail}")
+        print(f"{ERROR_PREFIX} [{source}] {service_name} Error: {message} - {sanitize_sensitive_network_info(str(detail))}")
     else:
-        print(f"{ERROR_PREFIX} [{source}] Error: {message} - {detail}")
+        print(f"{ERROR_PREFIX} [{source}] Error: {message} - {sanitize_sensitive_network_info(str(detail))}")
 
 class ProgressBar:
     def __init__(self, request_id, service_name, extra_info="", streaming=True, task_type="Task", source="RunNode"):
@@ -465,7 +505,7 @@ class ProgressBar:
             print(f"{PROCESS_PREFIX} Generating...")
 
     def error(self, message):
-        print(f"{ERROR_PREFIX} Error: {message}")
+        print(f"{ERROR_PREFIX} Error: {sanitize_sensitive_network_info(str(message))}")
         
     def done(self, char_count=0, elapsed_ms=0):
         print(f"{PREFIX} Done in {elapsed_ms}ms")

@@ -1405,6 +1405,11 @@ class Comfly_sora2_openai:
                 comfy.model_management.throw_exception_if_processing_interrupted()
                 time.sleep(10)
                 attempts += 1
+                log_backend(
+                    "openai_video_generate_check",
+                    request_id=request_id,
+                    task_id=task_id,
+                )
                 
                 try:
                     # 请求体，暂不修改
@@ -1951,6 +1956,11 @@ class Comfly_sora2:
                     comfy.model_management.throw_exception_if_processing_interrupted()
                     time.sleep(1)
                 attempts += 1
+                log_backend(
+                    "openai_video_v2_generate_check",
+                    request_id=request_id,
+                    task_id=task_id,
+                )
                 
                 try:
                     poll_endpoint = f"{baseurl.rstrip('/')}/v2/videos/generations/{task_id}"
@@ -2447,6 +2457,11 @@ class Comfly_sora2_chat:
                     comfy.model_management.throw_exception_if_processing_interrupted()
                     time.sleep(1)
                 attempts += 1
+                log_backend(
+                    "openai_video_chat_check",
+                    request_id=request_id,
+                    task_id=task_id,
+                )
                 
                 try:
                     status_response = requests.get(
@@ -5855,6 +5870,11 @@ class ComflySora2New:
             while attempts < max_attempts:
                 time.sleep(10)
                 attempts += 1
+                log_backend(
+                    "sora2_video_check",
+                    request_id=request_id,
+                    task_id=task_id,
+                )
                 
                 status_data = self.check_status(task_id, api_model)
                 

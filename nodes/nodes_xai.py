@@ -36,14 +36,68 @@ class ComflyGrok3VideoApi:
             "Authorization": f"Bearer {self.api_key}",
         }
 
+    def _process_image(self, image_tensor, request_id=None):
+        """
+        Process image tensor: resize if needed and compress to JPEG.
+        Returns: (file_content, mime_type, filename)
+        """
+        try:
+            # 1. Convert tensor to PIL
+            img = tensor2pil(image_tensor)[0]
+            
+            # 2. Resize if too large (max 1536px)
+            original_size = img.size
+            max_dimension = 1536
+            if max(original_size) > max_dimension:
+                ratio = max_dimension / max(original_size)
+                new_size = (int(original_size[0] * ratio), int(original_size[1] * ratio))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # 3. Compress to JPEG with size limit check
+            # Convert to RGB for JPEG compatibility
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+                
+            formats_to_try = [
+                ('JPEG', {'quality': 75, 'optimize': True}),
+                ('JPEG', {'quality': 60, 'optimize': True}),
+                ('JPEG', {'quality': 50, 'optimize': True}),
+            ]
+            
+            best_bytes = None
+            smallest_size = float('inf')
+            
+            for format_name, save_kwargs in formats_to_try:
+                buf = BytesIO()
+                img.save(buf, format=format_name, **save_kwargs)
+                img_bytes = buf.getvalue()
+                
+                # Check size (aim for < 2MB, similar to base64 check in Comfly.py)
+                current_size = len(img_bytes)
+                if current_size < smallest_size:
+                    smallest_size = current_size
+                    best_bytes = img_bytes
+                    
+                    if current_size < 2 * 1024 * 1024: # 2MB
+                        break
+            
+            if best_bytes:
+                return best_bytes, "image/jpeg", "image.jpg"
+                
+        except Exception as e:
+            log_backend_exception("image_process_failed", request_id=request_id, error=str(e))
+            
+        # Fallback to original PNG behavior
+        pil_image = tensor2pil(image_tensor)[0]
+        buffered = BytesIO()
+        pil_image.save(buffered, format="PNG")
+        return buffered.getvalue(), "image/png", "image.png"
+
     def upload_image(self, image_tensor, request_id=None, rn_pbar=None):
         try:
-            pil_image = tensor2pil(image_tensor)[0]
-            buffered = BytesIO()
-            pil_image.save(buffered, format="PNG")
-            file_content = buffered.getvalue()
+            file_content, mime_type, filename = self._process_image(image_tensor, request_id=request_id)
 
-            files = {"file": ("image.png", file_content, "image/png")}
+            files = {"file": (filename, file_content, mime_type)}
 
             response = requests.post(
                 f"{self.base_url}/v1/files",
