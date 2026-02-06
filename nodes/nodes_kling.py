@@ -158,8 +158,7 @@ class Comfly_kling_text2video:
             error_msg = "API key not found in Comflyapi.json"
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
-            error_response = {"task_status": "failed", "task_status_msg": error_msg}
-            return ("", "", "", "", json.dumps(error_response))
+            raise Exception(error_msg)
             
         camera_json = {}
         if model_name == "kling-v1":  
@@ -200,8 +199,7 @@ class Comfly_kling_text2video:
                 error_msg = format_runnode_error(result)
                 rn_pbar.error(error_msg)
                 log_error("API提交失败", request_id, error_msg, "RunNode/Kling-", "Kling")
-                error_response = {"task_status": "failed", "task_status_msg": error_msg}
-                return ("", "", "", "", json.dumps(error_response))
+                raise Exception(error_msg)
             
             task_id = result["data"]["task_id"]
             pbar.update_absolute(5)
@@ -225,8 +223,7 @@ class Comfly_kling_text2video:
                  rn_pbar.error(error_msg)
                  log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
                  
-            error_response = {"task_status": "failed", "task_status_msg": error_msg}
-            return ("", "", "", "", json.dumps(error_response))
+            raise Exception(error_msg)
 
 
 class Comfly_kling_image2video:
@@ -320,8 +317,7 @@ class Comfly_kling_image2video:
             error_msg = "API key not found in Comflyapi.json"
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
-            error_response = {"task_status": "failed", "task_status_msg": error_msg}
-            return ("", "", "", "", json.dumps(error_response))
+            raise Exception(error_msg)
 
         has_tail_image = image_tail is not None
 
@@ -339,11 +335,7 @@ class Comfly_kling_image2video:
                 
                 rn_pbar.error(warning_message)
                 log_error("参数不兼容", request_id, warning_message, "RunNode/Kling-", "Kling")
-                error_response = {
-                    "task_status": "failed", 
-                    "task_status_msg": warning_message
-                }
-                return ("", "", "", "", json.dumps(error_response))
+                raise Exception(warning_message)
         
         camera_json = {}
         if model_name in ["kling-v1-5", "kling-v1-6"] and mode == "pro" and camera != "none": 
@@ -400,16 +392,14 @@ class Comfly_kling_image2video:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Kling-", "Kling")
-                error_response = {"task_status": "failed", "task_status_msg": error_message}
-                return ("", "", "", "", json.dumps(error_response))
+                raise Exception(error_message)
             
             result = response.json()
             if result["code"] != 0:
                 error_msg = format_runnode_error(result)
                 rn_pbar.error(error_msg)
                 log_error("API提交失败", request_id, error_msg, "RunNode/Kling-", "Kling")
-                error_response = {"task_status": "failed", "task_status_msg": error_msg}
-                return ("", "", "", "", json.dumps(error_response))
+                raise Exception(error_msg)
                 
             task_id = result["data"]["task_id"]
             pbar.update_absolute(10) 
@@ -433,8 +423,7 @@ class Comfly_kling_image2video:
                  rn_pbar.error(error_msg)
                  log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
                  
-            error_response = {"task_status": "failed", "task_status_msg": error_msg}
-            return ("", "", "", "", json.dumps(error_response))
+            raise Exception(error_msg)
 
     def get_camera_json(self, camera, camera_value=0):
         camera_mappings = {

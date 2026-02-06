@@ -410,6 +410,9 @@ def generate_request_id(task_type: str, provider: str) -> str:
 def log_backend(event_type: str, **kwargs):
     # This is a placeholder for backend logging integration
     # In a real scenario, this might send data to a telemetry server
+    if "task_id" in kwargs and "check" not in event_type.lower():
+        task_id = kwargs["task_id"]
+        print(f"{PREFIX} [Task Info] Task ID: {task_id}")
     pass
 
 def log_backend_exception(event_type: str, **kwargs):
@@ -423,15 +426,24 @@ def log_prepare(task_name, request_id, prefix, service_name, model_version=None,
     info = f" {kwargs}" if kwargs else ""
     if model_version: info += f" model_version={model_version}"
     if speed: info += f" speed={speed}"
-    print(f"{prefix} [{task_name}] {request_id} Preparing...{info}")
+    print(f"{PREFIX} {prefix} [{task_name}] {request_id} Preparing...{info}")
 
 def log_complete(task_name, request_id, prefix, service_name, image_url=None, **kwargs):
     info = f" {kwargs}" if kwargs else ""
     if image_url: info += f" image_url={image_url}"
-    print(f"{prefix} [{task_name}] {request_id} Completed.{info}")
+    print(f"{PREFIX} {prefix} [{task_name}] {request_id} Completed.{info}")
 
-def log_error(task_name, request_id, message, prefix, service_name):
-    print(f"{prefix} [{task_name}] {request_id} Error: {message}")
+def format_service_label(service_name, url, has_api_key):
+    """Format service label for logs"""
+    status = "Auth" if has_api_key else "No-Auth"
+    return f"[{service_name} | {status}]"
+
+def log_error(message, request_id=None, detail=None, source="RunNode", service_name=None):
+    """Log error message"""
+    if service_name:
+        print(f"{ERROR_PREFIX} [{source}] {service_name} Error: {message} - {detail}")
+    else:
+        print(f"{ERROR_PREFIX} [{source}] Error: {message} - {detail}")
 
 class ProgressBar:
     def __init__(self, request_id, service_name, extra_info="", streaming=True, task_type="Task", source="RunNode"):
@@ -442,7 +454,7 @@ class ProgressBar:
     
     def update_absolute(self, value):
         if time.time() - self.last_update > 0.5:
-            print(f"Progress: {value}%")
+            print(f"{PROCESS_PREFIX} Progress: {value}%")
             self.last_update = time.time()
             
     def update(self, value):
@@ -450,10 +462,10 @@ class ProgressBar:
 
     def set_generating(self):
         if self.streaming:
-            print(f"Generating...")
+            print(f"{PROCESS_PREFIX} Generating...")
 
     def error(self, message):
-        print(f"Error: {message}")
+        print(f"{ERROR_PREFIX} Error: {message}")
         
     def done(self, char_count=0, elapsed_ms=0):
-        print(f"Done in {elapsed_ms}ms")
+        print(f"{PREFIX} Done in {elapsed_ms}ms")

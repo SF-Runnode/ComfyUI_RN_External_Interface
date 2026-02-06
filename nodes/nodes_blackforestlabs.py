@@ -63,12 +63,12 @@ class Comfly_Flux_Kontext:
             if 'url' in result:
                 return result['url']
             else:
-                print(f"Unexpected response from file upload API: {result}")
-                return None
+                raise Exception(f"Unexpected response from file upload API: {result}")
                 
         except Exception as e:
-            print(f"Error uploading image: {format_runnode_error(str(e))}")
-            return None
+            error_msg = f"Error uploading image: {format_runnode_error(str(e))}"
+            print(error_msg)
+            raise Exception(error_msg)
     
     def generate_image(self, prompt, input_image=None, model="flux-kontext-pro", 
                   apikey="", aspect_ratio="Default", guidance=3.5, num_of_images=1,
@@ -88,12 +88,7 @@ class Comfly_Flux_Kontext:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
-
-            if input_image is None:
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "")
-            return (input_image, "")
+            raise Exception(error_message)
         
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -121,12 +116,9 @@ class Comfly_Flux_Kontext:
                         width, height = pil_image.size
                         custom_dimensions = {"width": width, "height": height}
                 else:
-                    rn_pbar.error("Failed to upload any images")
-                    if input_image is None:
-                        blank_image = Image.new('RGB', (1024, 1024), color='white')
-                        blank_tensor = pil2tensor(blank_image)
-                        return (blank_tensor, "")
-                    return (input_image, "")
+                    error_message = "Failed to upload any images"
+                    rn_pbar.error(error_message)
+                    raise Exception(error_message)
  
             elif not clear_image and Comfly_Flux_Kontext._last_image_url:
                 final_prompt = f"{Comfly_Flux_Kontext._last_image_url} {prompt}"
@@ -159,11 +151,7 @@ class Comfly_Flux_Kontext:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                if input_image is None:
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "")
-                return (input_image, "")
+                raise Exception(error_message)
                 
             result = response.json()
 
@@ -171,11 +159,7 @@ class Comfly_Flux_Kontext:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
                 log_error("响应异常", request_id, error_message, "RunNode/Flux-", "Flux")
-                if input_image is None:
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "")
-                return (input_image, "")
+                raise Exception(error_message)
 
             generated_tensors = []
             image_urls = []
@@ -197,6 +181,7 @@ class Comfly_Flux_Kontext:
                         error_msg = f"Error downloading image from URL: {format_runnode_error(str(e))}"
                         rn_pbar.error(error_msg)
                         log_error("下载失败", request_id, error_msg, "RunNode/Flux-", "Flux")
+                        raise Exception(error_msg)
                         
                 elif "b64_json" in item:
                     image_data = base64.b64decode(item["b64_json"])
@@ -222,21 +207,13 @@ class Comfly_Flux_Kontext:
             else:
                 error_message = "Failed to process any images"
                 rn_pbar.error(error_message)
-                if input_image is None:
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "")
-                return (input_image, "")
+                raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
-            if input_image is None:
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "")
-            return (input_image, "")
+            raise Exception(error_message)
          
 
 class Comfly_Flux_Kontext_Edit:
@@ -290,12 +267,7 @@ class Comfly_Flux_Kontext_Edit:
             error_message = "API key not found in Comflyapi.json"
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
-
-            if image is None:
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "")
-            return (image, "")
+            raise Exception(error_message)
         
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -363,11 +335,7 @@ class Comfly_Flux_Kontext_Edit:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                if image is None:
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "")
-                return (image, "")
+                raise Exception(error_message)
                 
             result = response.json()
 
@@ -375,11 +343,7 @@ class Comfly_Flux_Kontext_Edit:
                 error_message = "No image data in response"
                 rn_pbar.error(error_message)
                 log_error("响应异常", request_id, error_message, "RunNode/Flux-", "Flux")
-                if image is None:
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "")
-                return (image, "")
+                raise Exception(error_message)
 
             generated_tensors = []
             image_urls = []
@@ -401,6 +365,7 @@ class Comfly_Flux_Kontext_Edit:
                         error_msg = f"Error downloading image from URL: {format_runnode_error(str(e))}"
                         rn_pbar.error(error_msg)
                         log_error("下载失败", request_id, error_msg, "RunNode/Flux-", "Flux")
+                        raise Exception(error_msg)
                         
                 elif "b64_json" in item:
                     image_data = base64.b64decode(item["b64_json"])
@@ -423,21 +388,13 @@ class Comfly_Flux_Kontext_Edit:
             else:
                 error_message = "Failed to process any images"
                 rn_pbar.error(error_message)
-                if image is None:
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "")
-                return (image, "")
+                raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
-            if image is None:
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "")
-            return (image, "")
+            raise Exception(error_message)
 
 
 class Comfly_Flux_Kontext_bfl:
@@ -501,18 +458,11 @@ class Comfly_Flux_Kontext_bfl:
         else:
             self.api_key = get_config().get('api_key', '')
 
-        if input_image is not None:
-            default_tensor = input_image  
-        else:
-            blank_image = Image.new('RGB', (512, 512), color='white')
-            default_tensor = pil2tensor(blank_image)
-            
         if not self.api_key:
             error_message = "API key not found"
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
-            error_response = {"status": "failed", "message": error_message}
-            return (default_tensor, "", json.dumps(error_response))
+            raise Exception(error_message)
             
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -551,7 +501,7 @@ class Comfly_Flux_Kontext_bfl:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -559,7 +509,7 @@ class Comfly_Flux_Kontext_bfl:
                 error_message = "Invalid response format from API"
                 rn_pbar.error(error_message)
                 log_error("响应异常", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result["id"]
             polling_url = result["polling_url"]
@@ -610,7 +560,7 @@ class Comfly_Flux_Kontext_bfl:
                 error_message = "Failed to retrieve generated image URL after multiple attempts"
                 rn_pbar.error(error_message)
                 log_error("超时失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
 
             pbar.update_absolute(90)
             
@@ -643,13 +593,13 @@ class Comfly_Flux_Kontext_bfl:
                 error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_error("下载失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
+                raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
-            return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+            raise Exception(error_message)
 
 
 class Comfly_Flux_2_Max:
@@ -721,16 +671,12 @@ class Comfly_Flux_2_Max:
             self.api_key = api_key
         else:
             self.api_key = get_config().get('api_key', '')
-
-        blank_image = Image.new('RGB', (width, height), color='white')
-        default_tensor = pil2tensor(blank_image)
             
         if not self.api_key:
             error_message = "API key not found"
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
-            error_response = {"status": "failed", "message": error_message}
-            return (default_tensor, "", json.dumps(error_response))
+            raise Exception(error_message)
             
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -785,7 +731,7 @@ class Comfly_Flux_2_Max:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -793,7 +739,7 @@ class Comfly_Flux_2_Max:
                 error_message = "No task ID in response"
                 rn_pbar.error(error_message)
                 log_error("响应异常", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result["id"]
             polling_url = result.get("polling_url", "")
@@ -836,7 +782,7 @@ class Comfly_Flux_2_Max:
                         error_message = f"Task failed: {result_data.get('details', 'Unknown error')}"
                         rn_pbar.error(error_message)
                         log_error("任务失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                        return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                        raise Exception(error_message)
                         
                 except Exception as e:
                     print(f"Error checking generation status: {str(e)}")
@@ -845,7 +791,7 @@ class Comfly_Flux_2_Max:
                 error_message = "Failed to retrieve generated image URL after multiple attempts"
                 rn_pbar.error(error_message)
                 log_error("超时失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
             
             pbar.update_absolute(90)
             rn_pbar.update(90)
@@ -886,12 +832,13 @@ class Comfly_Flux_2_Max:
                 error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_error("下载失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
+                raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
+            raise Exception(error_message)
 
 
 
@@ -967,15 +914,11 @@ class Comfly_Flux_2_Pro:
         else:
             self.api_key = get_config().get('api_key', '')
 
-        blank_image = Image.new('RGB', (width, height), color='white')
-        default_tensor = pil2tensor(blank_image)
-            
         if not self.api_key:
             error_message = "API key not found"
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
-            error_response = {"status": "failed", "message": error_message}
-            return (default_tensor, "", json.dumps(error_response))
+            raise Exception(error_message)
             
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1027,7 +970,7 @@ class Comfly_Flux_2_Pro:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -1035,7 +978,7 @@ class Comfly_Flux_2_Pro:
                 error_message = "No task ID in response"
                 rn_pbar.error(error_message)
                 log_error("响应异常", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result["id"]
             polling_url = result.get("polling_url", "")
@@ -1080,7 +1023,7 @@ class Comfly_Flux_2_Pro:
                         error_message = f"Task failed: {result_data.get('details', 'Unknown error')}"
                         rn_pbar.error(error_message)
                         log_error("任务失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                        return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                        raise Exception(error_message)
                         
                 except Exception as e:
                     error_msg = f"Error checking generation status: {format_runnode_error(str(e))}"
@@ -1091,7 +1034,7 @@ class Comfly_Flux_2_Pro:
                 error_message = "Failed to retrieve generated image URL after multiple attempts"
                 rn_pbar.error(error_message)
                 log_error("超时失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
             
             pbar.update_absolute(90)
 
@@ -1125,13 +1068,13 @@ class Comfly_Flux_2_Pro:
                 error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_error("下载失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
+                raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
-            return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+            raise Exception(error_message)
 
 
 class Comfly_Flux_2_Flex:
@@ -1211,15 +1154,11 @@ class Comfly_Flux_2_Flex:
         else:
             self.api_key = get_config().get('api_key', '')
 
-        blank_image = Image.new('RGB', (width, height), color='white')
-        default_tensor = pil2tensor(blank_image)
-            
         if not self.api_key:
             error_message = "API key not found"
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
-            error_response = {"status": "failed", "message": error_message}
-            return (default_tensor, "", json.dumps(error_response))
+            raise Exception(error_message)
             
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1274,7 +1213,7 @@ class Comfly_Flux_2_Flex:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -1282,7 +1221,7 @@ class Comfly_Flux_2_Flex:
                 error_message = "No task ID in response"
                 rn_pbar.error(error_message)
                 log_error("响应异常", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result["id"]
             polling_url = result.get("polling_url", "")
@@ -1327,7 +1266,7 @@ class Comfly_Flux_2_Flex:
                         error_message = f"Task failed: {result_data.get('details', 'Unknown error')}"
                         rn_pbar.error(error_message)
                         log_error("任务失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                        return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                        raise Exception(error_message)
                         
                 except Exception as e:
                     error_msg = f"Error checking generation status: {format_runnode_error(str(e))}"
@@ -1338,7 +1277,7 @@ class Comfly_Flux_2_Flex:
                 error_message = "Failed to retrieve generated image URL after multiple attempts"
                 rn_pbar.error(error_message)
                 log_error("超时失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+                raise Exception(error_message)
             
             pbar.update_absolute(90)
 
@@ -1375,10 +1314,10 @@ class Comfly_Flux_2_Flex:
                 error_message = f"Error downloading generated image: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
                 log_error("下载失败", request_id, error_message, "RunNode/Flux-", "Flux")
-                return (default_tensor, image_url, json.dumps({"status": "partial_success", "message": error_message, "image_url": image_url}))
+                raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_error("运行异常", request_id, error_message, "RunNode/Flux-", "Flux")
-            return (default_tensor, "", json.dumps({"status": "failed", "message": error_message}))
+            raise Exception(error_message)

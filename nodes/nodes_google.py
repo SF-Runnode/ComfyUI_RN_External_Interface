@@ -2085,7 +2085,13 @@ class Comfly_nano_banana2_edit_S2A:
                             generated_tensor = pil2tensor(generated_image)
                             generated_tensors.append(generated_tensor)
                     except Exception as e:
-                        print(f"Error processing image item {i}: {format_runnode_error(str(e))}")
+                        log_backend_exception(
+                            "google_image_item_process_error",
+                            request_id=request_id,
+                            index=i,
+                            model=model,
+                            error=str(e),
+                        )
                         continue
                 
                 pbar.update_absolute(100)
@@ -2112,8 +2118,12 @@ class Comfly_nano_banana2_edit_S2A:
                         "all_urls": image_urls
                     }
                     
-                    # 打印调试信息
-                    print(f"[SYNC_RESPONSE] {json.dumps(result_info, ensure_ascii=False)}")
+                    log_backend(
+                        "google_sync_response",
+                        request_id=request_id,
+                        status="success",
+                        images_count=len(generated_tensors),
+                    )
                     try:
                         rn_pbar.done(char_count=len(json.dumps(result_info, ensure_ascii=False)))
                     except Exception:
@@ -2123,23 +2133,25 @@ class Comfly_nano_banana2_edit_S2A:
                 else:
                     error_message = "Failed to process any images"
                     rn_pbar.error(error_message)
-                    blank_image = Image.new('RGB', (1024, 1024), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+                    log_error("任务失败", request_id, error_message, "RunNode/Google-", "Google")
+                    raise Exception(error_message)
                     
             else:
                 # 未知响应格式
                 error_message = f"Unexpected API response format: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+                log_error("响应格式错误", request_id, error_message, "RunNode/Google-", "Google")
+                raise Exception(error_message)
             
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            import traceback
-            traceback.print_exc()
+            log_backend_exception(
+                "google_image_generate_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
             raise ValueError(error_message)
     
     def _query_task_status(self, task_id, pbar):

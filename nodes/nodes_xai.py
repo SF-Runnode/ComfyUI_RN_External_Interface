@@ -58,7 +58,7 @@ class ComflyGrok3VideoApi:
             if "url" in result:
                 return result["url"]
             else:
-                msg = f"Unexpected response from file upload API: {result}"
+                msg = f"Unexpected response from file upload API: {format_runnode_error(result)}"
                 log_backend(
                     "xai_grok_upload_unexpected_response",
                     level="ERROR",
@@ -112,8 +112,8 @@ class ComflyGrok3VideoApi:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            error_response = {"code": "error", "message": error_message}
-            return (None, "", json.dumps(error_response), "")
+            log_error("配置缺失", request_id, error_message, "RunNode/xAI-", "xAI")
+            raise Exception(error_message)
 
         if not self.base_url:
             error_message = "Base URL not configured"
@@ -126,8 +126,8 @@ class ComflyGrok3VideoApi:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            error_response = {"code": "error", "message": error_message}
-            return (None, "", json.dumps(error_response), "")
+            log_error("配置缺失", request_id, error_message, "RunNode/xAI-", "xAI")
+            raise Exception(error_message)
 
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -161,8 +161,7 @@ class ComflyGrok3VideoApi:
                         model=model,
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
-                    error_response = {"code": "error", "message": error_message}
-                    return (None, "", json.dumps(error_response), "")
+                    raise Exception(error_message)
 
             pbar.update_absolute(30)
 
@@ -197,8 +196,8 @@ class ComflyGrok3VideoApi:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                error_response = {"code": "error", "message": error_message}
-                return (None, "", json.dumps(error_response), "")
+                log_error("请求失败", request_id, error_message, "RunNode/xAI-", "xAI")
+                raise Exception(error_message)
 
             result = response.json()
 
@@ -214,8 +213,8 @@ class ComflyGrok3VideoApi:
                     model=model,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                error_response = {"code": "error", "message": error_message}
-                return (None, "", json.dumps(error_response), "")
+                log_error("任务ID缺失", request_id, error_message, "RunNode/xAI-", "xAI")
+                raise Exception(error_message)
 
             pbar.update_absolute(40)
 
@@ -242,8 +241,8 @@ class ComflyGrok3VideoApi:
                         attempts=int(attempts),
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
-                    error_response = {"code": "error", "message": error_message}
-                    return (None, task_id, json.dumps(error_response), "")
+                    log_error("任务超时", request_id, error_message, "RunNode/xAI-", "xAI")
+                    raise Exception(error_message)
 
                 time.sleep(5)
                 attempts += 1
@@ -281,7 +280,7 @@ class ComflyGrok3VideoApi:
                             continue
                     elif status == "FAILURE":
                         fail_reason = status_result.get("fail_reason", "Unknown error")
-                        error_message = f"Video generation failed: {fail_reason}"
+                        error_message = f"Video generation failed: {format_runnode_error(fail_reason)}"
                         rn_pbar.error(error_message)
                         log_backend(
                             "xai_video_generate_failed",
@@ -293,8 +292,8 @@ class ComflyGrok3VideoApi:
                             fail_reason=str(fail_reason),
                             elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                         )
-                        error_response = {"code": "error", "message": error_message}
-                        return (None, task_id, json.dumps(error_response), "")
+                        log_error("任务失败", request_id, error_message, "RunNode/xAI-", "xAI")
+                        raise Exception(error_message)
                     elif status in ["NOT_START", "IN_PROGRESS"]:
                         continue
                     else:
@@ -319,8 +318,8 @@ class ComflyGrok3VideoApi:
                     attempts=int(attempts),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                error_response = {"code": "error", "message": error_message}
-                return (None, task_id, json.dumps(error_response), "")
+                log_error("任务超时", request_id, error_message, "RunNode/xAI-", "xAI")
+                raise Exception(error_message)
 
             if video_url:
                 pbar.update_absolute(95)
@@ -350,14 +349,13 @@ class ComflyGrok3VideoApi:
         except Exception as e:
             error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            traceback.print_exc()
             log_backend_exception(
                 "xai_video_generate_exception",
                 request_id=request_id,
                 url=safe_public_url(self.base_url),
                 model=model,
             )
-            error_response = {"code": "error", "message": error_message}
-            return (None, "", json.dumps(error_response), "")
+            log_error("异常", request_id, error_message, "RunNode/xAI-", "xAI")
+            raise Exception(error_message)
 
 

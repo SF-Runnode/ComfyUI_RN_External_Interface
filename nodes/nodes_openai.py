@@ -215,7 +215,6 @@ class Comfly_gpt_image_1_edit:
         
         if not provided_images:
             error_message = "No images provided. Please provide at least one image."
-            print(error_message)
             rn_pbar.error(error_message)
             log_backend(
                 "openai_image_edit_failed",
@@ -225,9 +224,8 @@ class Comfly_gpt_image_1_edit:
                 error=error_message,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, error_message, self.format_conversation_history())
+            log_error("参数错误", request_id, error_message, "RunNode/OpenAI-", "OpenAIImageEdit")
+            raise Exception(error_message)
         
         image_count = len(provided_images)
         print(f"Processing {image_count} input images")
@@ -596,9 +594,8 @@ class Comfly_gpt_image_1:
                     error=error_message,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message)
+                log_error("配置缺失", request_id, error_message, "RunNode/OpenAI-", "OpenAIImageGen")
+                raise Exception(error_message)
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
             payload = {
@@ -647,9 +644,8 @@ class Comfly_gpt_image_1:
                     status_code=int(response.status_code),
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, error_message)
+                log_error("请求失败", request_id, error_message, "RunNode/OpenAI-", "OpenAIImageGen")
+                raise Exception(error_message)
 
             result = response.json()
 
@@ -690,11 +686,9 @@ class Comfly_gpt_image_1:
                             print(f"Error downloading image from URL: {format_runnode_error(str(e))}")
             else:
                 error_message = "No generated images in response"
-                print(error_message)
-                response_info += f"Error: {error_message}\n"
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, response_info)
+                rn_pbar.error(error_message)
+                log_error("结果缺失", request_id, error_message, "RunNode/OpenAI-", "OpenAIImageGen")
+                raise Exception(error_message)
 
             if "usage" in result:
                 response_info += "Usage Information:\n"
@@ -755,10 +749,8 @@ class Comfly_gpt_image_1:
                     error=error_message,
                     elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                 )
-                response_info += f"Error: {error_message}\n"
-                blank_image = Image.new('RGB', (1024, 1024), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor, response_info)
+                log_error("任务失败", request_id, error_message, "RunNode/OpenAI-", "OpenAIImageGen")
+                raise Exception(error_message)
                 
         except Exception as e:
             error_message = f"Error in image generation: {format_runnode_error(str(e))}"
@@ -769,9 +761,8 @@ class Comfly_gpt_image_1:
                 url=safe_public_url(baseurl),
                 model=model,
             )
-            blank_image = Image.new('RGB', (1024, 1024), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, error_message)
+            log_error("异常", request_id, error_message, "RunNode/OpenAI-", "OpenAIImageGen")
+            raise Exception(error_message)
 
 
 class ComflyChatGPTApi:
@@ -1201,13 +1192,7 @@ class ComflyChatGPTApi:
                 url=safe_public_url(self.api_endpoint),
                 model=model,
             )
-            
-            if images is not None:
-                return (images, error_message, "", self.format_conversation_history())  
-            else:
-                blank_img = Image.new('RGB', (512, 512), color='white')
-                blank_tensor = pil2tensor(blank_img)
-                return (blank_tensor, error_message, "", self.format_conversation_history())
+            raise Exception(error_message)
 
 
 class Comfly_sora2_openai:

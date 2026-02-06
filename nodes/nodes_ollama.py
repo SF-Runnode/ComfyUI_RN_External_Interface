@@ -453,6 +453,7 @@ class OllamaChat:
                             pass
 
                     rn_pbar.error(f"{error_msg} (建议: 检查 Base URL 是否可访问，API Key 是否正确)")
+                    log_error("远程服务调用失败", req_id, error_msg, "RunNode/Ollama-", service_label)
                     log_backend_exception(
                         "ollama_chat_remote_failed",
                         request_id=req_id,
@@ -506,6 +507,17 @@ class OllamaChat:
                             request_id=req_id,
                             suggestion="检查服务是否启动、URL 是否正确、模型是否已拉取",
                         )
+                    )
+                    log_error(
+                        "本地服务调用失败",
+                        req_id,
+                        format_user_error(
+                            "本地 Ollama 调用失败",
+                            request_id=req_id,
+                            suggestion="检查服务是否启动、URL 是否正确、模型是否已拉取",
+                        ),
+                        "RunNode/Ollama-",
+                        service_label,
                     )
                     log_backend_exception(
                         "ollama_chat_local_fallback_failed",

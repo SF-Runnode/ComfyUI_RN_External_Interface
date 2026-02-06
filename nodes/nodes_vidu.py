@@ -274,6 +274,7 @@ class Comfly_vidu_img2video:
                       movement_amplitude="auto", bgm=False, off_peak=False, 
                       watermark=False, wm_position=3):
         request_id = generate_request_id("video_gen", "vidu")
+        _rn_start = time.perf_counter()
         
         log_params = {
             "model_name": model,
@@ -302,7 +303,14 @@ class Comfly_vidu_img2video:
             
         if not self.api_key:
             error_response = "API key not provided or not found in config"
-            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_response,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             raise Exception(error_response)
             
         try:
@@ -313,7 +321,14 @@ class Comfly_vidu_img2video:
             if not image_base64:
                 error_message = "Failed to convert image to base64"
                 rn_pbar.error(error_message)
-                log_error("图像处理失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
 
             payload = {
@@ -345,6 +360,19 @@ class Comfly_vidu_img2video:
 
             pbar.update_absolute(20)
 
+            log_backend(
+                "vidu_video_generate_start",
+                request_id=request_id,
+                model=model,
+                prompt_len=len(prompt or ""),
+                duration=str(duration),
+                resolution=resolution,
+                has_images=True,
+                image_count=1,
+                audio=bool(audio),
+                seed=seed
+            )
+
             response = requests.post(
                 f"{baseurl}/vidu/v2/img2video",
                 headers=self.get_headers(),
@@ -357,7 +385,15 @@ class Comfly_vidu_img2video:
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
-                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    status_code=int(response.status_code),
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             result = response.json()
@@ -365,7 +401,14 @@ class Comfly_vidu_img2video:
             if "task_id" not in result:
                 error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
-                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             task_id = result.get("task_id")
@@ -390,16 +433,34 @@ class Comfly_vidu_img2video:
             }
             
             pbar.update_absolute(100)
-            log_complete("视频生成", request_id, "RunNode/Vidu-", "Vidu", video_url=safe_public_url(video_url))
-            rn_pbar.done(char_count=len(json.dumps(response_data)))
+            log_backend(
+                "vidu_video_generate_done",
+                request_id=request_id,
+                model=model,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
-            import traceback
-            traceback.print_exc()
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_message,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            log_backend_exception(
+                "vidu_img2video_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
             raise
 
 
@@ -453,6 +514,7 @@ class Comfly_vidu_text2video:
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
         request_id = generate_request_id("video_gen", "vidu")
+        _rn_start = time.perf_counter()
         
         log_params = {
             "model_name": model,
@@ -478,7 +540,14 @@ class Comfly_vidu_text2video:
             
         if not self.api_key:
             error_response = "API key not provided or not found in config"
-            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_response,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             raise Exception(error_response)
             
         try:
@@ -508,6 +577,18 @@ class Comfly_vidu_text2video:
 
             pbar.update_absolute(20)
 
+            log_backend(
+                "vidu_video_generate_start",
+                request_id=request_id,
+                model=model,
+                prompt_len=len(prompt or ""),
+                duration=str(duration),
+                resolution=resolution,
+                aspect_ratio=aspect_ratio,
+                has_images=False,
+                seed=seed
+            )
+
             response = requests.post(
                 f"{baseurl}/vidu/v2/text2video",
                 headers=self.get_headers(),
@@ -520,7 +601,15 @@ class Comfly_vidu_text2video:
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
-                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    status_code=int(response.status_code),
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             result = response.json()
@@ -528,7 +617,14 @@ class Comfly_vidu_text2video:
             if "task_id" not in result:
                 error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
-                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             task_id = result.get("task_id")
@@ -552,16 +648,34 @@ class Comfly_vidu_text2video:
             }
             
             pbar.update_absolute(100)
-            log_complete("视频生成", request_id, "RunNode/Vidu-", "Vidu", video_url=safe_public_url(video_url))
-            rn_pbar.done(char_count=len(json.dumps(response_data)))
+            log_backend(
+                "vidu_video_generate_done",
+                request_id=request_id,
+                model=model,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
-            import traceback
-            traceback.print_exc()
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_message,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            log_backend_exception(
+                "vidu_text2video_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
             raise
 
 
@@ -652,6 +766,7 @@ class Comfly_vidu_ref2video:
                       watermark=False, wm_position=3):
         
         request_id = generate_request_id("video_gen", "vidu")
+        _rn_start = time.perf_counter()
         
         log_params = {
             "model_name": model,
@@ -677,7 +792,14 @@ class Comfly_vidu_ref2video:
             
         if not self.api_key:
             error_response = "API key not provided or not found in config"
-            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_response,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             raise Exception(error_response)
             
         try:
@@ -696,7 +818,14 @@ class Comfly_vidu_ref2video:
             if not image_base64_list:
                 error_message = "No images provided. At least one image is required."
                 rn_pbar.error(error_message)
-                log_error("参数错误", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
 
             payload = {
@@ -748,6 +877,20 @@ class Comfly_vidu_ref2video:
 
             pbar.update_absolute(20)
 
+            log_backend(
+                "vidu_video_generate_start",
+                request_id=request_id,
+                model=model,
+                prompt_len=len(prompt or ""),
+                duration=str(duration),
+                resolution=resolution,
+                aspect_ratio=aspect_ratio,
+                has_images=True,
+                image_count=len(image_base64_list),
+                audio=bool(audio),
+                seed=seed
+            )
+
             response = requests.post(
                 f"{baseurl}/vidu/v2/reference2video",
                 headers=self.get_headers(),
@@ -760,7 +903,15 @@ class Comfly_vidu_ref2video:
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
-                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    status_code=int(response.status_code),
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             result = response.json()
@@ -768,7 +919,14 @@ class Comfly_vidu_ref2video:
             if "task_id" not in result:
                 error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
-                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             task_id = result.get("task_id")
@@ -777,7 +935,14 @@ class Comfly_vidu_ref2video:
             video_url = vidu_wait_for_task(task_id, rn_pbar, pbar, self.get_headers(), self.timeout, request_id)
             
             pbar.update_absolute(95)
-            log_complete("视频生成", request_id, "RunNode/Vidu-", "Vidu", video_url=safe_public_url(video_url))
+            log_backend(
+                "vidu_video_generate_done",
+                request_id=request_id,
+                model=model,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
 
             video_adapter = ComflyVideoAdapter(video_url)
             
@@ -795,15 +960,26 @@ class Comfly_vidu_ref2video:
             }
             
             pbar.update_absolute(100)
-            rn_pbar.done(char_count=len(json.dumps(response_data)))
+            rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
-            import traceback
-            traceback.print_exc()
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_message,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            log_backend_exception(
+                "vidu_ref2video_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
             raise
 
 
@@ -870,6 +1046,7 @@ class Comfly_vidu_start_end2video:
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
         request_id = generate_request_id("video_gen", "vidu")
+        _rn_start = time.perf_counter()
         
         log_params = {
             "model_name": model,
@@ -894,7 +1071,14 @@ class Comfly_vidu_start_end2video:
             
         if not self.api_key:
             error_response = "API key not provided or not found in config"
-            log_error("配置错误", request_id, error_response, "RunNode/Vidu-", "Vidu")
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_response,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
             raise Exception(error_response)
             
         try:
@@ -907,7 +1091,14 @@ class Comfly_vidu_start_end2video:
             if not start_image_base64 or not end_image_base64:
                 error_message = "Failed to convert start or end image to base64"
                 rn_pbar.error(error_message)
-                log_error("图像处理失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
 
             payload = {
@@ -935,6 +1126,18 @@ class Comfly_vidu_start_end2video:
 
             pbar.update_absolute(20)
 
+            log_backend(
+                "vidu_video_generate_start",
+                request_id=request_id,
+                model=model,
+                prompt_len=len(prompt or ""),
+                duration=str(duration),
+                resolution=resolution,
+                has_images=True,
+                image_count=2,
+                seed=seed
+            )
+
             response = requests.post(
                 f"{baseurl}/vidu/v2/start-end2video",
                 headers=self.get_headers(),
@@ -947,7 +1150,15 @@ class Comfly_vidu_start_end2video:
             if response.status_code != 200:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
-                log_error("API请求失败", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    status_code=int(response.status_code),
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             result = response.json()
@@ -955,7 +1166,14 @@ class Comfly_vidu_start_end2video:
             if "task_id" not in result:
                 error_message = f"No task_id in response: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
-                log_error("API响应异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
+                log_backend(
+                    "vidu_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    model=model,
+                    error=error_message,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
                 raise Exception(error_message)
                 
             task_id = result.get("task_id")
@@ -979,14 +1197,32 @@ class Comfly_vidu_start_end2video:
             }
             
             pbar.update_absolute(100)
-            log_complete("视频生成", request_id, "RunNode/Vidu-", "Vidu", video_url=safe_public_url(video_url))
-            rn_pbar.done(char_count=len(json.dumps(response_data)))
+            log_backend(
+                "vidu_video_generate_done",
+                request_id=request_id,
+                model=model,
+                task_id=task_id,
+                video_url=safe_public_url(video_url),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
             return (video_adapter, video_url, task_id, json.dumps(response_data))
             
         except Exception as e:
             error_message = f"Error generating video: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            log_error("视频生成异常", request_id, error_message, "RunNode/Vidu-", "Vidu")
-            import traceback
-            traceback.print_exc()
+            log_backend(
+                "vidu_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                model=model,
+                error=error_message,
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            log_backend_exception(
+                "vidu_start_end2video_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
             raise

@@ -16,7 +16,7 @@ from .nodes.nodes_xai import *
 
 WEB_DIRECTORY = "./web"
 
-__version__ = "1.19.2"
+__version__ = "1.19.3"
 
 NODE_CLASS_MAPPINGS = {
     "RunNode_api_set": Comfly_api_set,
@@ -64,12 +64,12 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_mj_video_extend": Comfly_mj_video_extend,
     "RunNode_qwen_image": Comfly_qwen_image,
     "RunNode_qwen_image_edit": Comfly_qwen_image_edit,
-    # "RunNode_Doubao_Seedream": Comfly_Doubao_Seedream,
-    # "RunNode_Doubao_Seedream_4": Comfly_Doubao_Seedream_4,
-    # "RunNode_Doubao_Seedream_4_5": Comfly_Doubao_Seedream_4_5,
-    # "RunNode_Doubao_Seededit": Comfly_Doubao_Seededit,
-    # "RunNodeJimengVideoApi": ComflyJimengVideoApi,
-    # "RunNodeJimengApi": ComflyJimengApi,
+    "RunNode_Doubao_Seedream": Comfly_Doubao_Seedream,
+    "RunNode_Doubao_Seedream_4": Comfly_Doubao_Seedream_4,
+    "RunNode_Doubao_Seedream_4_5": Comfly_Doubao_Seedream_4_5,
+    "RunNode_Doubao_Seededit": Comfly_Doubao_Seededit,
+    "RunNodeJimengVideoApi": ComflyJimengVideoApi,
+    "RunNodeJimengApi": ComflyJimengApi,
     "RunNode_MiniMax_video": Comfly_MiniMax_video,
     "RunNode_suno_description": Comfly_suno_description,
     "RunNode_suno_lyrics": Comfly_suno_lyrics,
@@ -148,12 +148,12 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_mj_video_extend": "RunNode MJ Video Extend",
     "RunNode_qwen_image": "RunNode qwen_image",
     "RunNode_qwen_image_edit": "RunNode qwen_image_edit",
-    # "RunNode_Doubao_Seedream": "RunNode Doubao Seedream3.0",
-    # "RunNode_Doubao_Seedream_4": "RunNode Doubao Seedream4.0",
-    # "RunNode_Doubao_Seedream_4_5": "RunNode Doubao Seedream4.5",
-    # "RunNode_Doubao_Seededit": "RunNode Doubao Seededit3.0",
-    # "RunNodeJimengVideoApi": "RunNode Jimeng Video API",
-    # "RunNodeJimengApi": "RunNode Jimeng API",
+    "RunNode_Doubao_Seedream": "RunNode Doubao Seedream3.0",
+    "RunNode_Doubao_Seedream_4": "RunNode Doubao Seedream4.0",
+    "RunNode_Doubao_Seedream_4_5": "RunNode Doubao Seedream4.5",
+    "RunNode_Doubao_Seededit": "RunNode Doubao Seededit3.0",
+    "RunNodeJimengVideoApi": "RunNode Jimeng Video API",
+    "RunNodeJimengApi": "RunNode Jimeng API",
     "RunNode_MiniMax_video": "RunNode MiniMax Hailuo Video",
     "RunNode_suno_description": "RunNode Suno Description",
     "RunNode_suno_lyrics": "RunNode Suno Lyrics",

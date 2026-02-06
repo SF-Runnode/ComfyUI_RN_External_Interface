@@ -683,6 +683,7 @@ class Comfly_Mju(ComflyBaseNode):
     def run(self, taskId, U1=False, U2=False, U3=False, U4=False, api_key=""):
         request_id = generate_request_id("mj_upscale", "midjourney")
         log_prepare("Midjourney操作", request_id, "RunNode/Midjourney-", "Midjourney", taskId=taskId)
+        rn_pbar = ProgressBar(request_id, "Midjourney", streaming=True, task_type="操作执行", source="RunNode/Midjourney-")
 
         if api_key.strip():
             self.api_key = api_key
@@ -719,11 +720,9 @@ class Comfly_Mju(ComflyBaseNode):
                 
         except Exception as e:
             error_message = f"Error in run method: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_message)
             log_error("操作失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
-            
-            blank_image = Image.new('RGB', (512, 512), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor, "")
+            raise Exception(error_message)
 
 
     async def process_input(self, taskId, request_id, U1=False, U2=False, U3=False, U4=False):
@@ -1165,6 +1164,9 @@ class Comfly_Mjv(ComflyBaseNode):
     CATEGORY = "RunNode/Midjourney"
 
     def run(self, taskId, upsample_v6_2x_subtle=False, upsample_v6_2x_creative=False, costume_zoom=False, zoom=1.0, pan_left=False, pan_right=False, pan_up=False, pan_down=False, api_key=""):
+        request_id = generate_request_id("mj_video_ops", "midjourney")
+        log_prepare("Midjourney视频操作", request_id, "RunNode/Midjourney-", "Midjourney", taskId=taskId)
+        rn_pbar = ProgressBar(request_id, "Midjourney", streaming=True, task_type="视频操作", source="RunNode/Midjourney-")
         if api_key.strip():
             self.api_key = api_key
             # config = get_config()
@@ -1190,11 +1192,13 @@ class Comfly_Mjv(ComflyBaseNode):
                     result = future.result()
 
                     if isinstance(result, tuple) and len(result) > 0:
+                        log_complete("Midjourney视频操作成功", request_id, "RunNode/Midjourney-", "Midjourney")
                         return result
                     else:
-                        blank_image = Image.new('RGB', (512, 512), color='white')
-                        blank_tensor = pil2tensor(blank_image)
-                        return (blank_tensor,)
+                        error_message = "Midjourney视频操作未返回有效结果"
+                        rn_pbar.error(error_message)
+                        log_error("操作异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                        raise Exception(error_message)
                     
             except RuntimeError:
                 loop = asyncio.new_event_loop()
@@ -1203,19 +1207,21 @@ class Comfly_Mjv(ComflyBaseNode):
                     result = loop.run_until_complete(self.process_input(taskId, upsample_v6_2x_subtle, upsample_v6_2x_creative, costume_zoom, zoom, pan_left, pan_right, pan_up, pan_down))
 
                     if isinstance(result, tuple) and len(result) > 0:
+                        log_complete("Midjourney视频操作成功", request_id, "RunNode/Midjourney-", "Midjourney")
                         return result
                     else:
-                        blank_image = Image.new('RGB', (512, 512), color='white')
-                        blank_tensor = pil2tensor(blank_image)
-                        return (blank_tensor,)
+                        error_message = "Midjourney视频操作未返回有效结果"
+                        rn_pbar.error(error_message)
+                        log_error("操作异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                        raise Exception(error_message)
                 finally:
                     loop.close()
                 
         except Exception as e:
-            print(f"Error in run method: {format_runnode_error(str(e))}")
-            blank_image = Image.new('RGB', (512, 512), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor,)
+            error_message = f"Error in run method: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_message)
+            log_error("操作失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+            raise Exception(error_message)
 
     async def process_input(self, taskId, upsample_v6_2x_subtle=False, upsample_v6_2x_creative=False, costume_zoom=False, zoom=1.0, pan_left=False, pan_right=False, pan_up=False, pan_down=False):
         if taskId:
@@ -1322,21 +1328,18 @@ class Comfly_Mjv(ComflyBaseNode):
                     tensor_image = pil2tensor(image)
                     return (tensor_image,)
                 else:
-                    blank_image = Image.new('RGB', (512, 512), color='white')
-                    blank_tensor = pil2tensor(blank_image)
-                    return (blank_tensor,)
+                    error_message = "No image URL in task result"
+                    print(error_message)
+                    raise Exception(error_message)
 
             except Exception as e:
                 error_message = f"Error processing action: {format_runnode_error(str(e))}"
                 print(error_message)
-                blank_image = Image.new('RGB', (512, 512), color='white')
-                blank_tensor = pil2tensor(blank_image)
-                return (blank_tensor,)
+                raise Exception(error_message)
         else:
-            print("No taskId provided.")
-            blank_image = Image.new('RGB', (512, 512), color='white')
-            blank_tensor = pil2tensor(blank_image)
-            return (blank_tensor,)
+            error_message = "No taskId provided."
+            print(error_message)
+            raise Exception(error_message)
 
     async def process_task(self, taskId):
         while True:
@@ -1849,13 +1852,10 @@ class Comfly_mj_video(ComflyBaseNode):
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = json.dumps({
-                "status": "error",
-                "message": "API key not provided. Please set your API key."
-            })
-            empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-            rn_pbar.error("API key not provided. Please set your API key.")
-            return (*empty_adapters, "", error_response)
+            error_message = "API key not provided. Please set your API key."
+            rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+            raise Exception(error_message)
             
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -1890,27 +1890,21 @@ class Comfly_mj_video(ComflyBaseNode):
             except requests.exceptions.Timeout:
                 error_message = "API request timed out during submission"
                 rn_pbar.error(error_message)
-                error_response = json.dumps({"status": "error", "message": error_message})
-                empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                return (*empty_adapters, "", error_response)
+                log_error("请求超时", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                raise Exception(error_message)
             except requests.exceptions.RequestException as e:
                 error_message = f"API request error during submission: {format_runnode_error(str(e))}"
                 rn_pbar.error(error_message)
-                error_response = json.dumps({"status": "error", "message": error_message})
-                empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                return (*empty_adapters, "", error_response)
+                log_error("提交异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                raise Exception(error_message)
             
             result = response.json()
             
             if "result" not in result:
                 error_message = f"No task ID in response: {result}"
                 rn_pbar.error(error_message)
-                error_response = json.dumps({
-                    "status": "error", 
-                    "message": error_message
-                })
-                empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                return (*empty_adapters, "", error_response)
+                log_error("API响应缺失", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                raise Exception(error_message)
                 
             task_id = result["result"]
             
@@ -1974,12 +1968,7 @@ class Comfly_mj_video(ComflyBaseNode):
             if not video_urls:
                 error_message = "No video URLs found in response"
                 rn_pbar.error(error_message)
-                error_response = json.dumps({
-                    "status": "error",
-                    "message": error_message,
-                    "task_id": task_id,
-                    "response_data": task_result
-                })
+                log_error("结果缺失", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
                 raise Exception(error_message)
 
             video_adapters = []
@@ -2004,13 +1993,8 @@ class Comfly_mj_video(ComflyBaseNode):
         except Exception as e:
             error_message = f"Error in video generation: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            error_response = json.dumps({
-                "status": "error",
-                "message": error_message
-            })
-
-            empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-            return (*empty_adapters, "", error_response)
+            log_error("生成异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+            raise Exception(error_message)
 
 
 class Comfly_mj_video_extend(ComflyBaseNode):
@@ -2061,8 +2045,8 @@ class Comfly_mj_video_extend(ComflyBaseNode):
         if not self.api_key:
             error_message = "API key not provided. Please set your API key."
             rn_pbar.error(error_message)
-            empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-            return (*empty_adapters, "", error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+            raise Exception(error_message)
             
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -2085,15 +2069,15 @@ class Comfly_mj_video_extend(ComflyBaseNode):
             if response.status_code != 200:
                 error_message = f"API Error: {response.status_code} - {response.text}"
                 rn_pbar.error(error_message)
-                empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                return (*empty_adapters, "", error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                raise Exception(error_message)
                 
             result = response.json()
             if result.get("code") != 1:
                 error_message = format_runnode_error(result)
                 rn_pbar.error(error_message)
-                empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                return (*empty_adapters, "", error_message)
+                log_error("API提交失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                raise Exception(error_message)
             
             new_task_id = result["result"]
             
@@ -2118,8 +2102,8 @@ class Comfly_mj_video_extend(ComflyBaseNode):
                         fail_reason = status_result.get("fail_reason", "Unknown failure reason")
                         error_message = f"Video extension failed: {format_runnode_error(fail_reason)}"
                         rn_pbar.error(error_message)
-                        empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                        return (*empty_adapters, new_task_id, error_message)
+                        log_error("扩展失败", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                        raise Exception(error_message)
 
                     progress = status_result.get("progress", "0%")
                     try:
@@ -2190,8 +2174,8 @@ class Comfly_mj_video_extend(ComflyBaseNode):
             if not video_urls:
                 error_message = "Failed to retrieve video URLs from the response"
                 rn_pbar.error(error_message)
-                empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-                return (*empty_adapters, new_task_id, error_message)
+                log_error("结果缺失", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+                raise Exception(error_message)
 
             video_adapters = []
             for url in video_urls:
@@ -2216,5 +2200,5 @@ class Comfly_mj_video_extend(ComflyBaseNode):
         except Exception as e:
             error_message = f"Error in video extension: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
-            empty_adapters = [ComflyVideoAdapter("") for _ in range(4)]
-            return (*empty_adapters, "", error_message)
+            log_error("扩展异常", request_id, error_message, "RunNode/Midjourney-", "Midjourney")
+            raise Exception(error_message)

@@ -325,7 +325,6 @@ class Comfly_suno_description:
         except Exception as e:
             error_message = f"Error generating music: {str(e)}"
             rn_pbar.error(error_message)
-            traceback.print_exc()
             log_backend_exception(
                 "suno_music_description_exception",
                 request_id=request_id,
@@ -840,7 +839,6 @@ class Comfly_suno_custom:
         except Exception as e:
             error_message = f"Error generating music: {str(e)}"
             rn_pbar.error(error_message)
-            traceback.print_exc()
             log_backend_exception(
                 "suno_music_custom_exception",
                 request_id=request_id,
@@ -1432,7 +1430,11 @@ class Comfly_suno_upload_extend:
                 audio_url = ""
                 if "audio_url" in clip and clip["audio_url"]:
                     audio_url = clip["audio_url"]
-                    print(f"Found audio URL: {audio_url}")
+                    log_backend(
+                        "suno_upload_extend_found_url",
+                        request_id=request_id,
+                        url=safe_public_url(audio_url),
+                    )
                 elif "cdn1.suno.ai" in str(clip):
                     match = re.search(r'https://cdn1\.suno\.ai/[^"\']+\.mp3', str(clip))
                     if match:
@@ -1499,8 +1501,6 @@ class Comfly_suno_upload_extend:
         except Exception as e:
             error_message = f"Error extending audio: {str(e)}"
             rn_pbar.error(error_message)
-            import traceback
-            traceback.print_exc()
             log_backend_exception(
                 "suno_upload_extend_exception",
                 request_id=request_id,
@@ -1775,8 +1775,6 @@ class Comfly_suno_cover:
         except Exception as e:
             error_message = f"Error generating cover: {str(e)}"
             rn_pbar.error(error_message)
-            import traceback
-            traceback.print_exc()
             log_backend_exception(
                 "suno_cover_exception",
                 request_id=request_id,

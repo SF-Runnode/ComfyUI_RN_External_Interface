@@ -117,19 +117,19 @@ class Comfly_MiniMax_video:
                     error_message = f"Model {model} only supports text-to-video. Image inputs will be ignored."
                     rn_pbar.error(error_message)
                     log_error("参数错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                    return (None, "", json.dumps({"status": "error", "message": error_message}))
+                    raise Exception(error_message)
                 
             elif model in ["I2V-01-Director", "I2V-01-live", "I2V-01"]:
                 if first_frame_image is None:
                     error_message = f"Model {model} requires first_frame_image for image-to-video generation."
                     rn_pbar.error(error_message)
                     log_error("参数错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                    return (None, "", json.dumps({"status": "error", "message": error_message}))
+                    raise Exception(error_message)
                 if last_frame_image is not None:
                     error_message = f"Model {model} doesn't support last_frame_image. It will be ignored."
                     rn_pbar.error(error_message)
                     log_error("参数错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                    return (None, "", json.dumps({"status": "error", "message": error_message}))
+                    raise Exception(error_message)
 
             if first_frame_image is not None and model != "T2V-01" and model != "T2V-01-Director":
                 image_base64 = self.image_to_base64(first_frame_image)
@@ -162,7 +162,7 @@ class Comfly_MiniMax_video:
                 error_message = format_runnode_error(response)
                 rn_pbar.error(error_message)
                 log_error("API请求失败", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                return (None, "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             result = response.json()
             
@@ -170,14 +170,14 @@ class Comfly_MiniMax_video:
                 error_message = f"API returned error: {format_runnode_error(result)}"
                 rn_pbar.error(error_message)
                 log_error("API返回错误", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                return (None, "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
                 
             task_id = result.get("task_id")
             if not task_id:
                 error_message = "No task ID returned from API"
                 rn_pbar.error(error_message)
                 log_error("缺失TaskID", request_id, error_message, "RunNode/MiniMax-", "MiniMax")
-                return (None, "", json.dumps({"status": "error", "message": error_message}))
+                raise Exception(error_message)
             
             pbar.update_absolute(40)
             
