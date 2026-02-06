@@ -1684,6 +1684,12 @@ class Comfly_sora2:
                     time.sleep(1)
                 attempts += 1
 
+                log_backend(
+                    "openai_video_v1_generate_check",
+                    request_id=request_id,
+                    task_id=task_id,
+                )
+
                 try:
                     status_response = requests.get(
                         f"{baseurl.rstrip('/')}/v1/videos/{task_id}",

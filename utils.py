@@ -452,7 +452,7 @@ def log_backend(event_type: str, **kwargs):
                     info += f" request_id={rid}"
                 if tid:
                     info += f" task_id={tid}"
-                print(f"{PREFIX} Heartbeat {event_type}{info}")
+                print(f"{PREFIX} 💓 Heartbeat {event_type}{info}")
     pass
 
 def log_backend_exception(event_type: str, **kwargs):
