@@ -51,7 +51,11 @@ class ComflyGrok3VideoApi:
             if max(original_size) > max_dimension:
                 ratio = max_dimension / max(original_size)
                 new_size = (int(original_size[0] * ratio), int(original_size[1] * ratio))
-                img = img.resize(new_size, Image.Resampling.LANCZOS)
+                resampling = getattr(Image, 'Resampling', None)
+                if resampling and hasattr(resampling, 'LANCZOS'):
+                    img = img.resize(new_size, resampling.LANCZOS)
+                else:
+                    img = img.resize(new_size, getattr(Image, 'LANCZOS', Image.BICUBIC))
             
             # 3. Compress to JPEG with size limit check
             # Convert to RGB for JPEG compatibility

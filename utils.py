@@ -126,7 +126,7 @@ def sanitize_sensitive_network_info(text: str) -> str:
     try:
         t = str(text)
         t = re.sub(r"(host=')([^']+)(')", r"\1<hidden-host>\3", t)
-        t = re.sub(r"(host=")([^"]+)(")", r"\1<hidden-host>\3", t)
+        t = re.sub(r'(host=")([^"]+)(")', r'\1<hidden-host>\3', t)
         t = re.sub(r"(port=)(\d+)", r"\1<hidden-port>", t)
         t = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "<hidden-ip>", t)
         t = re.sub(r"\b(?:[0-9A-Fa-f]{1,4}:){2,7}[0-9A-Fa-f]{1,4}\b", "<hidden-ipv6>", t)
