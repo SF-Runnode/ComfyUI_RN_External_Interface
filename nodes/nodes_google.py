@@ -301,7 +301,7 @@ class ComflyGeminiAPI:
             error_message = f"API timeout error: {format_runnode_error(str(e))}"
             if 'rn_pbar' in locals():
                 rn_pbar.error(error_message)
-                log_error("超时错误", request_id, error_message, "RunNode/Google-", "Google")
+                log_error("超时错误", request_id, str(e), "RunNode/Google-", "Google")
             else:
                 print(error_message)
             raise ValueError(error_message)
@@ -310,7 +310,7 @@ class ComflyGeminiAPI:
             error_message = f"Error calling Gemini API: {format_runnode_error(str(e))}"
             if 'rn_pbar' in locals():
                 rn_pbar.error(error_message)
-                log_backend_exception("google_image_exception", request_id=request_id, error=error_message)
+                log_backend_exception("google_image_exception", request_id=request_id, error=str(e))
             else:
                 print(error_message)
             raise ValueError(error_message)
@@ -327,7 +327,10 @@ class ComflyGeminiTextOnly:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["gemini-2.5-pro"], {"default": "gemini-2.5-pro"}),
+                "model": (["gemini-2.5-pro", "gemini-2.5-pro-thinking-*","gemini-2.5-pro-nothinking", "gemini-2.5-flash-thinking",
+                "gemini-2.5-flash-nothinking", "gemini-3-pro-preview","gemini-3-pro-preview-thinking-*",
+                "gemini-3-flash-preview", "gemini-3-flash-preview-nothinking", "gemini-3-flash-preview-thinking-*"],
+                {"default": "gemini-2.5-pro"}),
             },
             "optional": {
                 "image": ("IMAGE",),

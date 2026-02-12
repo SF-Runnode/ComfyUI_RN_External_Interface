@@ -36,14 +36,19 @@ def tensor2pil(image: torch.Tensor) -> List[Image.Image]:
 
  
 
-def format_runnode_error(response):
+def format_runnode_error(response, sanitize=True):
     """
     Format API error response into a human-readable string.
     Handles recursive JSON parsing to extract the actual error message.
+    :param sanitize: Whether to sanitize sensitive network info (default: True)
     """
     try:
         data = None
         status_code = 'Unknown'
+
+        # Helper to apply sanitization if enabled
+        def _maybe_sanitize(text):
+            return sanitize_sensitive_network_info(text) if sanitize else text
 
         # If it's a requests.Response object
         if hasattr(response, 'json') and callable(response.json):
@@ -53,8 +58,8 @@ def format_runnode_error(response):
                 text = getattr(response, 'text', '')
                 status_code = getattr(response, 'status_code', 'Unknown')
                 if not text.strip():
-                    return f"API Error: {status_code}"
-                return f"API Error: {status_code} - {text}"
+                    return _maybe_sanitize(f"API Error: {status_code}")
+                return _maybe_sanitize(f"API Error: {status_code} - {text}")
             
             status_code = getattr(response, 'status_code', 'Unknown')
         
@@ -72,10 +77,10 @@ def format_runnode_error(response):
                 pass
             
             if data is None:
-                return response
+                return _maybe_sanitize(response)
         
         else:
-            return str(response)
+            return _maybe_sanitize(str(response))
 
         def recursive_extract(err_data):
             if isinstance(err_data, str):
@@ -113,13 +118,17 @@ def format_runnode_error(response):
             
         message = recursive_extract(data)
         message_str = str(message)
-        message_str = sanitize_sensitive_network_info(message_str)
+        # Apply sanitization to the extracted message if enabled
+        if sanitize:
+            message_str = sanitize_sensitive_network_info(message_str)
+            
         if status_code != 'Unknown':
-             return sanitize_sensitive_network_info(f"API Error: {status_code} - {message_str}")
+             return f"API Error: {status_code} - {message_str}"
         else:
-             return sanitize_sensitive_network_info(message_str)
+             return message_str
 
     except Exception as e:
+        # Always sanitize internal formatting errors to be safe
         return sanitize_sensitive_network_info(f"Error formatting error: {str(e)}")
 
 def sanitize_sensitive_network_info(text: str) -> str:
@@ -438,7 +447,7 @@ def log_backend(event_type: str, **kwargs):
     if "task_id" in kwargs and "check" not in event_type.lower():
         task_id = kwargs["task_id"]
         print(f"{PREFIX} [Task Info] Task ID: {task_id}")
-    if hb_enabled and "check" in event_type.lower():
+    if hb_enabled and ("check" in event_type.lower() or "heartbeat" in event_type.lower()):
         rid = kwargs.get("request_id")
         tid = kwargs.get("task_id")
         key = f"{event_type}:{rid or ''}:{tid or ''}"
@@ -480,10 +489,30 @@ def format_service_label(service_name, url, has_api_key):
 
 def log_error(message, request_id=None, detail=None, source="RunNode", service_name=None):
     """Log error message"""
+    # For backend logs, we want to see the full detail (sanitize=False)
+    # The detail parameter is formatted using format_runnode_error elsewhere, 
+    # but we should ensure we get the raw version if possible, or just print it here.
+    # However, since format_runnode_error is called BEFORE log_error in most nodes,
+    # the 'detail' passed here is usually already a sanitized string.
+    # To fix this properly, nodes should call log_error with the raw error object/string
+    # AND format_runnode_error(sanitize=True) for the frontend popup.
+    
+    # But for now, let's assume detail might be a raw string or already sanitized.
+    # If we want to see raw errors in console, we shouldn't sanitize here if it wasn't already.
+    # But wait, the prompt asked for "frontend popup sanitized, backend console raw".
+    
+    # Current flow in nodes is:
+    # error_msg = format_runnode_error(e)  <-- This sanitizes by default now
+    # rn_pbar.error(error_msg)             <-- Sends to frontend (sanitized)
+    # log_error(..., error_msg, ...)       <-- Prints to console (already sanitized!)
+    
+    # So we need to change how nodes call these functions.
+    # But first, let's make log_error support printing raw details if provided.
+    
     if service_name:
-        print(f"{ERROR_PREFIX} [{source}] {service_name} Error: {message} - {sanitize_sensitive_network_info(str(detail))}")
+        print(f"{ERROR_PREFIX} [{source}] {service_name} Error: {message} - {str(detail)}")
     else:
-        print(f"{ERROR_PREFIX} [{source}] Error: {message} - {sanitize_sensitive_network_info(str(detail))}")
+        print(f"{ERROR_PREFIX} [{source}] Error: {message} - {str(detail)}")
 
 class ProgressBar:
     def __init__(self, request_id, service_name, extra_info="", streaming=True, task_type="Task", source="RunNode"):

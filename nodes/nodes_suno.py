@@ -323,7 +323,7 @@ class Comfly_suno_description:
             )
                 
         except Exception as e:
-            error_message = f"Error generating music: {str(e)}"
+            error_message = f"Error generating music: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "suno_music_description_exception",
@@ -837,7 +837,7 @@ class Comfly_suno_custom:
             )
                 
         except Exception as e:
-            error_message = f"Error generating music: {str(e)}"
+            error_message = f"Error generating music: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "suno_music_custom_exception",
@@ -1180,7 +1180,7 @@ class Comfly_suno_upload:
             raise Exception(error_message)
             
         except Exception as e:
-            error_message = f"Error uploading audio: {str(e)}"
+            error_message = f"Error uploading audio: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "suno_audio_upload_exception",
@@ -1773,7 +1773,7 @@ class Comfly_suno_cover:
             )
                 
         except Exception as e:
-            error_message = f"Error generating cover: {str(e)}"
+            error_message = f"Error generating cover: {format_runnode_error(str(e))}"
             rn_pbar.error(error_message)
             log_backend_exception(
                 "suno_cover_exception",
