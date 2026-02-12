@@ -335,6 +335,7 @@ class ComflyGeminiTextOnly:
             "optional": {
                 "image": ("IMAGE",),
                 "video": ("VIDEO",),
+                "video_url": ("STRING", {"default": ""}),
                 "api_key": ("STRING", {"default": ""}),
                 "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01}),
                 "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01}),
@@ -372,7 +373,7 @@ class ComflyGeminiTextOnly:
         img.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-    def generate_text(self, prompt, model, temperature, top_p, max_tokens, seed, image=None, video=None, api_key=""):
+    def generate_text(self, prompt, model, temperature, top_p, max_tokens, seed, image=None, video=None, video_url="", api_key=""):
         request_id = generate_request_id("chat", "google")
         log_prepare("图文对话", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图文对话", source="RunNode/Google-")
@@ -392,13 +393,18 @@ class ComflyGeminiTextOnly:
         try:
             content = [{"type": "text", "text": prompt}]
 
-            if video is not None:
-                video_url = getattr(video, 'video_url', None)
-                if video_url:
-                    content.append({
-                        "type": "video_url",
-                        "video_url": {"url": video_url}
-                    })
+            final_video_url = None
+            if video_url and video_url.strip():
+                final_video_url = video_url.strip()
+
+            if not final_video_url and video is not None:
+                final_video_url = getattr(video, 'video_url', None)
+
+            if final_video_url:
+                content.append({
+                    "type": "video_url",
+                    "video_url": {"url": final_video_url}
+                })
             elif image is not None:
                 if len(image.shape) == 4:
                     image = image[0]
