@@ -521,13 +521,16 @@ class ProgressBar:
         self.streaming = streaming
         self.last_update = time.time()
     
-    def update_absolute(self, value):
+    def update_absolute(self, value, message=None):
         if time.time() - self.last_update > 0.5:
-            print(f"{PROCESS_PREFIX} Progress: {value}%")
+            if message:
+                print(f"{PROCESS_PREFIX} Progress: {value}% - {message}")
+            else:
+                print(f"{PROCESS_PREFIX} Progress: {value}%")
             self.last_update = time.time()
             
-    def update(self, value):
-        self.update_absolute(value)
+    def update(self, value, message=None):
+        self.update_absolute(value, message)
 
     def set_generating(self):
         if self.streaming:
