@@ -1278,7 +1278,7 @@ class Comfly_nano_banana_fal:
             traceback.print_exc()
             try:
                 rn_pbar.error(error_message)
-            except:
+            except Exception:
                 pass
             log_backend_exception("google_fal_process_exception", request_id=request_id if 'request_id' in locals() else "unknown", error=error_message)
             raise ValueError(error_message)
@@ -1456,7 +1456,7 @@ class Comfly_nano_banana_edit:
                 combined_tensor = torch.cat(generated_tensors, dim=0)
                 try:
                     rn_pbar.done(char_count=len(response_info))
-                except:
+                except Exception:
                     pass
                 return (combined_tensor, response_info)
             else:

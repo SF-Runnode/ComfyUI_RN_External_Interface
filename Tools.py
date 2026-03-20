@@ -1,7 +1,7 @@
 import base64
 from io import BytesIO
 from PIL import Image
-from .comfly_config import get_config, save_config, baseurl
+from .comfly_config import get_config, baseurl
 from .utils import generate_request_id, log_prepare, log_complete, log_error, ProgressBar, log_backend, log_backend_exception, safe_public_url
 import requests
 import os
@@ -38,10 +38,8 @@ class Comfly_api_set:
             raise ValueError("When selecting 'ip' option, you must provide a custom IP address in the 'custom_ip' field")
         if api_base in base_url_mapping:
             baseurl = base_url_mapping[api_base]
-        if apikey.strip():
-            cfg = get_config()
-            cfg['api_key'] = apikey
-            save_config(cfg)
+        # Note: save_config is disabled to prevent accidental API key overwrites
+        # API key should be set via environment variables or config file manually
         log_complete("API设置", request_id, "RunNode-", "Config", char_count=len(baseurl), elapsed_ms=0, source="RunNode-")
         return (apikey,)
 
@@ -126,7 +124,7 @@ class Comfly_LLm_API:
                         video_bytes = f.read()
                     try:
                         os.remove(temp_path)
-                    except:
+                    except Exception:
                         pass
             if not video_bytes:
                 return None

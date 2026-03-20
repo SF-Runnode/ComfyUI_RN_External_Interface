@@ -11,6 +11,7 @@ import folder_paths
 from PIL import Image
 from typing import List, Union
 import re
+import json
 
 def pil2tensor(image: Union[Image.Image, List[Image.Image]]) -> torch.Tensor:
     if isinstance(image, list):
@@ -54,7 +55,7 @@ def format_runnode_error(response, sanitize=True):
         if hasattr(response, 'json') and callable(response.json):
             try:
                 data = response.json()
-            except:
+            except Exception:
                 text = getattr(response, 'text', '')
                 status_code = getattr(response, 'status_code', 'Unknown')
                 if not text.strip():
@@ -73,7 +74,7 @@ def format_runnode_error(response, sanitize=True):
             try:
                 if response.strip().startswith('{'):
                     data = json.loads(response)
-            except:
+            except Exception:
                 pass
             
             if data is None:
@@ -89,7 +90,7 @@ def format_runnode_error(response, sanitize=True):
                     if err_data.strip().startswith('{'):
                         parsed = json.loads(err_data)
                         return recursive_extract(parsed)
-                except:
+                except Exception:
                     pass
                 return err_data
             
@@ -169,7 +170,7 @@ class EmptyVideoAdapter:
             out.write(frame)
             out.release()
             return True
-        except:
+        except Exception:
             return False
 
 
@@ -211,7 +212,7 @@ def create_audio_object(audio_url):
                         waveform = waveform.unsqueeze(0)
                     try:
                         os.remove(temp_wav)
-                    except:
+                    except Exception:
                         pass
                     return {
                         "waveform": waveform,
@@ -433,7 +434,7 @@ def safe_public_url(url: str) -> str:
             netloc = parts.netloc.split('@')[-1]
             parts = parts._replace(netloc=netloc)
             return urlunsplit(parts)
-    except:
+    except Exception:
         pass
     return url
 

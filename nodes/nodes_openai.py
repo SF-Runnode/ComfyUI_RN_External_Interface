@@ -244,6 +244,9 @@ class Comfly_gpt_image_1_edit:
             Comfly_gpt_image_1_edit._conversation_history = []
 
             
+        # Initialize progress bar early to avoid undefined variable issues
+        pbar = comfy.utils.ProgressBar(100)
+        
         try:
             if not self.api_key:
                 error_message = "API key not found in Comflyapi.json"
@@ -258,7 +261,6 @@ class Comfly_gpt_image_1_edit:
                 )
                 return (original_image, error_message, self.format_conversation_history())
           
-            pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
             rn_pbar.update(10)
             
@@ -581,6 +583,9 @@ class Comfly_gpt_image_1:
             # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
+        
+        # Initialize progress bar early to avoid undefined variable issues
+        pbar = comfy.utils.ProgressBar(100)
             
         try:
             if not self.api_key:
@@ -596,7 +601,6 @@ class Comfly_gpt_image_1:
                 )
                 log_error("配置缺失", request_id, error_message, "RunNode/OpenAI-", "OpenAIImageGen")
                 raise Exception(error_message)
-            pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
             payload = {
                 "prompt": prompt,
@@ -998,6 +1002,9 @@ class ComflyChatGPTApi:
         else:
             self.api_key = get_config().get('api_key', '')
 
+        # Initialize progress bar early to avoid undefined variable issues
+        pbar = comfy.utils.ProgressBar(100)
+
         try:
             self.image_download_timeout = image_download_timeout
           
@@ -1011,7 +1018,6 @@ class ComflyChatGPTApi:
                 blank_img = Image.new('RGB', (512, 512), color='white')
                 return (pil2tensor(blank_img), error_message, "", self.format_conversation_history()) 
             
-            pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
             rn_pbar.set_generating()
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -1759,7 +1765,7 @@ class Comfly_sora2:
 
             try:
                 rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
-            except:
+            except Exception:
                 pass
 
             log_backend(
@@ -4397,7 +4403,7 @@ class Comfly_sora2_batch_32:
                     try:
                         progress_val = int(progress_text[:-1])
                         self.task_progress[task_idx] = 30 + int(progress_val * 0.6)
-                    except:
+                    except Exception:
                         pass
                 else:
                     self.task_progress[task_idx] = 30 + min(60, int((attempts / max_attempts) * 60))
@@ -4966,7 +4972,7 @@ class _ComflySora2BatchRunner:
                          progress_val = int(progress.rstrip('%'))
                      else:
                          progress_val = int(progress)
-                except:
+                except Exception:
                      progress_val = 0
 
                 if st in ["succeeded", "completed", "SUCCESS", "Succeeded"]:
@@ -5846,8 +5852,10 @@ class ComflySora2New:
             log_backend('sora2_video_failed', level='ERROR', request_id=request_id, stage='invalid_params', error=error_message)
             return ('', '', json.dumps({'status': 'error', 'message': error_message}))
         
+        # Initialize progress bar early to avoid undefined variable issues
+        pbar = comfy.utils.ProgressBar(100)
+        
         try:
-            pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
             
             task_id, error, api_model = self.create_video(
@@ -5896,7 +5904,7 @@ class ComflySora2New:
                     pbar.update_absolute(pbar_val)
                     if progress > 0:
                         rn_pbar.update(progress) # Optional if we want detailed progress
-                except:
+                except Exception:
                     pass
 
                 if status == 'completed':

@@ -296,7 +296,7 @@ class Comfly_kling_image2video:
                 return mode == "pro"
             
             return self.model_compatibility.get(model_name, {}).get(mode, {}).get(duration, False)
-        except:
+        except Exception:
             return False
 
     def generate_video(self, image, prompt, model_name, imagination, aspect_ratio, mode, duration, 
@@ -571,8 +571,7 @@ class Comfly_kling_multi_image2video:
             error_msg = "API key not found in Comflyapi.json"
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
-            error_response = {"task_status": "failed", "task_status_msg": error_msg}
-            return ("", "", "", "", json.dumps(error_response))
+            raise Exception(error_msg)
             
         pbar = comfy.utils.ProgressBar(100)
         pbar.update_absolute(10)
@@ -589,8 +588,7 @@ class Comfly_kling_multi_image2video:
                 error_msg = "No valid images provided"
                 rn_pbar.error(error_msg)
                 log_error("输入缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
-                error_response = {"task_status": "failed", "task_status_msg": error_msg}
-                return ("", "", "", "", json.dumps(error_response))
+                raise Exception(error_msg)
 
             payload = {
                 "model_name": model_name,
@@ -626,8 +624,7 @@ class Comfly_kling_multi_image2video:
                 error_message = format_runnode_error(result)
                 rn_pbar.error(error_message)
                 log_error("API提交失败", request_id, error_message, "RunNode/Kling-", "Kling")
-                error_response = {"task_status": "failed", "task_status_msg": error_message}
-                return ("", "", "", "", json.dumps(error_response))
+                raise Exception(error_message)
                 
             task_id = result["data"]["task_id"]
             pbar.update_absolute(40)
@@ -652,9 +649,7 @@ class Comfly_kling_multi_image2video:
             if "Task failed" not in str(e):
                 rn_pbar.error(error_msg)
                 log_error("生成异常", request_id, error_msg, "RunNode/Kling-", "Kling")
-                 
-            error_response = {"task_status": "failed", "task_status_msg": error_msg}
-            return ("", "", "", "", json.dumps(error_response))
+            raise Exception(error_msg)
 
 
 class Comfly_video_extend:
@@ -693,9 +688,9 @@ class Comfly_video_extend:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
-            rn_pbar.error("API key not found in Comflyapi.json")
-            return ("", "", json.dumps(error_response))
+            error_msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_msg)
+            raise Exception(error_msg)
             
         headers = {
             "Content-Type": "application/json",
@@ -717,8 +712,7 @@ class Comfly_video_extend:
             if result["code"] != 0:
                 error_msg = format_runnode_error(result)
                 rn_pbar.error(error_msg)
-                error_response = {"task_status": "failed", "task_status_msg": error_msg}
-                return ("", "", json.dumps(error_response))
+                raise Exception(error_msg)
                 
             task_id = result["data"]["task_id"]
             pbar = comfy.utils.ProgressBar(100)
@@ -759,17 +753,13 @@ class Comfly_video_extend:
                 
                 elif status_result["data"]["task_status"] == "failed":
                     error_msg = status_result["data"].get("task_status_msg", "Unknown error")
-                    error_response = {
-                        "task_status": "failed", 
-                        "task_status_msg": error_msg,
-                    }
                     rn_pbar.error(f"Task failed: {error_msg}")
-                    return ("", "", json.dumps(error_response))
+                    raise Exception(f"Task failed: {error_msg}")
                     
         except Exception as e:
-            error_response = {"task_status": "failed", "task_status_msg": f"Error extending video: {format_runnode_error(str(e))}"}
-            rn_pbar.error(f"Error extending video: {format_runnode_error(str(e))}")
-            return ("", "", json.dumps(error_response))
+            error_msg = f"Error extending video: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_msg)
+            raise Exception(error_msg)
 
 
 class Comfly_lip_sync:
@@ -891,9 +881,9 @@ class Comfly_lip_sync:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_response = {"task_status": "failed", "task_status_msg": "API key not found in Comflyapi.json"}
-            rn_pbar.error("API key not found in Comflyapi.json")
-            return ("", "", "", json.dumps(error_response))
+            error_msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_msg)
+            raise Exception(error_msg)
         
         if voice_language == "zh":
             voice_id = self.zh_voice_map.get(zh_voice, "")
@@ -933,9 +923,8 @@ class Comfly_lip_sync:
             result = response.json()
             if result["code"] != 0:
                 error_msg = format_runnode_error(result)
-                error_response = {"task_status": "failed", "task_status_msg": error_msg}
                 rn_pbar.error(error_msg)
-                return ("", "", "", json.dumps(error_response))
+                raise Exception(error_msg)
                     
             task_id = result["data"]["task_id"]
             pbar.update_absolute(10) 
@@ -972,15 +961,11 @@ class Comfly_lip_sync:
                         
                 elif status_result["data"]["task_status"] == "failed":
                     error_msg = status_result["data"].get("task_status_msg", "Unknown error")
-                    error_response = {
-                        "task_status": "failed", 
-                        "task_status_msg": error_msg,
-                    }
                     rn_pbar.error(f"Task failed: {error_msg}")
-                    return ("", "", task_id, json.dumps(error_response))
+                    raise Exception(f"Task failed: {error_msg}")
                         
         except Exception as e:
-            error_response = {"task_status": "failed", "task_status_msg": f"Error in lip sync process: {format_runnode_error(str(e))}"}
-            rn_pbar.error(f"Error in lip sync process: {format_runnode_error(str(e))}")
-            return ("", "", "", json.dumps(error_response))
+            error_msg = f"Error in lip sync process: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_msg)
+            raise Exception(error_msg)
    
