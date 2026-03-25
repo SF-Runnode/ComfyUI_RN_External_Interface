@@ -1,6 +1,7 @@
 import os
 import json
 import glob
+from typing import Dict
 
 
 
@@ -114,3 +115,87 @@ def save_config(config):
 
 
 baseurl = get_config().get('base_url', '')
+
+
+# ============== 计费配置 ==============
+
+_billing_config_cache = None
+
+
+def get_billing_config() -> Dict:
+    """
+    获取计费配置
+
+    支持从以下位置加载（按优先级）:
+    1. 环境变量 BILLING_CONFIG_PATH 指定的路径
+    2. 挂载路径 config/billing_config.json
+    3. 默认配置 config/billing_config.json
+
+    Docker/K8s 部署时，可通过挂载新的 billing_config.json 实现价格更新，
+    无需重新构建镜像。
+    """
+    global _billing_config_cache
+
+    if _billing_config_cache is not None:
+        return _billing_config_cache
+
+    # 优先从环境变量读取
+    env_path = os.environ.get("BILLING_CONFIG_PATH")
+    if env_path and os.path.exists(env_path):
+        try:
+            with open(env_path, 'r', encoding='utf-8') as f:
+                _billing_config_cache = json.load(f)
+                return _billing_config_cache
+        except Exception as e:
+            print(f"[Billing] Warning: Failed to load billing config from env path {env_path}: {e}")
+
+    # 默认配置路径
+    default_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        "config",
+        "billing_config.json"
+    )
+
+    # 尝试多个可能的文件名（兼容大小写和不同命名）
+    config_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config")
+    config_patterns = [
+        "billing_config.json",
+        "Billing_Config.json",
+        "billing-config.json",
+        "*billing*config*.json",
+        "*Billing*Config*.json",
+    ]
+
+    config_path = None
+    if os.path.exists(default_path):
+        config_path = default_path
+    else:
+        import fnmatch
+        for pattern in config_patterns:
+            full_pattern = os.path.join(config_dir, pattern)
+            matches = [f for f in glob.glob(full_pattern) if os.path.isfile(f)]
+            if matches:
+                config_path = matches[0]
+                break
+
+    if config_path and os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                _billing_config_cache = json.load(f)
+                print(f"[Billing] Loaded billing config from: {config_path}")
+                return _billing_config_cache
+        except Exception as e:
+            print(f"[Billing] Warning: Failed to load billing config from {config_path}: {e}")
+
+    # 返回空配置（禁用计费）
+    print("[Billing] Warning: No billing config found, billing disabled")
+    _billing_config_cache = {"models": {}, "display_settings": {"show_estimate_badge": False}}
+    return _billing_config_cache
+
+
+def reload_billing_config():
+    """重新加载计费配置（用于热更新）"""
+    global _billing_config_cache
+    _billing_config_cache = None
+    return get_billing_config()
+

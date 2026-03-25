@@ -14,7 +14,7 @@ from .nodes.nodes_ollama import *
 from .nodes.nodes_xai import *
 
 
-WEB_DIRECTORY = "./web"
+WEB_DIRECTORY = "./web/js"
 
 __version__ = "1.19.5"
 
