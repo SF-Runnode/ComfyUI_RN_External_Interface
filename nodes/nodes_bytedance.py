@@ -8,7 +8,7 @@ class Comfly_Doubao_Seedream:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["doubao-seedream-3-0-t2i-250415"], {"default": "doubao-seedream-3-0-t2i-250415"}),
+                "model": (["Doubao Seedream 3.0"], {"default": "Doubao Seedream 3.0"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "size": (["1024x1024", "864x1152", "1152x864", "1280x720", "720x1280", "832x1248", 
                          "1248x832", "1512x648", "Custom"], {"default": "1024x1024"}),
@@ -53,9 +53,10 @@ class Comfly_Doubao_Seedream:
         except ValueError:
             return False, "Custom size must contain valid integers in format 'widthxheight'"
     
-    def generate_image(self, prompt, model, response_format="url", size="1024x1024", 
-                       Custom_size="1536x1024", guidance_scale=2.5, apikey="", 
+    def generate_image(self, prompt, model, response_format="url", size="1024x1024",
+                       Custom_size="1536x1024", guidance_scale=2.5, apikey="",
                        seed=-1, watermark=True):
+        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "doubao")
         log_prepare("图像生成", request_id, "RunNode/Doubao-", "Doubao", model_name=model)
         rn_pbar = ProgressBar(request_id, "Doubao", streaming=True, task_type="图像生成", source="RunNode/Doubao-")
@@ -193,7 +194,7 @@ class Comfly_Doubao_Seedream_4:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["doubao-seedream-4-0-250828"], {"default": "doubao-seedream-4-0-250828"}),
+                "model": (["Doubao Seedream 4.0"], {"default": "Doubao Seedream 4.0"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "resolution": (["1K", "2K", "4K"], {"default": "1K"}),
             },
@@ -286,11 +287,12 @@ class Comfly_Doubao_Seedream_4:
         image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{image_base64}"
     
-    def generate_image(self, prompt, model, response_format="url", resolution="1K", 
-                  aspect_ratio="1:1", width=1024, height=1024, apikey="", 
-                  image1=None, image2=None, image3=None, image4=None, image5=None, 
-                  sequential_image_generation="disabled", max_images=1, seed=-1, 
+    def generate_image(self, prompt, model, response_format="url", resolution="1K",
+                  aspect_ratio="1:1", width=1024, height=1024, apikey="",
+                  image1=None, image2=None, image3=None, image4=None, image5=None,
+                  sequential_image_generation="disabled", max_images=1, seed=-1,
                   watermark=True, stream=False):
+        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "doubao")
         log_prepare("图像生成", request_id, "RunNode/Doubao-", "Doubao", model_name=model)
         rn_pbar = ProgressBar(request_id, "Doubao", streaming=True, task_type="图像生成", source="RunNode/Doubao-")

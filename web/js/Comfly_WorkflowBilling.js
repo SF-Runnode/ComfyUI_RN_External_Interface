@@ -78,6 +78,31 @@
 
     let panelElement = null;
     let contentElement = null;
+    let billingConfig = null;
+    let currencyCode = 'USD';
+    let baseCurrency = 'USD';
+    let currencyRate = 1;
+    let creditsRate = 211;
+    let rates = {};
+
+    async function loadBillingConfig() {
+        if (billingConfig) return billingConfig;
+        try {
+            const resp = await fetch('/api/billing_config');
+            if (resp.ok) {
+                billingConfig = await resp.json();
+                const ds = billingConfig?.display_settings || {};
+                currencyCode = ds.currency || 'USD';
+                baseCurrency = ds.base_currency || 'USD';
+                rates = ds.currency_rates || {};
+                currencyRate = (rates && rates[currencyCode]) || 1;
+                creditsRate = ds.credits_conversion_rate || 211;
+                return billingConfig;
+            }
+        } catch (e) {}
+        billingConfig = {};
+        return billingConfig;
+    }
 
     /**
      * 创建/获取面板元素
@@ -162,10 +187,18 @@
             if (!info.name) return;
             const row = document.createElement("div");
             row.style.cssText = NODE_ROW_STYLE;
-            row.innerHTML = `
-                <span style="color: rgba(255,255,255,0.8); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${info.name}">${info.name}</span>
-                <span style="color: ${info.actual > 0 ? '#38ef7d' : '#f0ad4e'};">${formatPrice(info.actual > 0 ? info.actual : info.estimated)}</span>
-            `;
+
+            const nameSpan = document.createElement("span");
+            nameSpan.style.cssText = "color: rgba(255,255,255,0.8); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;";
+            nameSpan.textContent = info.name;
+            nameSpan.title = info.name;
+
+            const priceSpan = document.createElement("span");
+            priceSpan.style.color = info.actual > 0 ? '#38ef7d' : '#f0ad4e';
+            priceSpan.textContent = formatPrice(info.actual > 0 ? info.actual : info.estimated);
+
+            row.appendChild(nameSpan);
+            row.appendChild(priceSpan);
             nodesContainer.appendChild(row);
         });
     }
@@ -173,21 +206,41 @@
     /**
      * 格式化价格显示
      */
+    function getRate(code){
+        if (!rates) return code === baseCurrency ? 1 : undefined;
+        if (code === baseCurrency) return 1;
+        return rates[code] || undefined;
+    }
+
+    function fromBaseTo(amount, code){
+        const r = getRate(code);
+        if (!r) return amount;
+        return amount * r;
+    }
+
+    function toBaseFrom(amount, code){
+        if (code === baseCurrency) return amount;
+        const r = getRate(code);
+        if (!r) return amount;
+        return amount / r;
+    }
+
     function formatPrice(price, showCredits = false) {
         if (price === undefined || price === null || price <= 0) {
             return "$0.00";
         }
 
         if (showCredits && price < 0.01) {
-            const credits = Math.round(price * 211 * 10) / 10;
+            const credits = Math.round(price * creditsRate * 10) / 10;
             return `${credits.toFixed(1)} cr`;
         }
 
         if (price < 0.01) {
-            return `${(price * 211).toFixed(1)} cr`;
+            return `${(price * creditsRate).toFixed(1)} cr`;
         }
 
-        return `$${price.toFixed(4)}`;
+        const converted = fromBaseTo((price || 0), currencyCode);
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode, maximumFractionDigits: 4 }).format(converted);
     }
 
     /**
@@ -250,14 +303,15 @@
         const value = parseFloat(match[1]);
         const unit = (match[2] || "$").toLowerCase();
 
-        let priceUSD;
+        let priceBase;
         if (unit === "cr" || unit === "credits") {
-            priceUSD = value / 211;
+            const priceUSD = value / (creditsRate || 211);
+            priceBase = toBaseFrom(priceUSD, 'USD');
         } else {
-            priceUSD = value;
+            priceBase = toBaseFrom(value, 'USD');
         }
 
-        return priceUSD;
+        return priceBase;
     }
 
     // ============== ComfyUI 事件监听 ==============
@@ -268,6 +322,7 @@
         async setup() {
             console.log(`[${extensionId}] Setup`);
             getOrCreatePanel();
+            await loadBillingConfig();
         },
 
         /**

@@ -120,7 +120,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_video_extend": "RunNode video_extend",
     "RunNode_lip_sync": "RunNode lip_sync",
     "RunNodeGeminiAPI": "RunNode Gemini API",
-    "RunNodeSeededit": "RunNode Doubao SeedEdit2.0",
+    "RunNodeSeededit": "RunNode Doubao SeedEdit",
     "RunNodeChatGPTApi": "RunNode ChatGPT Api",
     "RunNode_sora2_openai": "RunNode Sora2 OpenAI",
     "RunNode_sora2": "RunNode Sora2",

@@ -47,23 +47,23 @@ class Comfly_kling_text2video:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model_name": (["kling-v2-1-master", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"], {"default": "kling-v1-6"}),
-                "imagination": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
-                "aspect_ratio": (["1:1", "16:9", "9:16"], {"default": "1:1"}),
-                "mode": (["std", "pro"], {"default": "std"}),
-                "duration": (["5", "10"], {"default": "5"}),
-                "num_videos": ("INT", {"default": 1, "min": 1, "max": 4}),
-                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容。"}),
+                "model_name": (["Kling 2.1 Master", "Kling 2.0 Master", "Kling 1.6", "Kling 1.5", "Kling 1.0"], {"default": "Kling 1.6", "tooltip": "Kling模型版本。v2系列为最新版本，v1系列为旧版本。"}),
+                "imagination": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "创意想象力参数。控制生成视频的创意程度，较高值更有创意但可能不那么真实。"}),
+                "aspect_ratio": (["1:1", "16:9", "9:16"], {"default": "1:1", "tooltip": "视频宽高比。1:1为方形，16:9为横屏，9:16为竖屏。"}),
+                "mode": (["std", "pro"], {"default": "std", "tooltip": "生成模式。std为标准模式，pro为专业模式（更高质量但更慢）。"}),
+                "duration": (["5", "10"], {"default": "5", "tooltip": "视频时长(秒)。5秒或10秒。"}),
+                "num_videos": ("INT", {"default": 1, "min": 1, "max": 4, "tooltip": "生成视频数量，范围1-4。"}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": "", "tooltip": "负面提示词。描述不想出现在视频中的内容。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"})
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "Kling API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "camera": (["none", "horizontal", "vertical", "zoom", "vertical_shake", "horizontal_shake", 
-                          "rotate", "master_down_zoom", "master_zoom_up", "master_right_rotate_zoom", 
-                          "master_left_rotate_zoom"], {"default": "none"}),
-                "camera_value": ("FLOAT", {"default": 0, "min": -10, "max": 10, "step": 0.1})
+                "camera": (["none", "horizontal", "vertical", "zoom", "vertical_shake", "horizontal_shake",
+                          "rotate", "master_down_zoom", "master_zoom_up", "master_right_rotate_zoom",
+                          "master_left_rotate_zoom"], {"default": "none", "tooltip": "相机运镜方式。控制视频的镜头运动效果。"}),
+                "camera_value": ("FLOAT", {"default": 0, "min": -10, "max": 10, "step": 0.1, "tooltip": "相机运镜强度。控制镜头运动的幅度。"})
             }
         }
 
@@ -141,8 +141,9 @@ class Comfly_kling_text2video:
         }
         return json.dumps(camera_mappings.get(camera, camera_mappings["none"]))
 
-    def generate_video(self, prompt, model_name, imagination, aspect_ratio, mode, duration, num_videos, 
+    def generate_video(self, prompt, model_name, imagination, aspect_ratio, mode, duration, num_videos,
                   negative_prompt="", camera="none", camera_value=0, seed=0, api_key=""):
+        model_name = get_api_model_name(model_name)
         request_id = generate_request_id("video_gen", "kling")
         log_prepare("视频生成", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
         rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="视频生成", source="RunNode/Kling-")
@@ -227,29 +228,29 @@ class Comfly_kling_text2video:
 
 
 class Comfly_kling_image2video:
-    @classmethod 
+    @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "image": ("IMAGE",),
-                "prompt": ("STRING", {"multiline": True}),
-                "model_name": (["kling-v2-1", "kling-v2-1-master", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"], {"default": "kling-v1-6"}),
-                "imagination": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
-                "aspect_ratio": (["1:1", "16:9", "9:16"], {"default": "1:1"}),
-                "mode": (["std", "pro"], {"default": "std"}),
-                "duration": (["5", "10"], {"default": "5"}),
-                "num_videos": ("INT", {"default": 1, "min": 1, "max": 4}),
-                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
+                "image": ("IMAGE", {"tooltip": "输入图像。作为视频生成的基础图像。"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。描述想要对图像进行的动画处理或变化。"}),
+                "model_name": (["kling-v2-1", "Kling 2.1 Master", "Kling 2.0 Master", "Kling 1.6", "Kling 1.5", "Kling 1.0"], {"default": "Kling 1.6", "tooltip": "Kling模型版本。"}),
+                "imagination": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "创意想象力参数。控制生成视频的创意程度。"}),
+                "aspect_ratio": (["1:1", "16:9", "9:16"], {"default": "1:1", "tooltip": "视频宽高比。"}),
+                "mode": (["std", "pro"], {"default": "std", "tooltip": "生成模式。std为标准模式，pro为专业模式。"}),
+                "duration": (["5", "10"], {"default": "5", "tooltip": "视频时长(秒)。"}),
+                "num_videos": ("INT", {"default": 1, "min": 1, "max": 4, "tooltip": "生成视频数量。"}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": "", "tooltip": "负面提示词。描述不想出现在视频中的内容。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"})
             },
             "optional": {
-                "image_tail": ("IMAGE",),
-                "api_key": ("STRING", {"default": ""}),
+                "image_tail": ("IMAGE", {"tooltip": "尾帧图像。可选，定义视频最后一帧的内容。"}),
+                "api_key": ("STRING", {"default": "", "tooltip": "Kling API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "camera": (["none", "horizontal", "vertical", "zoom", "vertical_shake", "horizontal_shake", 
-                          "rotate", "master_down_zoom", "master_zoom_up", "master_right_rotate_zoom", 
-                          "master_left_rotate_zoom"], {"default": "none"}),
-                "camera_value": ("FLOAT", {"default": 0, "min": -10, "max": 10, "step": 0.1}),      
+                "camera": (["none", "horizontal", "vertical", "zoom", "vertical_shake", "horizontal_shake",
+                          "rotate", "master_down_zoom", "master_zoom_up", "master_right_rotate_zoom",
+                          "master_left_rotate_zoom"], {"default": "none", "tooltip": "相机运镜方式。控制视频的镜头运动效果。"}),
+                "camera_value": ("FLOAT", {"default": 0, "min": -10, "max": 10, "step": 0.1, "tooltip": "相机运镜强度。"})
             }
         }
 
@@ -299,8 +300,9 @@ class Comfly_kling_image2video:
         except Exception:
             return False
 
-    def generate_video(self, image, prompt, model_name, imagination, aspect_ratio, mode, duration, 
+    def generate_video(self, image, prompt, model_name, imagination, aspect_ratio, mode, duration,
                   num_videos, negative_prompt="", camera="none", camera_value=0, seed=0, image_tail=None, api_key=""):
+        model_name = get_api_model_name(model_name)
         request_id = generate_request_id("video_gen_img", "kling")
         log_prepare("图生视频", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
         rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="图生视频", source="RunNode/Kling-")
@@ -447,23 +449,23 @@ class Comfly_kling_multi_image2video:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model_name": (["kling-v1-6"], {"default": "kling-v1-6"}),
-                "mode": (["std", "pro"], {"default": "std"}),
-                "duration": (["5", "10"], {"default": "5"}),
-                "aspect_ratio": (["16:9", "9:16", "1:1"], {"default": "16:9"}),
-                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。描述想要生成的视频内容。"}),
+                "model_name": (["Kling 1.6"], {"default": "Kling 1.6", "tooltip": "Kling模型版本。"}),
+                "mode": (["std", "pro"], {"default": "std", "tooltip": "生成模式。std为标准模式，pro为专业模式。"}),
+                "duration": (["5", "10"], {"default": "5", "tooltip": "视频时长(秒)。"}),
+                "aspect_ratio": (["16:9", "9:16", "1:1"], {"default": "16:9", "tooltip": "视频宽高比。"}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": "", "tooltip": "负面提示词。描述不想出现在视频中的内容。"}),
             },
             "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "api_key": ("STRING", {"default": ""}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "api_key": ("STRING", {"default": "", "tooltip": "Kling API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "max_retries": ("INT", {"default": 10, "min": 1, "max": 30}),
-                "initial_timeout": ("INT", {"default": 600, "min": 30, "max": 900}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
+                "max_retries": ("INT", {"default": 10, "min": 1, "max": 30, "tooltip": "最大重试次数。"}),
+                "initial_timeout": ("INT", {"default": 600, "min": 30, "max": 900, "tooltip": "初始超时时间(秒)。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"})
             }
         }
 
@@ -553,9 +555,10 @@ class Comfly_kling_multi_image2video:
                 wait_time = min(2 ** (attempt - 1), 60)
                 time.sleep(wait_time)
     
-    def generate_video(self, prompt, model_name, mode, duration, aspect_ratio, negative_prompt="", 
-                 image1=None, image2=None, image3=None, image4=None, api_key="", 
+    def generate_video(self, prompt, model_name, mode, duration, aspect_ratio, negative_prompt="",
+                 image1=None, image2=None, image3=None, image4=None, api_key="",
                  max_retries=10, initial_timeout=300, seed=0):
+        model_name = get_api_model_name(model_name)
         request_id = generate_request_id("video_gen_multi", "kling")
         log_prepare("多图视频生成", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
         rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="多图视频生成", source="RunNode/Kling-")
@@ -657,11 +660,11 @@ class Comfly_video_extend:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "video_id": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "prompt": ("STRING", {"default": "", "multiline": True}),
+                "video_id": ("STRING", {"default": "", "multiline": False, "forceInput": True, "tooltip": "要扩展的视频ID。"}),
+                "prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "视频扩展的描述提示词。描述想要如何扩展视频内容。"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "Kling API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
@@ -802,7 +805,7 @@ class Comfly_lip_sync:
             ["刀片烟嗓", "daopianyansang-v1"],
             ["乖巧正太", "mengwa-v1"]
         ]
-        
+
         cls.en_voices = [
             ["Sunny", "genshin_vindi2"],
             ["Sage", "zhinen_xuesheng"],
@@ -832,26 +835,26 @@ class Comfly_lip_sync:
             ["The Reader", "reader_en_m-v1"],
             ["Commercial Lady", "commercial_lady_en_f-v1"]
         ]
-        
+
         return {
             "required": {
-                "video_id": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "task_id": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "mode": (["text2video", "audio2video"], {"default": "text2video"}),
-                "text": ("STRING", {"multiline": True, "default": ""}),
-                "voice_language": (["zh", "en"], {"default": "zh"}),
-                "zh_voice": ([name for name, _ in cls.zh_voices], {"default": cls.zh_voices[0][0]}),
-                "en_voice": ([name for name, _ in cls.en_voices], {"default": cls.en_voices[0][0]}),
-                "voice_speed": ("FLOAT", {"default": 1.0, "min": 0.8, "max": 2.0, "step": 0.1}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
+                "video_id": ("STRING", {"default": "", "multiline": False, "forceInput": True, "tooltip": "视频ID。"}),
+                "task_id": ("STRING", {"default": "", "multiline": False, "forceInput": True, "tooltip": "任务ID。"}),
+                "mode": (["text2video", "audio2video"], {"default": "text2video", "tooltip": "唇形同步模式。text2video为文字转视频，audio2video为音频转视频。"}),
+                "text": ("STRING", {"multiline": True, "default": "", "tooltip": "要说的文本内容。"}),
+                "voice_language": (["zh", "en"], {"default": "zh", "tooltip": "语音语言。zh为中文，en为英文。"}),
+                "zh_voice": ([name for name, _ in cls.zh_voices], {"default": cls.zh_voices[0][0], "tooltip": "中文语音音色。"}),
+                "en_voice": ([name for name, _ in cls.en_voices], {"default": cls.en_voices[0][0], "tooltip": "英文语音音色。"}),
+                "voice_speed": ("FLOAT", {"default": 1.0, "min": 0.8, "max": 2.0, "step": 0.1, "tooltip": "语音速度。1.0为正常速度。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"})
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "Kling API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "video_url": ("STRING", {"default": ""}),
-                "audio_type": (["file", "url"], {"default": "file"}),
-                "audio_file": ("STRING", {"default": ""}),
-                "audio_url": ("STRING", {"default": ""})
+                "video_url": ("STRING", {"default": "", "tooltip": "视频URL。与video_id二选一。"}),
+                "audio_type": (["file", "url"], {"default": "file", "tooltip": "音频输入类型。file为文件，url为URL。"}),
+                "audio_file": ("STRING", {"default": "", "tooltip": "音频文件内容。"}),
+                "audio_url": ("STRING", {"default": "", "tooltip": "音频URL地址。"})
             }
         }
 

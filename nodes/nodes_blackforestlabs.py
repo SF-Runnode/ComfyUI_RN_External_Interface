@@ -13,7 +13,7 @@ class Comfly_Flux_Kontext:
             },
             "optional": {
                 "input_image": ("IMAGE",),
-                "model": (["flux-kontext-dev", "flux-kontext-pro", "flux-kontext-max"], {"default": "flux-kontext-pro"}),
+                "model": (["Flux Kontext Dev", "Flux Kontext Pro", "Flux Kontext Max"], {"default": "Flux Kontext Pro"}),
                 "apikey": ("STRING", {"default": ""}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "aspect_ratio": (["Default", "21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"], 
@@ -70,9 +70,10 @@ class Comfly_Flux_Kontext:
             print(error_msg)
             raise Exception(error_msg)
     
-    def generate_image(self, prompt, input_image=None, model="flux-kontext-pro", 
+    def generate_image(self, prompt, input_image=None, model="Flux Kontext Pro",
                   apikey="", aspect_ratio="Default", guidance=3.5, num_of_images=1,
                   seed=-1, clear_image=True):
+        model = get_api_model_name(model)
         request_id = generate_request_id("image_gen", "flux")
         log_prepare("图像生成", request_id, "RunNode/Flux-", "Flux", model_name=model)
         rn_pbar = ProgressBar(request_id, "Flux", streaming=True, task_type="图像生成", source="RunNode/Flux-")
@@ -225,7 +226,7 @@ class Comfly_Flux_Kontext_Edit:
             },
             "optional": {
                 "image": ("IMAGE",),
-                "model": (["flux-kontext-dev", "flux-kontext-pro", "flux-kontext-max"], {"default": "flux-kontext-pro"}),
+                "model": (["Flux Kontext Dev", "Flux Kontext Pro", "Flux Kontext Max"], {"default": "Flux Kontext Pro"}),
                 "apikey": ("STRING", {"default": ""}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "aspect_ratio": (["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"], 
@@ -249,9 +250,10 @@ class Comfly_Flux_Kontext_Edit:
             "Authorization": f"Bearer {self.api_key}"
         }
     
-    def generate_image(self, prompt, image=None, model="flux-kontext-pro", 
+    def generate_image(self, prompt, image=None, model="Flux Kontext Pro",
                   apikey="", aspect_ratio="1:1", num_of_images=1,
                   seed=-1):
+        model = get_api_model_name(model)
         request_id = generate_request_id("image_edit", "flux")
         log_prepare("图像生成", request_id, "RunNode/Flux-", "Flux", model_name=model)
         rn_pbar = ProgressBar(request_id, "Flux", streaming=True, task_type="图像生成", source="RunNode/Flux-")
@@ -403,7 +405,7 @@ class Comfly_Flux_Kontext_bfl:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["flux-kontext-pro", "flux-kontext-max"], {"default": "flux-kontext-pro"}),
+                "model": (["Flux Kontext Pro", "Flux Kontext Max"], {"default": "Flux Kontext Pro"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
@@ -444,9 +446,10 @@ class Comfly_Flux_Kontext_bfl:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    def generate_image(self, prompt, model="flux-kontext-pro", input_image=None, 
-                      seed=-1, aspect_ratio="1:1", output_format="png", 
+    def generate_image(self, prompt, model="Flux Kontext Pro", input_image=None,
+                      seed=-1, aspect_ratio="1:1", output_format="png",
                       prompt_upsampling=False, safety_tolerance=2, api_key=""):
+        model = get_api_model_name(model)
         request_id = generate_request_id("image_gen", "flux")
         log_prepare("图像生成", request_id, "RunNode/Flux-", "Flux", model_name=model)
         rn_pbar = ProgressBar(request_id, "Flux", streaming=True, task_type="图像生成", source="RunNode/Flux-")

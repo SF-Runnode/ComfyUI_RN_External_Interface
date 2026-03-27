@@ -1,6 +1,7 @@
 /**
  * ComfyUI_RN_External_Interface - Price Badge Display
- * 在节点底部显示预估费用 badge
+ * 在节点显示预估费用 badge（价格 + 计费方式）
+ * 支持单节点和批量并发节点
  */
 
 import { app } from "../../../scripts/app.js";
@@ -9,6 +10,13 @@ import { app } from "../../../scripts/app.js";
     const extensionId = "Comfly.PriceBadge";
 
     let billingConfig = null;
+    let currencyCode = 'USD';
+    let baseCurrency = 'USD';
+    let creditsRate = 211;
+    let rates = {};
+    let modelsCurrency = 'USD';
+    let modelDisplayNames = {};
+    let modelApiNames = {};
 
     /**
      * 加载计费配置
@@ -20,6 +28,14 @@ import { app } from "../../../scripts/app.js";
             const resp = await fetch('/api/billing_config');
             if (resp.ok) {
                 billingConfig = await resp.json();
+                const ds = billingConfig?.display_settings || {};
+                currencyCode = ds.currency || 'USD';
+                baseCurrency = ds.base_currency || 'USD';
+                rates = ds.currency_rates || {};
+                creditsRate = ds.credits_conversion_rate || 211;
+                modelsCurrency = ds.models_currency || 'USD';
+                modelDisplayNames = ds.model_display_names || {};
+                modelApiNames = ds.model_api_names || {};
                 console.log(`[${extensionId}] Loaded billing config`);
                 return billingConfig;
             }
@@ -32,7 +48,60 @@ import { app } from "../../../scripts/app.js";
     }
 
     /**
+     * 获取模型的友好显示名称
+     */
+    function getModelDisplayName(modelKey) {
+        return modelDisplayNames[modelKey] || modelKey;
+    }
+
+    /**
+     * 将友好显示名称转换为 API 名称（用于价格查找）
+     */
+    function getApiModelName(displayName) {
+        if (!displayName) return displayName;
+        // 如果已经是 API 名称（原名），直接返回
+        if (billingConfig?.models?.hasOwnProperty(displayName)) {
+            return displayName;
+        }
+        // 尝试从映射表中查找
+        return modelApiNames[displayName] || displayName;
+    }
+
+    /**
+     * 计费方式显示信息
+     */
+    const BILLING_TYPE_INFO = {
+        'per_second': { icon: '⏱️', label: 'per sec', shortLabel: '/s' },
+        'per_use': { icon: '📌', label: 'per use', shortLabel: '/use' },
+        'token': { icon: '💰', label: 'per token', shortLabel: '/token' },
+        'per_model': { icon: '📦', label: 'per model', shortLabel: '/model' }
+    };
+
+    /**
+     * 检测批量节点并获取数量
+     * 返回 { isBatch, count } - count 为批次数量（单节点为1）
+     */
+    function detectBatchNode(nodeName) {
+        const type = nodeName.toLowerCase();
+
+        // sora2_run_X 模式
+        const soraMatch = type.match(/sora2_run_(\d+)/);
+        if (soraMatch) {
+            return { isBatch: true, count: parseInt(soraMatch[1]) };
+        }
+
+        // banana2_edit_run_X 模式
+        const bananaMatch = type.match(/banana2_edit(?:_s2a)?_run_(\d+)/);
+        if (bananaMatch) {
+            return { isBatch: true, count: parseInt(bananaMatch[1]) };
+        }
+
+        return { isBatch: false, count: 1 };
+    }
+
+    /**
      * 根据节点类型和 widgets 估算价格
+     * @returns { price: number, billingType: string, billingTypeLabel: string, billingTypeIcon: string } 或 null
      */
     function estimatePrice(nodeType, widgets) {
         if (!billingConfig?.models) return null;
@@ -57,10 +126,12 @@ import { app } from "../../../scripts/app.js";
             modelKey = model || 'kling-v1-6';
         }
         else if (type.includes('mj') || type.includes('midjourney')) {
-            return billingConfig.models['midjourney']?.price_per_use || 0.035;
+            const price = billingConfig.models['midjourney']?.price_per_use || 0.035;
+            const info = BILLING_TYPE_INFO['per_use'];
+            return { price, billingType: 'per_use', billingTypeIcon: info.icon, billingTypeLabel: info.shortLabel, modelKey: 'midjourney' };
         }
         else if (type.includes('suno')) {
-            modelKey = model ? `suno-${model}` : 'suno-v4.5';
+            modelKey = model ? model : 'Suno 4.5';
         }
         else if (type.includes('doubao') || type.includes('seedream') || type.includes('seededit')) {
             modelKey = model || 'doubao-seedream';
@@ -99,12 +170,20 @@ import { app } from "../../../scripts/app.js";
             modelKey = 'ollama';
             duration = 0;
         }
+        else if (type.includes('lip_sync')) {
+            modelKey = 'lip_sync';
+            // lip_sync uses duration from widget or default 10s
+            duration = parseInt(getWidgetValue('duration')) || 10;
+        }
         else if (model) {
             modelKey = model;
         }
         else {
             return null;
         }
+
+        // 将友好名称转换为 API 名称（用于价格查找）
+        modelKey = getApiModelName(modelKey);
 
         let config = billingConfig.models[modelKey];
 
@@ -119,43 +198,86 @@ import { app } from "../../../scripts/app.js";
 
         if (!config) return null;
 
+        const info = BILLING_TYPE_INFO[config.billing_type] || { icon: '💳', label: '', shortLabel: '' };
+        let price = 0;
+
         switch (config.billing_type) {
             case 'per_second':
-                return (duration || 10) * (config.price_per_second || 0);
+                price = (duration || 10) * (config.price_per_second || 0);
+                break;
             case 'per_use':
-                return config.price_per_use || 0;
+                price = config.price_per_use || 0;
+                break;
             case 'token': {
                 const promptWidget = widgets?.find(w => w.name === 'prompt');
                 const promptLen = (promptWidget?.value || '').length || 1000;
                 const inputTokens = Math.ceil(promptLen / 4);
                 const outputTokens = Math.ceil(promptLen / 8);
-                return (inputTokens / 1000 * (config.input_price_per_1k || 0)) +
+                price = (inputTokens / 1000 * (config.input_price_per_1k || 0)) +
                        (outputTokens / 1000 * (config.output_price_per_1k || 0));
+                break;
             }
             case 'per_model':
-                return config.price_per_model || 0;
+                price = config.price_per_model || 0;
+                break;
             default:
                 return null;
         }
+
+        const priceBase = toBaseFrom(price, modelsCurrency || 'USD');
+        return { price: priceBase, billingType: config.billing_type, billingTypeIcon: info.icon, billingTypeLabel: info.shortLabel, modelKey };
     }
 
     /**
      * 格式化价格显示
      */
+    function getRate(code){
+        if (code === baseCurrency) return 1;
+        if (!rates || Object.keys(rates).length === 0) return undefined;
+        return rates[code] || undefined;
+    }
+
+    function fromBaseTo(amount, code){
+        const r = getRate(code);
+        if (!r) return amount;
+        return amount * r;
+    }
+
+    function toBaseFrom(amount, code){
+        if (code === baseCurrency) return amount;
+        const r = getRate(code);
+        if (!r) return amount;
+        return amount / r;
+    }
+
     function formatPrice(price) {
         if (!price || price <= 0) return null;
         if (price < 0.01) {
-            const credits = Math.round(price * 211 * 10) / 10;
+            const credits = Math.round(price * creditsRate * 10) / 10;
             return { text: `${credits.toFixed(1)} cr`, small: true };
         }
-        return { text: `$${price.toFixed(4)}`, small: false };
+        const converted = fromBaseTo((price || 0), currencyCode);
+        const text = new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode, maximumFractionDigits: 4 }).format(converted);
+        return { text, small: false };
     }
 
     /**
-     * 检查是否是 Comfly 节点（仅 RunNode_* 前缀）
+     * 检查是否是 Comfly 节点
+     * 支持多种命名模式：
+     * - RunNode_* (RunNode_api_set, RunNode_mj, RunNode_sora2, etc.)
+     * - RunNode[A-Z]* (RunNodeJimengApi, RunNodeJimengVideoApi)
+     * - OpenAI_Sora_API* (OpenAI_Sora_API, OpenAI_Sora_API_Plus)
+     * - Comfly_* (Comfly_*)
      */
     function isComflyNode(nodeName) {
-        return nodeName.startsWith('RunNode_');
+        if (!nodeName) return false;
+        // 匹配 RunNode_* 或 RunNode + 大写字母开头 (camelCase)
+        if (/^RunNode[A-Z]/.test(nodeName) || nodeName.startsWith('RunNode_')) return true;
+        // OpenAI Sora API 节点
+        if (nodeName.startsWith('OpenAI_Sora_API')) return true;
+        // Comfly_* 节点
+        if (nodeName.startsWith('Comfly_')) return true;
+        return false;
     }
 
     /**
@@ -164,11 +286,28 @@ import { app } from "../../../scripts/app.js";
     function attachBadge(node, nodeName) {
         if (!isComflyNode(nodeName)) return;
 
-        const price = estimatePrice(nodeName, node.widgets);
-        if (!price) return;
+        const result = estimatePrice(nodeName, node.widgets);
+        if (!result || !result.price) return;
 
-        const formatted = formatPrice(price);
+        const formatted = formatPrice(result.price);
         if (!formatted) return;
+
+        // 检测是否是批量节点
+        const { isBatch, count } = detectBatchNode(nodeName);
+        const totalPrice = result.price * count;
+
+        // 获取模型显示名称
+        const modelDisplayName = getModelDisplayName(result.modelKey || '');
+
+        // 格式化显示文本：模型显示名称 + 图标 + 价格 + 计费方式
+        // 格式示例：Sora 2 ⏱️ ¥0.05/s 或 Sora 2 ⏱️ ¥0.20/s ×4
+        let displayText;
+        if (isBatch && count > 1) {
+            const totalFormatted = formatPrice(totalPrice);
+            displayText = `${modelDisplayName} ${result.billingTypeIcon} ${totalFormatted.text}${result.billingTypeLabel}${count > 1 ? ` ×${count}` : ''}`;
+        } else {
+            displayText = `${modelDisplayName} ${result.billingTypeIcon} ${formatted.text}${result.billingTypeLabel}`;
+        }
 
         // 创建 badge 容器
         const badgeContainer = document.createElement('div');
@@ -176,7 +315,8 @@ import { app } from "../../../scripts/app.js";
 
         const badge = document.createElement('div');
         badge.className = 'comfly-price-badge';
-        badge.textContent = formatted.text;
+        badge.textContent = displayText;
+        badge.title = `${modelDisplayName} - 计费方式: ${result.billingType}`;
 
         const baseStyle = 'padding:2px 8px;border-radius:10px;' +
             'font-size:11px;font-weight:600;' +

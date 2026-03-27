@@ -218,8 +218,8 @@ class Comfly_vidu_img2video:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "model": (["viduq2-pro", "viduq2-turbo", "viduq1", "viduq1-classic", "vidu2.0", "vidu1.5"], 
-                         {"default": "viduq2-pro"}),
+                "model": (["Vidu Q2 Pro", "Vidu Q2 Turbo", "Vidu Q1", "Vidu Q1 Classic", "Vidu 2.0", "Vidu 1.5"],
+                         {"default": "Vidu Q2 Pro"}),
             },
             "optional": {
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
@@ -268,11 +268,12 @@ class Comfly_vidu_img2video:
     
 
 
-    def generate_video(self, image, model="viduq2-pro", prompt="", api_key="", 
-                      audio=False, voice_language="中文(普通话)", voice_id="male-qn-jingying", 
-                      is_rec=False, duration=5, seed=0, resolution="720p", 
-                      movement_amplitude="auto", bgm=False, off_peak=False, 
+    def generate_video(self, image, model="Vidu Q2 Pro", prompt="", api_key="",
+                      audio=False, voice_language="中文(普通话)", voice_id="male-qn-jingying",
+                      is_rec=False, duration=5, seed=0, resolution="720p",
+                      movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "vidu")
         _rn_start = time.perf_counter()
         
@@ -474,7 +475,7 @@ class Comfly_vidu_text2video:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["viduq2", "viduq1", "vidu1.5"], {"default": "viduq2"}),
+                "model": (["Vidu Q2", "Vidu Q1", "Vidu 1.5"], {"default": "Vidu Q2"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
@@ -509,10 +510,11 @@ class Comfly_vidu_text2video:
     
 
 
-    def generate_video(self, prompt, model="viduq2", api_key="", style="general",
+    def generate_video(self, prompt, model="Vidu Q2", api_key="", style="general",
                       duration=5, seed=0, aspect_ratio="16:9", resolution="720p",
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "vidu")
         _rn_start = time.perf_counter()
         
@@ -696,7 +698,7 @@ class Comfly_vidu_ref2video:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["viduq2", "viduq1", "vidu2.0", "vidu1.5"], {"default": "viduq2"}),
+                "model": (["Vidu Q2", "Vidu Q1", "Vidu 2.0", "Vidu 1.5"], {"default": "Vidu Q2"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
@@ -755,7 +757,7 @@ class Comfly_vidu_ref2video:
     
 
 
-    def generate_video(self, prompt, model="viduq2", api_key="",
+    def generate_video(self, prompt, model="Vidu Q2", api_key="",
                       image1=None, image2=None, image3=None, image4=None,
                       image5=None, image6=None, image7=None,
                       audio=False, subject1_id="1", subject1_voice_id="",
@@ -764,7 +766,7 @@ class Comfly_vidu_ref2video:
                       duration=5, seed=0, aspect_ratio="16:9", resolution="720p",
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
-        
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "vidu")
         _rn_start = time.perf_counter()
         
@@ -994,8 +996,8 @@ class Comfly_vidu_start_end2video:
             "required": {
                 "start_image": ("IMAGE",),
                 "end_image": ("IMAGE",),
-                "model": (["viduq2-pro", "viduq2-turbo", "viduq1", "viduq1-classic", "vidu2.0", "vidu1.5"], 
-                         {"default": "viduq2-pro"}),
+                "model": (["Vidu Q2 Pro", "Vidu Q2 Turbo", "Vidu Q1", "Vidu Q1 Classic", "Vidu 2.0", "Vidu 1.5"],
+                         {"default": "Vidu Q2 Pro"}),
             },
             "optional": {
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
@@ -1041,10 +1043,11 @@ class Comfly_vidu_start_end2video:
     
 
 
-    def generate_video(self, start_image, end_image, model="viduq2-pro", prompt="", api_key="",
+    def generate_video(self, start_image, end_image, model="Vidu Q2 Pro", prompt="", api_key="",
                       is_rec=False, duration=5, seed=0, resolution="720p",
                       movement_amplitude="auto", bgm=False, off_peak=False,
                       watermark=False, wm_position=3):
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "vidu")
         _rn_start = time.perf_counter()
         

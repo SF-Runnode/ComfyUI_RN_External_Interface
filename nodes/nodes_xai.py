@@ -7,7 +7,7 @@ class ComflyGrok3VideoApi:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["grok-video-3"], {"default": "grok-video-3"}),
+                "model": (["Grok Video 3"], {"default": "Grok Video 3"}),
                 "ratio": (["2:3", "3:2", "16:9", "9:16", "1:1"], {"default": "1:1"}),
                 "duration": (["6", "10", "15"], {"default": "10"}),
                 "resolution": (["480P", "720P", "1080P"], {"default": "1080P"}),
@@ -139,6 +139,7 @@ class ComflyGrok3VideoApi:
             return None
 
     def generate_video(self, prompt, model, ratio, duration, resolution, api_key="", image=None, seed=0):
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "xai")
         log_prepare("视频生成", request_id, "RunNode/xAI-", "xAI", model_name=model)
         rn_pbar = ProgressBar(

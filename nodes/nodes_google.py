@@ -7,34 +7,34 @@ class ComflyGeminiAPI:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["gemini-2.0-flash-exp-image"], {"default": "gemini-2.0-flash-exp-image"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成的描述提示词。详细描述想要生成的图像内容。"}),
+                "model": (["Gemini 2.0 Flash (Image)"], {"default": "Gemini 2.0 Flash (Image)", "tooltip": "Google Gemini图像生成模型版本。"}),
                 "resolution": (
                     [
-                        "512x512", 
-                        "768x768", 
-                        "1024x1024", 
-                        "1280x1280", 
-                        "1536x1536", 
+                        "512x512",
+                        "768x768",
+                        "1024x1024",
+                        "1280x1280",
+                        "1536x1536",
                         "2048x2048",
                         "object_image size",
                         "subject_image size",
                         "scene_image size"
-                    ], 
-                    {"default": "1024x1024"}
+                    ],
+                    {"default": "1024x1024", "tooltip": "输出图像分辨率。object/subject/scene_image size表示与对应输入图像保持相同尺寸。"}
                 ),
-                "num_images": ("INT", {"default": 1, "min": 1, "max": 4, "step": 1}),
-                "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01}),
-                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "timeout": ("INT", {"default": 120, "min": 10, "max": 600, "step": 10}),
+                "num_images": ("INT", {"default": 1, "min": 1, "max": 4, "step": 1, "tooltip": "生成的图像数量，范围1-4。"}),
+                "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01, "tooltip": "采样温度。控制输出的随机性。较高值使输出更随机。"}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01, "tooltip": "核采样参数。控制候选词的多样性。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"}),
+                "timeout": ("INT", {"default": 120, "min": 10, "max": 600, "step": 10, "tooltip": "请求超时时间(秒)。"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "Google API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "object_image": ("IMAGE",),  
-                "subject_image": ("IMAGE",),
-                "scene_image": ("IMAGE",),
+                "object_image": ("IMAGE", {"tooltip": "对象图像。用于生成包含特定对象的图像。"}),
+                "subject_image": ("IMAGE", {"tooltip": "主体图像。用于生成以图像中主体为核心的变体或相关图像。"}),
+                "scene_image": ("IMAGE", {"tooltip": "场景图像。用于生成与图像中场景相关的图像。"}),
             }
         }
     
@@ -97,8 +97,9 @@ class ComflyGeminiAPI:
         width, height = map(int, resolution_str.split('x'))
         return (width, height)
 
-    def process(self, prompt, model, resolution, num_images, temperature, top_p, seed, timeout=120, 
+    def process(self, prompt, model, resolution, num_images, temperature, top_p, seed, timeout=120,
                 object_image=None, subject_image=None, scene_image=None, api_key=""):
+        model = get_api_model_name(model)
 
         request_id = generate_request_id("image_gen", "google")
         log_prepare("Google绘图", request_id, "RunNode/Google-", "Google", model_name=model)
@@ -326,21 +327,21 @@ class ComflyGeminiTextOnly:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "发送给Gemini的文本提示词。可以包含问题、指令或描述。"}),
                 "model": (["gemini-2.5-pro", "gemini-2.5-pro-thinking-*","gemini-2.5-pro-nothinking", "gemini-2.5-flash-thinking",
                 "gemini-2.5-flash-nothinking", "gemini-3-pro-preview","gemini-3-pro-preview-thinking-*",
                 "gemini-3-flash-preview", "gemini-3-flash-preview-nothinking", "gemini-3-flash-preview-thinking-*"],
-                {"default": "gemini-2.5-pro"}),
+                {"default": "gemini-2.5-pro", "tooltip": "Gemini模型版本。pro为专业版，flash为轻量版，thinking支持思考过程，nothinking为直接响应。"}),
             },
             "optional": {
-                "image": ("IMAGE",),
-                "video": ("VIDEO",),
-                "video_url": ("STRING", {"default": ""}),
-                "api_key": ("STRING", {"default": ""}),
-                "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01}),
-                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "max_tokens": ("INT", {"default": 4096, "min": 1, "max": 8192}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "image": ("IMAGE", {"tooltip": "输入图像。模型可以分析和理解图像内容。"}),
+                "video": ("VIDEO", {"tooltip": "输入视频。模型可以分析和理解视频内容。"}),
+                "video_url": ("STRING", {"default": "", "tooltip": "视频URL地址。模型可以从URL加载视频进行处理。"}),
+                "api_key": ("STRING", {"default": "", "tooltip": "Google API密钥。留空则使用Comflyapi.json中的全局配置。"}),
+                "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.01, "tooltip": "采样温度。控制输出的随机性。"}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01, "tooltip": "核采样参数。控制候选词的多样性。"}),
+                "max_tokens": ("INT", {"default": 4096, "min": 1, "max": 8192, "tooltip": "最大生成token数。控制单次响应的最大长度。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"}),
             }
         }
 
@@ -484,21 +485,21 @@ class Comfly_Googel_Veo3:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["veo3", "veo3-fast", "veo3-pro", "veo3-fast-frames", "veo3-pro-frames", 
-                            "veo3.1", "veo3.1-pro", "veo3.1-components", "veo3.1-components-4k",
-                            "veo3.1-pro-4k", "veo3.1-4k"], {"default": "veo3.1"}),
-                "enhance_prompt": ("BOOLEAN", {"default": False}),
-                "aspect_ratio": (["16:9", "9:16"], {"default": "16:9"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容。"}),
+                "model": (["Veo 3", "Veo 3 Fast", "Veo 3 Pro", "veo3-fast-frames", "veo3-pro-frames",
+                            "Veo 3.1", "Veo 3.1 Pro", "Veo 3.1 Components", "Veo 3.1 Components 4K",
+                            "Veo 3.1 Pro 4K", "Veo 3.1 4K"], {"default": "Veo 3.1", "tooltip": "Google Veo视频生成模型版本。veo3.1为最新版本，fast为快速模式，pro为专业模式。"}),
+                "enhance_prompt": ("BOOLEAN", {"default": False, "tooltip": "是否增强提示词。启用后系统会自动优化提示词以获得更好的生成效果。"}),
+                "aspect_ratio": (["16:9", "9:16"], {"default": "16:9", "tooltip": "视频宽高比。16:9为横屏，9:16为竖屏。"}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "enable_upsample": ("BOOLEAN", {"default": False}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。最多支持3张图作为视频生成的参考。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的视频生成结果。"}),
+                "enable_upsample": ("BOOLEAN", {"default": False, "tooltip": "是否启用超分辨率。启用后可生成更高分辨率的视频。"}),
             }
         }
     
@@ -527,8 +528,10 @@ class Comfly_Googel_Veo3:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    def generate_video(self, prompt, model="veo3", enhance_prompt=False, aspect_ratio="16:9", apikey="", 
+    def generate_video(self, prompt, model="Veo 3", enhance_prompt=False, aspect_ratio="16:9", apikey="",
                       image1=None, image2=None, image3=None, seed=0, enable_upsample=False):
+        model = get_api_model_name(model)
+
         request_id = generate_request_id("video_gen", "google")
         log_prepare("视频生成", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="视频生成", source="RunNode/Google-")
@@ -758,20 +761,20 @@ class Comfly_nano_banana:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "text": ("STRING", {"multiline": True}),
-                "model": (["nano-banana-2","gemini-3-pro-image-preview", "gemini-2.5-flash-image", "nano-banana", "nano-banana-hd", "gemini-2.5-flash-image-preview"], {"default": "nano-banana"}),
+                "text": ("STRING", {"multiline": True, "tooltip": "图像生成的描述提示词。详细描述想要生成的图像内容。"}),
+                "model": (["Nano Banana 2", "Gemini 3 Pro (Image)", "Gemini 2.5 Flash (Image)", "Nano Banana", "Nano Banana HD", "Gemini 2.5 Flash (Image Preview)"], {"default": "Nano Banana", "tooltip": "Google图像生成模型版本。nano-banana为轻量快速版本，hd为高清版本。"}),
             },
             "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05}),
-                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.05}),
-                "apikey": ("STRING", {"default": ""}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "temperature": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05, "tooltip": "采样温度。控制输出的随机性。"}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "核采样参数。控制候选词的多样性。"}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "max_tokens": ("INT", {"default": 32768, "min": 1, "max": 32768})
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"}),
+                "max_tokens": ("INT", {"default": 32768, "min": 1, "max": 32768, "tooltip": "最大生成token数。控制单次响应的最大长度。"})
             }
         }
 
@@ -840,9 +843,11 @@ class Comfly_nano_banana:
         except Exception as e:
             raise ValueError(f"Error in streaming response: {format_runnode_error(str(e))}")
 
-    def process(self, text, model="gemini-2.5-flash-image-preview", 
+    def process(self, text, model="Gemini 2.5 Flash (Image Preview)",
                 image1=None, image2=None, image3=None, image4=None,
                 temperature=1.0, top_p=0.95, apikey="", seed=0, max_tokens=32768):
+        model = get_api_model_name(model)
+
         request_id = generate_request_id("chat_vision", "google")
         log_prepare("图文理解", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图文理解", source="RunNode/Google-")
@@ -992,18 +997,18 @@ class Comfly_nano_banana_fal:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["nano-banana", "nano-banana/edit"], {"default": "nano-banana/edit"}),
-                "num_images": ("INT", {"default": 1, "min": 1, "max": 4}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "image_way": (["image", "image_url"], {"default": "image_url"})
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像编辑的描述提示词。描述想要对图像进行的修改。"}),
+                "model": (["Nano Banana", "nano-banana/edit"], {"default": "Nano Banana", "tooltip": "nano-banana编辑模型。/edit后缀表示编辑模式。"}),
+                "num_images": ("INT", {"default": 1, "min": 1, "max": 4, "tooltip": "生成的图像数量，范围1-4。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"}),
+                "image_way": (["image", "image_url"], {"default": "image_url", "tooltip": "图像输入方式。image为直接传入张量，image_url为URL方式。"})
             },
             "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""})
+                "image1": ("IMAGE", {"tooltip": "待编辑的图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "待编辑的图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "待编辑的图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "待编辑的图像4。"}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"})
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
@@ -1071,6 +1076,8 @@ class Comfly_nano_banana_fal:
 
     def process(self, prompt, model, num_images=1, seed=0, image_way="image",
                 image1=None, image2=None, image3=None, image4=None, apikey=""):
+        model = get_api_model_name(model)
+
         request_id = generate_request_id("img_gen_fal", "google")
         log_prepare("图像生成(FAL)", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像生成(FAL)", source="RunNode/Google-")
@@ -1289,20 +1296,20 @@ class Comfly_nano_banana_edit:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana", "nano-banana-hd"], {"default": "nano-banana"}),
-                "aspect_ratio": (["16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "1:1"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。详细描述想要生成或修改的图像内容。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
+                "model": (["Nano Banana", "Nano Banana HD"], {"default": "Nano Banana", "tooltip": "nano-banana模型版本。hd为高清版本。"}),
+                "aspect_ratio": (["16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "1:1", "tooltip": "图像宽高比。"}),
             },
             "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})  
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。url返回图像URL，b64_json返回base64编码的图像数据。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"})
             }
         }
     
@@ -1330,9 +1337,11 @@ class Comfly_nano_banana_edit:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    def generate_image(self, prompt, mode="text2img", model="nano-banana", aspect_ratio="1:1", 
+    def generate_image(self, prompt, mode="text2img", model="Nano Banana", aspect_ratio="1:1",
                       image1=None, image2=None, image3=None, image4=None,
                       apikey="", response_format="url", seed=0):
+        model = get_api_model_name(model)
+
         request_id = generate_request_id("img_gen", "google")
         log_prepare("图像生成", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像生成", source="RunNode/Google-")
@@ -1475,31 +1484,31 @@ class Comfly_nano_banana2_edit:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。详细描述想要生成或修改的图像内容。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。1K约1024px，2K约2048px，4K约4096px。"}),
             },
             "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "image5": ("IMAGE",),
-                "image6": ("IMAGE",),
-                "image7": ("IMAGE",),
-                "image8": ("IMAGE",),
-                "image9": ("IMAGE",),
-                "image10": ("IMAGE",),
-                "image11": ("IMAGE",),
-                "image12": ("IMAGE",),
-                "image13": ("IMAGE",),
-                "image14": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "image5": ("IMAGE", {"tooltip": "参考图像5。"}),
+                "image6": ("IMAGE", {"tooltip": "参考图像6。"}),
+                "image7": ("IMAGE", {"tooltip": "参考图像7。"}),
+                "image8": ("IMAGE", {"tooltip": "参考图像8。"}),
+                "image9": ("IMAGE", {"tooltip": "参考图像9。"}),
+                "image10": ("IMAGE", {"tooltip": "参考图像10。"}),
+                "image11": ("IMAGE", {"tooltip": "参考图像11。"}),
+                "image12": ("IMAGE", {"tooltip": "参考图像12。"}),
+                "image13": ("IMAGE", {"tooltip": "参考图像13。"}),
+                "image14": ("IMAGE", {"tooltip": "参考图像14。"}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})  
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。url返回图像URL，b64_json返回base64编码的图像数据。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"})
             }
         }
     
@@ -1527,11 +1536,13 @@ class Comfly_nano_banana2_edit:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    def generate_image(self, prompt, mode="text2img", model="nano-banana-2", aspect_ratio="auto", 
+    def generate_image(self, prompt, mode="text2img", model="Nano Banana 2", aspect_ratio="auto",
                       image_size="2K", image1=None, image2=None, image3=None, image4=None,
-                      image5=None, image6=None, image7=None, image8=None, image9=None, 
+                      image5=None, image6=None, image7=None, image8=None, image9=None,
                       image10=None, image11=None, image12=None, image13=None, image14=None,
                       apikey="", response_format="url", seed=0):
+        model = get_api_model_name(model)
+
         request_id = generate_request_id("img_edit", "google")
         log_prepare("图像编辑", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像编辑", source="RunNode/Google-")
@@ -1701,32 +1712,32 @@ class Comfly_nano_banana2_edit_S2A:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。详细描述想要生成或修改的图像内容。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。1K约1024px，2K约2048px，4K约4096px。"}),
             },
             "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "image5": ("IMAGE",),
-                "image6": ("IMAGE",),
-                "image7": ("IMAGE",),
-                "image8": ("IMAGE",),
-                "image9": ("IMAGE",),
-                "image10": ("IMAGE",),
-                "image11": ("IMAGE",),
-                "image12": ("IMAGE",),
-                "image13": ("IMAGE",),
-                "image14": ("IMAGE",),
-                "apikey": ("STRING", {"default": ""}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "image5": ("IMAGE", {"tooltip": "参考图像5。"}),
+                "image6": ("IMAGE", {"tooltip": "参考图像6。"}),
+                "image7": ("IMAGE", {"tooltip": "参考图像7。"}),
+                "image8": ("IMAGE", {"tooltip": "参考图像8。"}),
+                "image9": ("IMAGE", {"tooltip": "参考图像9。"}),
+                "image10": ("IMAGE", {"tooltip": "参考图像10。"}),
+                "image11": ("IMAGE", {"tooltip": "参考图像11。"}),
+                "image12": ("IMAGE", {"tooltip": "参考图像12。"}),
+                "image13": ("IMAGE", {"tooltip": "参考图像13。"}),
+                "image14": ("IMAGE", {"tooltip": "参考图像14。"}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "task_id": ("STRING", {"default": ""}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})  
+                "task_id": ("STRING", {"default": "", "tooltip": "已有任务ID。用于从已有任务继续生成。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。url返回图像URL，b64_json返回base64编码的图像数据。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的结果。"})
             }
         }
     
@@ -1754,11 +1765,13 @@ class Comfly_nano_banana2_edit_S2A:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    def generate_image(self, prompt, mode="text2img", model="nano-banana-2", aspect_ratio="auto", 
+    def generate_image(self, prompt, mode="text2img", model="Nano Banana 2", aspect_ratio="auto",
                       image_size="2K", image1=None, image2=None, image3=None, image4=None,
-                      image5=None, image6=None, image7=None, image8=None, image9=None, 
+                      image5=None, image6=None, image7=None, image8=None, image9=None,
                       image10=None, image11=None, image12=None, image13=None, image14=None,
                       apikey="", task_id="", response_format="url", seed=0):
+        model = get_api_model_name(model)
+
         request_id = generate_request_id("img_edit", "google")
         log_prepare("图像编辑", request_id, "RunNode/Google-", "Google", model_name=model)
         rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像编辑", source="RunNode/Google-")
@@ -2303,30 +2316,30 @@ class Comfly_banana2_edit_group:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。"}),
             },
             "optional": {
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "image5": ("IMAGE",),
-                "image6": ("IMAGE",),
-                "image7": ("IMAGE",),
-                "image8": ("IMAGE",),
-                "image9": ("IMAGE",),
-                "image10": ("IMAGE",),
-                "image11": ("IMAGE",),
-                "image12": ("IMAGE",),
-                "image13": ("IMAGE",),
-                "image14": ("IMAGE",),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。url返回图像URL，b64_json返回base64编码。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "image5": ("IMAGE", {"tooltip": "参考图像5。"}),
+                "image6": ("IMAGE", {"tooltip": "参考图像6。"}),
+                "image7": ("IMAGE", {"tooltip": "参考图像7。"}),
+                "image8": ("IMAGE", {"tooltip": "参考图像8。"}),
+                "image9": ("IMAGE", {"tooltip": "参考图像9。"}),
+                "image10": ("IMAGE", {"tooltip": "参考图像10。"}),
+                "image11": ("IMAGE", {"tooltip": "参考图像11。"}),
+                "image12": ("IMAGE", {"tooltip": "参考图像12。"}),
+                "image13": ("IMAGE", {"tooltip": "参考图像13。"}),
+                "image14": ("IMAGE", {"tooltip": "参考图像14。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             }
         }
     RETURN_TYPES = ("STRING",)
@@ -2346,7 +2359,8 @@ class Comfly_banana2_edit_group:
     def build(self, **kwargs):
         prompt = kwargs.get("prompt", "")
         mode = kwargs.get("mode", "text2img")
-        model = kwargs.get("model", "nano-banana-2")
+        model = kwargs.get("model", "Nano Banana 2")
+        model = get_api_model_name(model)
         aspect_ratio = kwargs.get("aspect_ratio", "auto")
         image_size = kwargs.get("image_size", "2K")
         response_format = kwargs.get("response_format", "url")
@@ -2376,30 +2390,30 @@ class Comfly_banana2_edit_S2A_group:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。"}),
             },
             "optional": {
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "image5": ("IMAGE",),
-                "image6": ("IMAGE",),
-                "image7": ("IMAGE",),
-                "image8": ("IMAGE",),
-                "image9": ("IMAGE",),
-                "image10": ("IMAGE",),
-                "image11": ("IMAGE",),
-                "image12": ("IMAGE",),
-                "image13": ("IMAGE",),
-                "image14": ("IMAGE",),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。url返回图像URL，b64_json返回base64编码。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "image5": ("IMAGE", {"tooltip": "参考图像5。"}),
+                "image6": ("IMAGE", {"tooltip": "参考图像6。"}),
+                "image7": ("IMAGE", {"tooltip": "参考图像7。"}),
+                "image8": ("IMAGE", {"tooltip": "参考图像8。"}),
+                "image9": ("IMAGE", {"tooltip": "参考图像9。"}),
+                "image10": ("IMAGE", {"tooltip": "参考图像10。"}),
+                "image11": ("IMAGE", {"tooltip": "参考图像11。"}),
+                "image12": ("IMAGE", {"tooltip": "参考图像12。"}),
+                "image13": ("IMAGE", {"tooltip": "参考图像13。"}),
+                "image14": ("IMAGE", {"tooltip": "参考图像14。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             }
         }
     RETURN_TYPES = ("STRING",)
@@ -2419,7 +2433,8 @@ class Comfly_banana2_edit_S2A_group:
     def build(self, **kwargs):
         prompt = kwargs.get("prompt", "")
         mode = kwargs.get("mode", "text2img")
-        model = kwargs.get("model", "nano-banana-2")
+        model = kwargs.get("model", "Nano Banana 2")
+        model = get_api_model_name(model)
         aspect_ratio = kwargs.get("aspect_ratio", "auto")
         image_size = kwargs.get("image_size", "2K")
         response_format = kwargs.get("response_format", "url")
@@ -2477,7 +2492,8 @@ class _ComflyBanana2ImageBatchRunner:
         res = {"index": idx, "status": "failed", "image": self._blank(), "image_url": "", "error": "", "response": ""}
         prompt = payload.get("prompt", "")
         mode = payload.get("mode", "img2img")
-        model = payload.get("model", "nano-banana-2")
+        model = payload.get("model", "Nano Banana 2")
+        model = get_api_model_name(model)
         aspect_ratio = payload.get("aspect_ratio", "auto")
         image_size = payload.get("image_size", "2K")
         response_format = payload.get("response_format", "url")
@@ -2640,21 +2656,21 @@ class Comfly_banana2_edit_run_4:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
-                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
-                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "promt_2": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第2个图像的生成提示词。"}),
+                "promt_3": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第3个图像的生成提示词。"}),
+                "promt_4": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第4个图像的生成提示词。"}),
+                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
             }
         }
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
@@ -2673,22 +2689,22 @@ class Comfly_banana2_edit_run_4:
 class Comfly_banana2_edit_run_8:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个图像的生成提示词。"}) for i in range(2, 9)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
             }
         }
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
@@ -2707,22 +2723,22 @@ class Comfly_banana2_edit_run_8:
 class Comfly_banana2_edit_run_16:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个图像的生成提示词。"}) for i in range(2, 17)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
             }
         }
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE",
@@ -2743,22 +2759,22 @@ class Comfly_banana2_edit_run_16:
 class Comfly_banana2_edit_run_32:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个图像的生成提示词。"}) for i in range(2, 33)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
             }
         }
     RETURN_TYPES = (
@@ -2814,7 +2830,8 @@ class _ComflyBanana2ImageBatchRunnerS2A:
         return files, count
     def _submit_async(self, payload, headers):
         mode = payload.get("mode", "img2img")
-        model = payload.get("model", "nano-banana-2")
+        model = payload.get("model", "Nano Banana 2")
+        model = get_api_model_name(model)
         prompt = payload.get("prompt", "")
         aspect_ratio = payload.get("aspect_ratio", "auto")
         image_size = payload.get("image_size", "2K")
@@ -2995,23 +3012,23 @@ class Comfly_banana2_edit_S2A_run_4:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
-                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
-                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
-                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
-                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+                "promt_2": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第2个图像的生成提示词。"}),
+                "promt_3": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第3个图像的生成提示词。"}),
+                "promt_4": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第4个图像的生成提示词。"}),
+                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300, "tooltip": "轮询间隔(秒)。"}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000, "tooltip": "最大尝试次数。"}),
             }
         }
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
@@ -3030,24 +3047,24 @@ class Comfly_banana2_edit_S2A_run_4:
 class Comfly_banana2_edit_S2A_run_8:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个图像的生成提示词。"}) for i in range(2, 9)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
-                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
-                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300, "tooltip": "轮询间隔(秒)。"}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000, "tooltip": "最大尝试次数。"}),
             }
         }
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "STRING")
@@ -3066,24 +3083,24 @@ class Comfly_banana2_edit_S2A_run_8:
 class Comfly_banana2_edit_S2A_run_16:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个图像的生成提示词。"}) for i in range(2, 17)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "img2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
-                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
-                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300, "tooltip": "轮询间隔(秒)。"}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000, "tooltip": "最大尝试次数。"}),
             }
         }
     RETURN_TYPES = (
@@ -3110,24 +3127,24 @@ class Comfly_banana2_edit_S2A_run_16:
 class Comfly_banana2_edit_S2A_run_32:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个图像的生成提示词。"}) for i in range(2, 33)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个图像的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "mode": (["text2img", "img2img"], {"default": "text2img"}),
-                "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
-                "response_format": (["url", "b64_json"], {"default": "url"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
-                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300}),
-                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000}),
+                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32, "tooltip": "最大并发数。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
+                "mode": (["text2img", "img2img"], {"default": "text2img", "tooltip": "生成模式。"}),
+                "model": (["Nano Banana 2", "Nano Banana 2 2K", "Nano Banana 2 4K"], {"default": "Nano Banana 2", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。"}),
+                "poll_interval_sec": ("INT", {"default": 15, "min": 5, "max": 300, "tooltip": "轮询间隔(秒)。"}),
+                "max_attempts": ("INT", {"default": 40, "min": 10, "max": 1000, "tooltip": "最大尝试次数。"}),
             }
         }
     RETURN_TYPES = (

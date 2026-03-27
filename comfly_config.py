@@ -199,3 +199,55 @@ def reload_billing_config():
     _billing_config_cache = None
     return get_billing_config()
 
+
+# ============== 模型名称映射配置 ==============
+
+_models_config_cache = None
+
+
+def load_models_config() -> Dict:
+    """
+    加载模型名称映射配置（统一的 display_name_mapping 和 api_name_mapping）
+    """
+    global _models_config_cache
+
+    if _models_config_cache is not None:
+        return _models_config_cache
+
+    try:
+        config_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "config",
+            "models_config.json"
+        )
+
+        if not os.path.exists(config_path):
+            print(f"[Models] Config file not found: {config_path}")
+            _models_config_cache = {"display_name_mapping": {}, "api_name_mapping": {}}
+            return _models_config_cache
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            _models_config_cache = json.load(f)
+            print(f"[Models] Loaded config from: {config_path}")
+            return _models_config_cache
+    except Exception as e:
+        print(f"[Models] Error loading models config: {e}")
+        _models_config_cache = {"display_name_mapping": {}, "api_name_mapping": {}}
+        return _models_config_cache
+
+
+def get_api_model_name(friendly_name: str) -> str:
+    """
+    根据友好显示名称获取实际 API 模型名称
+    """
+    mapping = load_models_config().get("api_name_mapping", {})
+    return mapping.get(friendly_name, friendly_name)
+
+
+def get_display_name(internal_name: str) -> str:
+    """
+    根据内部模型名称获取友好显示名称
+    """
+    mapping = load_models_config().get("display_name_mapping", {})
+    return mapping.get(internal_name, internal_name)
+

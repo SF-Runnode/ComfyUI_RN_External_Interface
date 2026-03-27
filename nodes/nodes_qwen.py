@@ -15,7 +15,7 @@ class Comfly_qwen_image:
                 "prompt": ("STRING", {"multiline": True}),
                 "size": (["512x512", "1024x1024", "768x1024", "576x1024", "1024x768", "1024x576", "Custom"], {"default": "1024x768"}),
                 "Custom_size": ("STRING", {"default": "Enter custom size (e.g. 1280x720)", "multiline": False}),
-                "model": (["qwen-image"], {"default": "qwen-image"}),
+                "model": (["Qwen Image"], {"default": "Qwen Image"}),
                 "num_images": ([1, 2, 3, 4], {"default": 1}),
             },
             "optional": {
@@ -46,8 +46,9 @@ class Comfly_qwen_image:
         }
  
     def generate_image(self, prompt, size, Custom_size, model, num_images=1,
-                       api_key="", num_inference_steps=30, seed=0, guidance_scale=2.5, 
+                       api_key="", num_inference_steps=30, seed=0, guidance_scale=2.5,
                        enable_safety_checker=True, negative_prompt="", output_format="png"):
+        model = get_api_model_name(model)
         request_id = generate_request_id("image_gen", "qwen")
         log_prepare("图像生成", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像生成", source="RunNode/Qwen-")
@@ -285,7 +286,7 @@ class Comfly_qwen_image_edit:
                 "image": ("IMAGE",),
                 "size": (["512x512", "1024x1024", "768x1024", "576x1024", "1024x768", "1024x576", "Custom"], {"default": "1024x768"}),
                 "Custom_size": ("STRING", {"default": "Enter custom size (e.g. 1280x720)", "multiline": False}),
-                "model": (["qwen-image-edit"], {"default": "qwen-image-edit"}),
+                "model": (["Qwen Image Edit"], {"default": "Qwen Image Edit"}),
             },
             "optional": {
                 "apikey": ("STRING", {"default": ""}),
@@ -317,9 +318,10 @@ class Comfly_qwen_image_edit:
         }
  
     def edit_image(self, prompt, image, size, Custom_size, model,
-                  apikey="", num_inference_steps=30, seed=0, guidance_scale=4.0, 
+                  apikey="", num_inference_steps=30, seed=0, guidance_scale=4.0,
                   enable_safety_checker=True, negative_prompt="", output_format="png",
                   num_images=1, acceleration="none"):
+        model = get_api_model_name(model)
         request_id = generate_request_id("image_edit", "qwen")
         log_prepare("图像编辑", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像编辑", source="RunNode/Qwen-")
@@ -571,7 +573,7 @@ class Comfly_Z_image_turbo:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["z-image-turbo"], {"default": "z-image-turbo"}),
+                "model": (["Z-Image Turbo"], {"default": "Z-Image Turbo"}),
                 "size": (["512x512", "768x768", "1024x1024", "1280x720", "720x1280", "1536x1024", "1024x1536", "Custom"], {"default": "1024x1024"}),
                 "output_format": (["jpeg", "png", "webp"], {"default": "jpeg"}),
             },
@@ -601,9 +603,10 @@ class Comfly_Z_image_turbo:
             "Authorization": f"Bearer {self.api_key}"
         }
     
-    def generate_image(self, prompt, model="z-image-turbo", size="1024x1024", output_format="jpg",
+    def generate_image(self, prompt, model="Z-Image Turbo", size="1024x1024", output_format="jpg",
                       custom_size="1024x1024", apikey="", guidance_scale=0.0, num_inference_steps=8,
                       output_quality=80, seed=0):
+        model = get_api_model_name(model)
         request_id = generate_request_id("z_img_gen", "qwen")
         log_prepare("图像生成", request_id, "RunNode/Qwen-", "Qwen", model_name=model)
         rn_pbar = ProgressBar(request_id, "Qwen", streaming=True, task_type="图像生成", source="RunNode/Qwen-")

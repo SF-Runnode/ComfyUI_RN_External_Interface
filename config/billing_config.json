@@ -123,6 +123,11 @@
       "price_per_use": 0.02
     },
 
+    "lip_sync": {
+      "billing_type": "per_second",
+      "price_per_second": 0.001
+    },
+
     "grok-video-3": {
       "billing_type": "per_second",
       "price_per_second": 0.01
@@ -362,6 +367,10 @@
     "openai/gpt-image-1.5": {
       "billing_type": "per_use",
       "price_per_use": 0.10
+    },
+    "openai/gpt-4o-image": {
+      "billing_type": "per_use",
+      "price_per_use": 0.05
     }
   },
 
@@ -369,7 +378,17 @@
     "show_estimate_badge": true,
     "show_actual_price": true,
     "show_workflow_total": true,
-    "currency": "USD",
-    "credits_conversion_rate": 211
+    "currency": "CNY",
+    "base_currency": "CNY",
+    "models_currency": "USD",
+    "credits_conversion_rate": 211,
+    "currency_rates": {
+      "CNY": 1,
+      "USD": 0.14085,
+      "HKD": 1.0986,
+      "JPY": 21.831,
+      "EUR": 0.1296,
+      "GBP": 0.10986
+    }
   }
 }

@@ -251,7 +251,7 @@ class BillingCalculator:
             model_config 需要: price_per_use
             data: 次数（默认1次）
             """
-            count = data.get("count", 1) if not is_estimate else data.get("estimated_count", 1)
+            count = data.get("estimated_count", 1) if is_estimate else data.get("count", 1)
             return count * model_config.get("price_per_use", 0)
 
         # 按秒计费
@@ -344,4 +344,4 @@ def calculate_actual_price(model_key: str, result_data: Dict) -> BillingResult:
         result = calculate_actual_price("openai/gpt-4", {"input_tokens": 1000, "output_tokens": 500})
         print(result.actual)
     """
-    return BillingCalculator.calculate_actual(model_key, {}, result_data)
+    return BillingCalculator.calculate_actual(model_key, result_data, {})

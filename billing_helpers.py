@@ -4,6 +4,7 @@ ComfyUI_RN_External_Interface - Billing Helpers for Nodes
 """
 
 from typing import Dict, Any, Optional, Callable
+from contextvars import ContextVar
 from .billing_engine import (
     BillingCalculator,
     BillingResult,
@@ -13,19 +14,18 @@ from .billing_engine import (
     get_workflow_billing,
 )
 
-# 全局变量：当前节点的 node_id（由节点执行时设置）
-_current_node_id = None
+# 使用 ContextVar 实现线程/协程安全的节点 ID 存储
+_current_node_id_var: ContextVar[Optional[str]] = ContextVar('current_node_id', default=None)
 
 
 def set_current_node_id(node_id: str):
     """设置当前执行的节点 ID"""
-    global _current_node_id
-    _current_node_id = node_id
+    _current_node_id_var.set(node_id)
 
 
 def get_current_node_id() -> Optional[str]:
     """获取当前执行的节点 ID"""
-    return _current_node_id
+    return _current_node_id_var.get()
 
 
 def send_progress_text(node_id: str, text: str):

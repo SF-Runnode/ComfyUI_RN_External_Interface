@@ -8,10 +8,10 @@ class Comfly_MiniMax_video:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "描述视频内容的提示词"}),
-                "model": (["MiniMax-Hailuo-02", "T2V-01", "T2V-01-Director", "I2V-01-Director", 
-                            "I2V-01-live", "I2V-01", "S2V-01", "MiniMax-Hailuo-2.3-Fast",
-                            "MiniMax-Hailuo-2.3"], 
-                            {"default": "MiniMax-Hailuo-02", "tooltip": "使用的模型版本"}),
+                "model": (["MiniMax Hailuo 02", "MiniMax T2V-01", "MiniMax T2V-01 Director", "MiniMax I2V-01 Director",
+                            "MiniMax I2V-01 Live", "MiniMax I2V-01", "MiniMax S2V-01", "MiniMax Hailuo 2.3 Fast",
+                            "MiniMax Hailuo 2.3"],
+                            {"default": "MiniMax Hailuo 02", "tooltip": "使用的模型版本"}),
                 "duration": (["6", "10"], {"default": "6", "tooltip": "生成视频的时长（秒）"}),
                 "resolution": (["720P","768P", "1080P"], {"default": "768P", "tooltip": "视频分辨率"}),
             },
@@ -57,9 +57,10 @@ class Comfly_MiniMax_video:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
-    def generate_video(self, prompt, model="MiniMax-Hailuo-02", duration="6", resolution="768P", 
+    def generate_video(self, prompt, model="MiniMax Hailuo 02", duration="6", resolution="768P",
                prompt_optimizer=True, fast_pretreatment=False, first_frame_image=None, last_frame_image=None,
                subject_reference=None, api_key="", seed=0):
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "minimax")
         
         log_params = {

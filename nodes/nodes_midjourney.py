@@ -5,12 +5,13 @@ from .__init__ import *
 class ComflyBaseNode:
     def __init__(self):
         self.midjourney_api_url = {
-            "turbo mode": f"{baseurl}/mj-turbo",
-            "fast mode": f"{baseurl}/mj-fast",
-            "relax mode": f"{baseurl}/mj-relax"
+            "midjourney": f"{baseurl}/mj-turbo",
+            "midjourney-fast": f"{baseurl}/mj-fast",
+            "midjourney-relax": f"{baseurl}/mj-relax",
+            "midjourney-pro": f"{baseurl}/mj-pro"
         }
-        self.api_key = get_config().get('api_key', '') 
-        self.speed = "fast mode"
+        self.api_key = get_config().get('api_key', '')
+        self.speed = "midjourney-fast"
         self.timeout = 800
 
     def set_speed(self, speed):
@@ -344,7 +345,7 @@ class Comfly_Mj(ComflyBaseNode):
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "tooltip": "主提示词。会与下方参数一起拼成最终 prompt 并提交生成。"}),
-                "speed": (["turbo mode", "fast mode", "relax mode"], {"default": "fast mode", "tooltip": "速度模式。仅影响请求路由：/mj-turbo、/mj-fast、/mj-relax（由后端决定排队/计费/速度差异）。"}), 
+                "speed": (["Midjourney", "Midjourney Fast", "Midjourney Relax", "Midjourney Pro"], {"default": "Midjourney Fast", "tooltip": "速度模式。仅影响请求路由：/mj-turbo、/mj-fast、/mj-relax、/mj-pro（由后端决定排队/计费/速度差异）。"}), 
             },
             "optional": {
                 "text_en": ("STRING", {"multiline": True, "default": "", "tooltip": "可选英文提示词。非空时会替代 text 作为基础 prompt。"}),
@@ -384,8 +385,9 @@ class Comfly_Mj(ComflyBaseNode):
         self.text = ""
 
     def process_input(self, speed, text, text_en="", image=None, model_version=None, ar=None, no=None, c=None, s=None, iw=None, r=None, sw=None, cw=None, sv=None, video=False, tile=False, seed=0, cref="none", oref="none", sref="none", positive="", api_key=""):
+        speed = get_api_model_name(speed)
         request_id = generate_request_id("mj_generate", "midjourney")
-        
+
         log_prepare("Midjourney生成", request_id, "RunNode/Midjourney-", "Midjourney", model_version=model_version, speed=speed)
         
         rn_pbar = ProgressBar(request_id, "Midjourney", streaming=True, task_type="图像生成", source="RunNode/Midjourney-")
