@@ -3177,7 +3177,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
     def INPUT_TYPES(cls):
         return{
             "required": {
-                "promt": ("STRING", {"multiline": True, "tooltip": "生成提示词。"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "生成提示词。"}),
                 "mode": (["text2img", "img2img"], {"default": "text2img", "tooltip": "生成模式。"}),
                 "model": (["Gemini 3.1 Flash (Image Preview)"], {"default": "Gemini 3.1 Flash (Image Preview)", "tooltip": "模型版本。"}),
                 "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "1:4", "4:1", "1:8", "8:1"], {"default": "auto"}),
@@ -3228,37 +3228,33 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-    def generate_image(self, prompt, mode="text2img", model="Gemini 3 Pro (Image Preview)", aspect_ratio="auto",
+    def generate_image(self, prompt, mode="text2img", model="Gemini 3.1 Flash (Image Preview)", aspect_ratio="auto",
                       image_size="2K", image1=None, image2=None, image3=None, image4=None,
                       image5=None, image6=None, image7=None, image8=None, image9=None,
                       image10=None, image11=None, image12=None, image13=None, image14=None,
                       apikey="", task_id="", response_format="url", seed=0):
-        model = get_api_model_name(model)
-
-        request_id = generate_request_id("img_edit", "google")
-        log_prepare("图像编辑", request_id, "RunNode/Google-", "Google", model_name=model)
-        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像编辑", source="RunNode/Google-")
-        rn_pbar.set_generating()
-        if apikey.strip():
-            self.api_key = apikey
-        else:
-            self.api_key = get_config().get('api_key', '')
-        
-        if not self.api_key:
-            error_message = "API key not found in configuration file or environment variables."
-            rn_pbar.error(error_message)
-            raise ValueError(error_message)
-
-        try:
-            pbar = comfy.utils.ProgressBar(100)
-            pbar.update_absolute(10)
-
-            # 如果提供了task_id，则查询任务状态
-            if task_id.strip():
-                print(f"Querying task status for task_id: {task_id}")
-                result = self._query_task_status(task_id, pbar)
-                try:
-                    rn_pbar.done(char_count=len(str(result[-1])))
-                except Exception:
-                    pass
-                return result
+        return Comfly_nano_banana2_edit_S2A().generate_image(
+            prompt=prompt,
+            mode=mode,
+            model=model,
+            aspect_ratio=aspect_ratio,
+            image_size=image_size,
+            image1=image1,
+            image2=image2,
+            image3=image3,
+            image4=image4,
+            image5=image5,
+            image6=image6,
+            image7=image7,
+            image8=image8,
+            image9=image9,
+            image10=image10,
+            image11=image11,
+            image12=image12,
+            image13=image13,
+            image14=image14,
+            apikey=apikey,
+            task_id=task_id,
+            response_format=response_format,
+            seed=seed,
+        )
