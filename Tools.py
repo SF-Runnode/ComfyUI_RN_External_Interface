@@ -150,7 +150,7 @@ class Comfly_LLm_API:
             self.api_baseurl = baseurl
 
         if not self.api_key:
-            error_msg = "API key not found in Comflyapi.json"
+            error_msg = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/LLM-", "LLM")
             return (error_msg,)

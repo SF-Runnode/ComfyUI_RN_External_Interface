@@ -251,7 +251,7 @@ class Comfly_gpt_image_1_edit:
         
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_image_edit_failed",
@@ -592,7 +592,7 @@ class Comfly_gpt_image_1:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_image_generate_failed",
@@ -1017,7 +1017,7 @@ class ComflyChatGPTApi:
                 self.conversation_history = []
                 
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                
                 blank_img = Image.new('RGB', (512, 512), color='white')

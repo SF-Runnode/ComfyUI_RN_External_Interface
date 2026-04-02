@@ -64,7 +64,7 @@ class Comfly_qwen_image:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_backend(
                     "qwen_image_generate_failed",
@@ -337,7 +337,7 @@ class Comfly_qwen_image_edit:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_backend(
                     "qwen_image_edit_failed",
@@ -621,7 +621,7 @@ class Comfly_Z_image_turbo:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Qwen-", "ZImageTurbo")
             raise Exception(error_message)

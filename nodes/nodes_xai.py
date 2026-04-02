@@ -9,12 +9,18 @@ class ComflyGrok3VideoApi:
                 "prompt": ("STRING", {"multiline": True}),
                 "model": (["Grok Video 3"], {"default": "Grok Video 3"}),
                 "ratio": (["2:3", "3:2", "16:9", "9:16", "1:1"], {"default": "1:1"}),
-                "duration": (["6", "10", "15"], {"default": "10"}),
+                "duration": (["6", "10", "15"], {"default": "15"}),
                 "resolution": (["480P", "720P", "1080P"], {"default": "1080P"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
-                "image": ("IMAGE",),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "image5": ("IMAGE",),
+                "image6": ("IMAGE",),
+                "image7": ("IMAGE",),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             },
         }
@@ -37,65 +43,17 @@ class ComflyGrok3VideoApi:
         }
 
     def _process_image(self, image_tensor, request_id=None):
-        """
-        Process image tensor: resize if needed and compress to JPEG.
-        Returns: (file_content, mime_type, filename)
-        """
         try:
-            # 1. Convert tensor to PIL
-            img = tensor2pil(image_tensor)[0]
-            
-            # 2. Resize if too large (max 1536px)
-            original_size = img.size
-            max_dimension = 1536
-            if max(original_size) > max_dimension:
-                ratio = max_dimension / max(original_size)
-                new_size = (int(original_size[0] * ratio), int(original_size[1] * ratio))
-                resampling = getattr(Image, 'Resampling', None)
-                if resampling and hasattr(resampling, 'LANCZOS'):
-                    img = img.resize(new_size, resampling.LANCZOS)
-                else:
-                    img = img.resize(new_size, getattr(Image, 'LANCZOS', Image.BICUBIC))
-            
-            # 3. Compress to JPEG with size limit check
-            # Convert to RGB for JPEG compatibility
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-                
-            formats_to_try = [
-                ('JPEG', {'quality': 75, 'optimize': True}),
-                ('JPEG', {'quality': 60, 'optimize': True}),
-                ('JPEG', {'quality': 50, 'optimize': True}),
-            ]
-            
-            best_bytes = None
-            smallest_size = float('inf')
-            
-            for format_name, save_kwargs in formats_to_try:
-                buf = BytesIO()
-                img.save(buf, format=format_name, **save_kwargs)
-                img_bytes = buf.getvalue()
-                
-                # Check size (aim for < 2MB, similar to base64 check in Comfly.py)
-                current_size = len(img_bytes)
-                if current_size < smallest_size:
-                    smallest_size = current_size
-                    best_bytes = img_bytes
-                    
-                    if current_size < 2 * 1024 * 1024: # 2MB
-                        break
-            
-            if best_bytes:
-                return best_bytes, "image/jpeg", "image.jpg"
-                
+            pil_image = tensor2pil(image_tensor)[0]
+            buffered = BytesIO()
+            pil_image.save(buffered, format="PNG")
+            return buffered.getvalue(), "image/png", "image.png"
         except Exception as e:
             log_backend_exception("image_process_failed", request_id=request_id, error=str(e))
-            
-        # Fallback to original PNG behavior
-        pil_image = tensor2pil(image_tensor)[0]
-        buffered = BytesIO()
-        pil_image.save(buffered, format="PNG")
-        return buffered.getvalue(), "image/png", "image.png"
+            pil_image = tensor2pil(image_tensor)[0]
+            buffered = BytesIO()
+            pil_image.save(buffered, format="PNG")
+            return buffered.getvalue(), "image/png", "image.png"
 
     def upload_image(self, image_tensor, request_id=None, rn_pbar=None):
         try:
@@ -116,7 +74,6 @@ class ComflyGrok3VideoApi:
             if "url" in result:
                 return result["url"]
             else:
-                msg = f"Unexpected response from file upload API: {format_runnode_error(result)}"
                 log_backend(
                     "xai_grok_upload_unexpected_response",
                     level="ERROR",
@@ -127,8 +84,7 @@ class ComflyGrok3VideoApi:
                     rn_pbar.error("文件上传返回异常，请稍后重试")
                 return None
 
-        except Exception as e:
-            msg = f"Error uploading image: {format_runnode_error(str(e))}"
+        except Exception:
             log_backend_exception(
                 "xai_grok_upload_exception",
                 request_id=request_id,
@@ -138,7 +94,7 @@ class ComflyGrok3VideoApi:
                 rn_pbar.error("上传参考图像失败，请检查网络或图像格式")
             return None
 
-    def generate_video(self, prompt, model, ratio, duration, resolution, api_key="", image=None, seed=0):
+    def generate_video(self, prompt, model, ratio, duration, resolution, api_key="", image1=None, image2=None, image3=None, image4=None, image5=None, image6=None, image7=None, seed=0):
         model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "xai")
         log_prepare("视频生成", request_id, "RunNode/xAI-", "xAI", model_name=model)
@@ -161,7 +117,7 @@ class ComflyGrok3VideoApi:
             self.base_url = get_config().get("base_url", "")
 
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "xai_video_generate_failed",
@@ -192,25 +148,35 @@ class ComflyGrok3VideoApi:
             pbar = comfy.utils.ProgressBar(100)
             pbar.update_absolute(10)
 
+            try:
+                duration_value = int(duration)
+            except Exception:
+                duration_value = duration
+
             payload = {
                 "prompt": prompt,
                 "model": model,
                 "ratio": ratio,
-                "duration": duration,
+                "duration": duration_value,
                 "resolution": resolution,
             }
 
             if seed > 0:
                 payload["seed"] = seed
 
-            image_url = None
-            if image is not None:
-                pbar.update_absolute(20)
-                image_url = self.upload_image(image, request_id=request_id, rn_pbar=rn_pbar)
-                if image_url:
-                    payload["images"] = [image_url]
+            all_images = [image1, image2, image3, image4, image5, image6, image7]
+            image_urls = []
+
+            for i, img in enumerate(all_images):
+                if img is None:
+                    continue
+
+                pbar.update_absolute(min(29, 15 + i * 2))
+                uploaded_url = self.upload_image(img, request_id=request_id, rn_pbar=rn_pbar)
+                if uploaded_url:
+                    image_urls.append(uploaded_url)
                 else:
-                    error_message = "Failed to upload image. Please check your image and try again."
+                    error_message = f"Failed to upload image {i+1}. Please check your image and try again."
                     rn_pbar.error(error_message)
                     log_backend(
                         "xai_video_generate_failed",
@@ -218,9 +184,13 @@ class ComflyGrok3VideoApi:
                         request_id=request_id,
                         stage="upload_image_failed",
                         model=model,
+                        image_index=int(i + 1),
                         elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
                     )
                     raise Exception(error_message)
+
+            if image_urls:
+                payload["images"] = image_urls
 
             pbar.update_absolute(30)
 
@@ -232,7 +202,8 @@ class ComflyGrok3VideoApi:
                 prompt_len=len(prompt or ""),
                 ratio=ratio,
                 resolution=resolution,
-                has_image=bool(image is not None),
+                has_image=bool(image_urls),
+                image_count=int(len(image_urls)),
                 seed=(int(seed) if int(seed) > 0 else None),
             )
 
@@ -416,5 +387,3 @@ class ComflyGrok3VideoApi:
             )
             log_error("异常", request_id, error_message, "RunNode/xAI-", "xAI")
             raise Exception(error_message)
-
-

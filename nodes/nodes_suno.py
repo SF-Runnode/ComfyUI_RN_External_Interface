@@ -55,7 +55,7 @@ class Comfly_suno_description:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_music_description_failed",
@@ -379,7 +379,7 @@ class Comfly_suno_lyrics:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_lyrics_failed",
@@ -581,7 +581,7 @@ class Comfly_suno_custom:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_music_custom_failed",
@@ -895,7 +895,7 @@ class Comfly_suno_upload:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_audio_upload_failed",
@@ -1243,7 +1243,7 @@ class Comfly_suno_upload_extend:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_upload_extend_failed",
@@ -1566,7 +1566,7 @@ class Comfly_suno_cover:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_cover_failed",

@@ -86,7 +86,7 @@ class Comfly_Flux_Kontext:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
             raise Exception(error_message)
@@ -266,7 +266,7 @@ class Comfly_Flux_Kontext_Edit:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Flux-", "Flux")
             raise Exception(error_message)

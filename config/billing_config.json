@@ -18,6 +18,10 @@
       "description": "按秒计费（视频/音频时长）",
       "params": ["price_per_second"]
     },
+    "per_second_with_conditions": {
+      "description": "按秒计费（支持按条件字段区分单价，如 mode/resolution）",
+      "params": ["billing_conditions", "price_per_second"]
+    },
     "per_model": {
       "description": "按模型计费（固定费用）",
       "params": ["price_per_model"]
@@ -35,8 +39,11 @@
     },
 
     "kling-v2-1-master": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
+      "billing_type": "per_second_with_conditions",
+      "billing_conditions": [
+        {"mode": "std", "price_per_second": 0.001},
+        {"mode": "pro", "price_per_second": 0.004}
+      ]
     },
     "kling-v2-master": {
       "billing_type": "per_second",
@@ -167,42 +174,52 @@
     },
 
     "MiniMax-Hailuo-02": {
-      "billing_type": "per_second",
-      "price_per_second": 0.0015
+      "billing_type": "per_second_with_conditions",
+      "billing_conditions": [
+        {"resolution": "512P", "price_per_second": 0.14},
+        {"resolution": "768P", "price_per_second": 0.54},
+        {"resolution": "1080P", "price_per_second": 0.9}
+      ]
     },
     "MiniMax-Hailuo-2.3": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
+      "billing_type": "per_second_with_conditions",
+      "billing_conditions": [
+        {"resolution": "768P", "price_per_second": 0.54},
+        {"resolution": "1080P", "price_per_second": 0.9}
+      ]
     },
     "MiniMax-Hailuo-2.3-Fast": {
-      "billing_type": "per_second",
-      "price_per_second": 0.0008
+      "billing_type": "per_second_with_conditions",
+      "billing_conditions": [
+        {"resolution": "768P", "price_per_second": 0.31},
+        {"resolution": "1080P", "price_per_second": 0.52}
+      ]
     },
-    "T2V-01": {
+    "MiniMax-T2V-01": {
       "billing_type": "per_second",
       "price_per_second": 0.001
     },
-    "T2V-01-Director": {
+    "MiniMax-T2V-01-Director": {
       "billing_type": "per_second",
       "price_per_second": 0.002
     },
-    "I2V-01": {
+    "MiniMax-I2V-01": {
       "billing_type": "per_second",
       "price_per_second": 0.002
     },
-    "I2V-01-live": {
+    "MiniMax-I2V-01-live": {
       "billing_type": "per_second",
       "price_per_second": 0.002
     },
-    "I2V-01-Director": {
+    "MiniMax-I2V-01-Director": {
       "billing_type": "per_second",
       "price_per_second": 0.003
     },
-    "S2V-01": {
+    "MiniMax-S2V-01": {
       "billing_type": "per_second",
       "price_per_second": 0.002
     },
-    "minimax-video": {
+    "MiniMax-minimax-video": {
       "billing_type": "per_second",
       "price_per_second": 0.0015
     },
@@ -380,15 +397,15 @@
     "show_workflow_total": true,
     "currency": "CNY",
     "base_currency": "CNY",
-    "models_currency": "USD",
-    "credits_conversion_rate": 211,
+    "models_currency": "CNY",
+    "credits_conversion_rate": 10,
     "currency_rates": {
       "CNY": 1,
-      "USD": 0.14085,
-      "HKD": 1.0986,
-      "JPY": 21.831,
-      "EUR": 0.1296,
-      "GBP": 0.10986
+      "USD": 0.1446,
+      "HKD": 1.1317,
+      "JPY": 23.11,
+      "EUR": 0.1255,
+      "GBP": 0.1095
     }
   }
 }

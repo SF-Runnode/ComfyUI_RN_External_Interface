@@ -112,7 +112,7 @@ class ComflyGeminiAPI:
             self.api_key = get_config().get('api_key', '')
 
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
             raise ValueError(error_message)
@@ -386,7 +386,7 @@ class ComflyGeminiTextOnly:
             self.api_key = get_config().get('api_key', '')
 
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
             raise ValueError(error_message)
@@ -545,7 +545,7 @@ class Comfly_Googel_Veo3:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_msg = "API key not found in Comflyapi.json"
+            error_msg = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Google-", "Google")
             error_response = {"code": "error", "message": error_msg}
@@ -762,7 +762,7 @@ class Comfly_nano_banana:
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "tooltip": "图像生成的描述提示词。详细描述想要生成的图像内容。"}),
-                "model": (["Nano Banana 2", "Gemini 3 Pro (Image)", "Gemini 2.5 Flash (Image)", "Nano Banana", "Nano Banana HD", "Gemini 2.5 Flash (Image Preview)"], {"default": "Nano Banana", "tooltip": "Google图像生成模型版本。nano-banana为轻量快速版本，hd为高清版本。"}),
+                "model": (["Nano Banana 2", "Gemini 3 Pro (Image Preview)", "Gemini 2.5 Flash (Image)", "Nano Banana", "Nano Banana HD", "Gemini 2.5 Flash (Image Preview)"], {"default": "Nano Banana", "tooltip": "Google图像生成模型版本。nano-banana为轻量快速版本，hd为高清版本。"}),
             },
             "optional": {
                 "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
@@ -1353,7 +1353,7 @@ class Comfly_nano_banana_edit:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             raise ValueError(error_message)
             
@@ -1556,7 +1556,7 @@ class Comfly_nano_banana2_edit:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             raise ValueError(error_message)
             
@@ -1785,7 +1785,7 @@ class Comfly_nano_banana2_edit_S2A:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             raise ValueError(error_message)
         
@@ -1804,7 +1804,7 @@ class Comfly_nano_banana2_edit_S2A:
                 return result
             
             # 否则创建新的异步任务
-                print(f"Creating new async task with mode: {mode}")
+            print(f"Creating new async task with mode: {mode}")
             final_prompt = prompt
             
             if mode == "text2img":
@@ -3170,3 +3170,95 @@ class Comfly_banana2_edit_S2A_run_32:
         max_workers = max(1, min(32, max_workers))
         groups = [cfg.get(f"promt_{i}", "") for i in range(1, 33)]
         return self.runner.run(groups, max_workers, cfg)
+
+
+class Comfly_gemini_3_1_flash_image_edit_S2A:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return{
+            "required": {
+                "promt": ("STRING", {"multiline": True, "tooltip": "生成提示词。"}),
+                "mode": (["text2img", "img2img"], {"default": "text2img", "tooltip": "生成模式。"}),
+                "model": (["Gemini 3.1 Flash (Image Preview)"], {"default": "Gemini 3.1 Flash (Image Preview)", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "1:4", "4:1", "1:8", "8:1"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+            },
+            "optional": {
+                "image1": ("IMAGE", {"tooltip": "第1个图像的输入图像。"}),
+                "image2": ("IMAGE", {"tooltip": "第2个图像的输入图像。"}),
+                "image3": ("IMAGE", {"tooltip": "第3个图像的输入图像。"}),
+                "image4": ("IMAGE", {"tooltip": "第4个图像的输入图像。"}),
+                "image5": ("IMAGE", {"tooltip": "第5个图像的输入图像。"}),
+                "image6": ("IMAGE", {"tooltip": "第6个图像的输入图像。"}),
+                "image7": ("IMAGE", {"tooltip": "第7个图像的输入图像。"}),
+                "image8": ("IMAGE", {"tooltip": "第8个图像的输入图像。"}),
+                "image9": ("IMAGE", {"tooltip": "第9个图像的输入图像。"}),
+                "image10": ("IMAGE", {"tooltip": "第10个图像的输入图像。"}),
+                "image11": ("IMAGE", {"tooltip": "第11个图像的输入图像。"}),
+                "image12": ("IMAGE", {"tooltip": "第12个图像的输入图像。"}),
+                "image13": ("IMAGE", {"tooltip": "第13个图像的输入图像。"}),
+                "image14": ("IMAGE", {"tooltip": "第14个图像的输入图像。"}),
+                "task_id": ("STRING", {"default": "", "multiline": False, "tooltip": "任务ID。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("image1", "image_url", "task_id", "response")
+    FUNCTION = "generate_image"
+    CATEGORY = "RunNode/Google"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 600
+
+    def get_headers(self):
+        return {
+            "Authorization": f"Bearer {self.api_key}"
+        }
+    
+    def image_to_base64(self, image_tensor):
+        """Convert tensor to base64 string"""
+        if image_tensor is None:
+            return None
+            
+        pil_image = tensor2pil(image_tensor)[0]
+        buffered = BytesIO()
+        pil_image.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    def generate_image(self, prompt, mode="text2img", model="Gemini 3 Pro (Image Preview)", aspect_ratio="auto",
+                      image_size="2K", image1=None, image2=None, image3=None, image4=None,
+                      image5=None, image6=None, image7=None, image8=None, image9=None,
+                      image10=None, image11=None, image12=None, image13=None, image14=None,
+                      apikey="", task_id="", response_format="url", seed=0):
+        model = get_api_model_name(model)
+
+        request_id = generate_request_id("img_edit", "google")
+        log_prepare("图像编辑", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像编辑", source="RunNode/Google-")
+        rn_pbar.set_generating()
+        if apikey.strip():
+            self.api_key = apikey
+        else:
+            self.api_key = get_config().get('api_key', '')
+        
+        if not self.api_key:
+            error_message = "API key not found in configuration file or environment variables."
+            rn_pbar.error(error_message)
+            raise ValueError(error_message)
+
+        try:
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update_absolute(10)
+
+            # 如果提供了task_id，则查询任务状态
+            if task_id.strip():
+                print(f"Querying task status for task_id: {task_id}")
+                result = self._query_task_status(task_id, pbar)
+                try:
+                    rn_pbar.done(char_count=len(str(result[-1])))
+                except Exception:
+                    pass
+                return result

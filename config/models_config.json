@@ -48,13 +48,13 @@
     "MiniMax-Hailuo-02": "MiniMax Hailuo 02",
     "MiniMax-Hailuo-2.3": "MiniMax Hailuo 2.3",
     "MiniMax-Hailuo-2.3-Fast": "MiniMax Hailuo 2.3 Fast",
-    "T2V-01": "MiniMax T2V-01",
-    "T2V-01-Director": "MiniMax T2V-01 Director",
-    "I2V-01": "MiniMax I2V-01",
-    "I2V-01-live": "MiniMax I2V-01 Live",
-    "I2V-01-Director": "MiniMax I2V-01 Director",
-    "S2V-01": "MiniMax S2V-01",
-    "minimax-video": "MiniMax Video",
+    "MiniMax-T2V-01": "MiniMax T2V-01",
+    "MiniMax-T2V-01-Director": "MiniMax T2V-01 Director",
+    "MiniMax-I2V-01": "MiniMax I2V-01",
+    "MiniMax-I2V-01-live": "MiniMax I2V-01 Live",
+    "MiniMax-I2V-01-Director": "MiniMax I2V-01 Director",
+    "MiniMax-S2V-01": "MiniMax S2V-01",
+    "MiniMax-minimax-video": "MiniMax Video",
 
     "flux-kontext-dev": "Flux Kontext Dev",
     "flux-kontext-pro": "Flux Kontext Pro",
@@ -68,10 +68,6 @@
     "qwen-image-edit": "Qwen Image Edit",
     "z-image-turbo": "Z-Image Turbo",
     "z-image": "Z-Image",
-
-    "gemini-2.0-flash-exp-image": "Gemini 2.0 Flash (Image)",
-    "gemini": "Gemini",
-    "gemini-pro": "Gemini Pro",
 
     "veo3": "Veo 3",
     "veo3-fast": "Veo 3 Fast",
@@ -89,9 +85,13 @@
     "nano-banana": "Nano Banana",
     "nano-banana-hd": "Nano Banana HD",
 
-    "gemini-3-pro-image-preview": "Gemini 3 Pro (Image)",
+    "gemini": "Gemini",
+    "gemini-pro": "Gemini Pro",
+    "gemini-2.0-flash-exp-image": "Gemini 2.0 Flash (Image)",
     "gemini-2.5-flash-image": "Gemini 2.5 Flash (Image)",
     "gemini-2.5-flash-image-preview": "Gemini 2.5 Flash (Image Preview)",
+    "gemini-3-pro-image-preview": "Gemini 3 Pro (Image Preview)",
+    "gemini-3.1-flash-image-preview": "Gemini 3.1 Flash (Image Preview)",
 
     "wan2.6-video": "Wan 2.6 Video",
 
@@ -173,9 +173,10 @@
     "Gemini": "gemini",
     "Gemini Pro": "gemini-pro",
     "Gemini 2.0 Flash (Image)": "gemini-2.0-flash-exp-image",
-    "Gemini 3 Pro (Image)": "gemini-3-pro-image-preview",
     "Gemini 2.5 Flash (Image)": "gemini-2.5-flash-image",
     "Gemini 2.5 Flash (Image Preview)": "gemini-2.5-flash-image-preview",
+    "Gemini 3 Pro (Image Preview)": "gemini-3-pro-image-preview",
+    "Gemini 3.1 Flash (Image Preview)": "gemini-3.1-flash-image-preview",
 
     "Veo 3": "veo3",
     "Veo 3 Fast": "veo3-fast",

@@ -25,6 +25,7 @@ docker run -v /path/to/billing_config.json:/app/custom_nodes/ComfyUI_RN_External
 | `token` | 按 token 计费 | `input_price_per_1k`, `output_price_per_1k` |
 | `per_use` | 按次计费（生成次数） | `price_per_use` |
 | `per_second` | 按秒计费（视频/音频时长） | `price_per_second` |
+| `per_second_with_conditions` | 按秒计费（按条件字段区分单价） | `billing_conditions`（可选 `price_per_second` 作为兜底） |
 | `per_model` | 按模型计费（固定费用） | `price_per_model` |
 
 ### 2. 模型配置 (models)
@@ -52,6 +53,43 @@ docker run -v /path/to/billing_config.json:/app/custom_nodes/ComfyUI_RN_External
 ```
 
 **价格计算**：`duration × price_per_second`
+
+#### 按秒计费（条件分价）(per_second_with_conditions)
+
+用于同一个模型在不同 `mode` / `resolution` / 未来新增字段下单价不同的情况。
+
+`billing_conditions` 是一个数组；每个元素里，除了 `price_per_second`（以及可选的 `multiplier`）等价格字段外，其余字段都视为“匹配条件”。当多个条件都能匹配时，会优先选择“匹配字段更多”的那条（更精确）。
+
+推荐直接在每条条件里写 `price_per_second`（单价）；此时模型顶层的 `price_per_second` 可以省略。
+
+如果想用倍率写法，也可以在模型顶层提供 `price_per_second` 作为基础单价，然后在条件里用 `multiplier` 做倍数调整。
+
+```json
+{
+  "kling-v2-1-master": {
+    "billing_type": "per_second_with_conditions",
+    "billing_conditions": [
+      {"mode": "std", "price_per_second": 0.001},
+      {"mode": "pro", "price_per_second": 0.004}
+    ]
+  }
+}
+```
+
+也可以用 `resolution` 作为条件（字段名需与节点 widget 名一致）：
+
+```json
+{
+  "MiniMax-Hailuo-2.3": {
+    "billing_type": "per_second_with_conditions",
+    "billing_conditions": [
+      {"resolution": "720P", "price_per_second": 0.001},
+      {"resolution": "768P", "price_per_second": 0.0012},
+      {"resolution": "1080P", "price_per_second": 0.0018}
+    ]
+  }
+}
+```
 
 #### 按次计费 (per_use)
 
@@ -132,8 +170,8 @@ docker run -v /path/to/billing_config.json:/app/custom_nodes/ComfyUI_RN_External
 Badge 显示格式：`[图标] [价格][计费方式] [×数量]`
 
 示例：
-- `⏱️ $0.05/s` - Sora 2 普通模式
-- `⏱️ $0.10/s ×4` - Sora 2 批量运行 4 次
+- `⏱️ $0.05 (10s)` - Sora 2（按时长计费）
+- `⏱️ $0.10 (10s) ×4` - Sora 2 批量运行 4 次
 - `📌 $0.035/use` - Midjourney
 - `💰 $0.001/token` - Gemini token 计费
 

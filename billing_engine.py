@@ -24,6 +24,7 @@ class BillingType(Enum):
     TOKEN = "token"
     PER_USE = "per_use"
     PER_SECOND = "per_second"
+    PER_SECOND_WITH_CONDITIONS = "per_second_with_conditions"
     PER_MODEL = "per_model"
     # 预留扩展类型
     UNKNOWN = "unknown"
@@ -222,6 +223,49 @@ class BillingCalculator:
         if cls._initialized:
             return
 
+        def _match_condition(conditions: Any, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            if not isinstance(conditions, list) or not conditions:
+                return None
+            reserved = {
+                "price_per_second",
+                "price_per_use",
+                "price_per_model",
+                "input_price_per_1k",
+                "output_price_per_1k",
+                "multiplier",
+                "label",
+                "name",
+                "description",
+            }
+
+            best = None
+            best_score = -1
+            for cond in conditions:
+                if not isinstance(cond, dict):
+                    continue
+                ok = True
+                score = 0
+                for k, expected in cond.items():
+                    if k in reserved:
+                        continue
+                    if k not in params:
+                        ok = False
+                        break
+                    actual = params.get(k)
+                    if isinstance(expected, list):
+                        if str(actual) not in {str(x) for x in expected}:
+                            ok = False
+                            break
+                    else:
+                        if str(actual) != str(expected):
+                            ok = False
+                            break
+                    score += 1
+                if ok and score > best_score:
+                    best_score = score
+                    best = cond
+            return best
+
         # Token 计费
         @cls.register("token")
         def calc_token(model_config: Dict, data: Dict, is_estimate: bool) -> float:
@@ -269,6 +313,29 @@ class BillingCalculator:
                 duration = data.get("actual_duration_seconds", 0)
 
             return duration * model_config.get("price_per_second", 0)
+
+        @cls.register("per_second_with_conditions")
+        def calc_per_second_with_conditions(model_config: Dict, data: Dict, is_estimate: bool) -> float:
+            if is_estimate:
+                duration = data.get("estimated_duration_seconds")
+            else:
+                duration = data.get("actual_duration_seconds")
+            if duration is None:
+                duration = data.get("duration")
+            try:
+                duration = float(duration or 0)
+            except Exception:
+                duration = 0
+
+            base_unit = float(model_config.get("price_per_second", 0) or 0)
+            matched = _match_condition(model_config.get("billing_conditions"), data)
+            if isinstance(matched, dict) and matched.get("price_per_second") is not None:
+                unit = float(matched.get("price_per_second") or 0)
+            elif isinstance(matched, dict) and matched.get("multiplier") is not None:
+                unit = base_unit * float(matched.get("multiplier") or 0)
+            else:
+                unit = base_unit
+            return duration * unit
 
         # 按模型计费（固定费用）
         @cls.register("per_model")
@@ -344,4 +411,4 @@ def calculate_actual_price(model_key: str, result_data: Dict) -> BillingResult:
         result = calculate_actual_price("openai/gpt-4", {"input_tokens": 1000, "output_tokens": 500})
         print(result.actual)
     """
-    return BillingCalculator.calculate_actual(model_key, result_data, {})
+    return BillingCalculator.calculate_actual(model_key, {}, result_data)

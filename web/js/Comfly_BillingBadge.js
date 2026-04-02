@@ -72,10 +72,99 @@ import { app } from "../../../scripts/app.js";
      */
     const BILLING_TYPE_INFO = {
         'per_second': { icon: '⏱️', label: 'per sec', shortLabel: '/s' },
+        'per_second_with_conditions': { icon: '⏱️', label: 'per sec', shortLabel: '/s' },
         'per_use': { icon: '📌', label: 'per use', shortLabel: '/use' },
         'token': { icon: '💰', label: 'per token', shortLabel: '/token' },
         'per_model': { icon: '📦', label: 'per model', shortLabel: '/model' }
     };
+
+    function normalizeParamValue(value) {
+        if (value === undefined || value === null) return undefined;
+        if (typeof value === 'string') return value;
+        if (typeof value === 'number') return value;
+        if (typeof value === 'boolean') return value;
+        if (Array.isArray(value)) return value.map(normalizeParamValue);
+        return String(value);
+    }
+
+    function buildParamsFromWidgets(widgets) {
+        const params = {};
+        for (const w of (widgets || [])) {
+            if (!w || !w.name) continue;
+            if (w.name === '__comfly_price_badge') continue;
+            const raw = (w.value !== undefined) ? w.value : w;
+            const v = normalizeParamValue(raw);
+            if (v !== undefined) params[w.name] = v;
+        }
+        return params;
+    }
+
+    function matchBillingCondition(conditions, params) {
+        if (!Array.isArray(conditions) || conditions.length === 0) return null;
+        const reservedKeys = new Set([
+            'price_per_second',
+            'price_per_use',
+            'price_per_model',
+            'input_price_per_1k',
+            'output_price_per_1k',
+            'multiplier',
+            'label',
+            'name',
+            'description'
+        ]);
+
+        let best = null;
+        let bestScore = -1;
+        for (const cond of conditions) {
+            if (!cond || typeof cond !== 'object') continue;
+            let ok = true;
+            let score = 0;
+            for (const [k, expectedRaw] of Object.entries(cond)) {
+                if (reservedKeys.has(k)) continue;
+                const actual = params?.[k];
+                if (actual === undefined) {
+                    ok = false;
+                    break;
+                }
+                const expected = normalizeParamValue(expectedRaw);
+                if (Array.isArray(expected)) {
+                    if (!expected.map(String).includes(String(actual))) {
+                        ok = false;
+                        break;
+                    }
+                } else {
+                    if (String(actual) !== String(expected)) {
+                        ok = false;
+                        break;
+                    }
+                }
+                score += 1;
+            }
+            if (!ok) continue;
+            if (score > bestScore) {
+                bestScore = score;
+                best = cond;
+            }
+        }
+        return best;
+    }
+
+    function resolvePerSecondUnitPrice(config, params) {
+        if (!config) return { unitPrice: 0, matched: null };
+        const baseUnit = Number(config.price_per_second || 0);
+        if (config.billing_type !== 'per_second_with_conditions') {
+            return { unitPrice: baseUnit, matched: null };
+        }
+
+        const matched = matchBillingCondition(config.billing_conditions, params);
+        if (matched && matched.price_per_second !== undefined && matched.price_per_second !== null) {
+            return { unitPrice: Number(matched.price_per_second || 0), matched };
+        }
+        if (matched && matched.multiplier !== undefined && matched.multiplier !== null) {
+            return { unitPrice: baseUnit * Number(matched.multiplier || 0), matched };
+        }
+        return { unitPrice: baseUnit, matched };
+    }
 
     /**
      * 检测批量节点并获取数量
@@ -198,13 +287,22 @@ import { app } from "../../../scripts/app.js";
 
         if (!config) return null;
 
+        const params = buildParamsFromWidgets(widgets);
         const info = BILLING_TYPE_INFO[config.billing_type] || { icon: '💳', label: '', shortLabel: '' };
         let price = 0;
+        let billingTypeLabel = info.shortLabel;
+        let details = undefined;
 
         switch (config.billing_type) {
             case 'per_second':
-                price = (duration || 10) * (config.price_per_second || 0);
+            case 'per_second_with_conditions': {
+                const dur = (duration || 10);
+                const { unitPrice, matched } = resolvePerSecondUnitPrice(config, params);
+                price = dur * unitPrice;
+                billingTypeLabel = dur ? ` (${dur}s)` : '';
+                details = { unit_price_per_second: unitPrice, matched_condition: matched || null, duration_seconds: dur };
                 break;
+            }
             case 'per_use':
                 price = config.price_per_use || 0;
                 break;
@@ -225,7 +323,7 @@ import { app } from "../../../scripts/app.js";
         }
 
         const priceBase = toBaseFrom(price, modelsCurrency || 'USD');
-        return { price: priceBase, billingType: config.billing_type, billingTypeIcon: info.icon, billingTypeLabel: info.shortLabel, modelKey };
+        return { price: priceBase, billingType: config.billing_type, billingTypeIcon: info.icon, billingTypeLabel, modelKey, details };
     }
 
     /**
@@ -286,8 +384,34 @@ import { app } from "../../../scripts/app.js";
     function attachBadge(node, nodeName) {
         if (!isComflyNode(nodeName)) return;
 
+        if (!node.__comfly_price_badge_hooked) {
+            node.__comfly_price_badge_hooked = true;
+            for (const w of (node.widgets || [])) {
+                if (!w || !w.name) continue;
+                if (w.name === '__comfly_price_badge') continue;
+                if (w.__comfly_price_badge_hooked) continue;
+                w.__comfly_price_badge_hooked = true;
+                const original = w.callback;
+                w.callback = function () {
+                    const r = original?.apply(this, arguments);
+                    requestAnimationFrame(() => attachBadge(node, nodeName));
+                    return r;
+                };
+            }
+        }
+
         const result = estimatePrice(nodeName, node.widgets);
-        if (!result || !result.price) return;
+        if (!result || !result.price) {
+            const existingWidget = node.widgets?.find(w => w.name === '__comfly_price_badge');
+            if (existingWidget) {
+                node.removeWidget(existingWidget);
+            }
+            if (node.element) {
+                const existing = node.element.querySelector('.comfly-price-badge');
+                if (existing) existing.remove();
+            }
+            return;
+        }
 
         const formatted = formatPrice(result.price);
         if (!formatted) return;
@@ -317,6 +441,16 @@ import { app } from "../../../scripts/app.js";
         badge.className = 'comfly-price-badge';
         badge.textContent = displayText;
         badge.title = `${modelDisplayName} - 计费方式: ${result.billingType}`;
+        if (result.details?.matched_condition) {
+            const cond = result.details.matched_condition;
+            const reserved = new Set(['price_per_second', 'price_per_use', 'price_per_model', 'input_price_per_1k', 'output_price_per_1k', 'multiplier', 'label', 'name', 'description']);
+            const parts = Object.entries(cond)
+                .filter(([k]) => !reserved.has(k))
+                .map(([k, v]) => `${k}=${v}`);
+            if (parts.length) {
+                badge.title += `\n匹配条件: ${parts.join(', ')}`;
+            }
+        }
 
         const baseStyle = 'padding:2px 8px;border-radius:10px;' +
             'font-size:11px;font-weight:600;' +

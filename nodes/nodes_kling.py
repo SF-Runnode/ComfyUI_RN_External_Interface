@@ -156,7 +156,7 @@ class Comfly_kling_text2video:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_msg = "API key not found in Comflyapi.json"
+            error_msg = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
             raise Exception(error_msg)
@@ -316,7 +316,7 @@ class Comfly_kling_image2video:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_msg = "API key not found in Comflyapi.json"
+            error_msg = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
             raise Exception(error_msg)
@@ -571,7 +571,7 @@ class Comfly_kling_multi_image2video:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_msg = "API key not found in Comflyapi.json"
+            error_msg = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_msg)
             log_error("配置缺失", request_id, error_msg, "RunNode/Kling-", "Kling")
             raise Exception(error_msg)
@@ -691,7 +691,7 @@ class Comfly_video_extend:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_msg = "API key not found in Comflyapi.json"
+            error_msg = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_msg)
             raise Exception(error_msg)
             
@@ -884,7 +884,7 @@ class Comfly_lip_sync:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_msg = "API key not found in Comflyapi.json"
+            error_msg = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_msg)
             raise Exception(error_msg)
         

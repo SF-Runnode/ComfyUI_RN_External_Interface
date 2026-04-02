@@ -67,7 +67,7 @@ class Comfly_Doubao_Seedream:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
             raise Exception(error_message)
@@ -306,7 +306,7 @@ class Comfly_Doubao_Seedream_4:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Doubao")
             raise Exception(error_message)
@@ -566,7 +566,7 @@ class Comfly_Doubao_Seedream_4_5:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Doubao")
             raise Exception(error_message)
@@ -773,7 +773,7 @@ class Comfly_Doubao_Seededit:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
             raise Exception(error_message)
@@ -1002,7 +1002,7 @@ class ComflyJimengApi:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                 raise Exception(error_message)
@@ -1320,7 +1320,7 @@ class ComflyJimengVideoApi:
         request_id = generate_request_id("video_gen", "jimeng")
         
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
             raise Exception(error_message)
             
@@ -1562,7 +1562,7 @@ class ComflySeededit:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 raise Exception(error_message)
                 
