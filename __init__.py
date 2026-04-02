@@ -14,7 +14,7 @@ from .nodes.nodes_ollama import *
 from .nodes.nodes_xai import *
 
 
-WEB_DIRECTORY = "./web"
+WEB_DIRECTORY = "./web/js"
 
 __version__ = "1.19.5"
 
@@ -96,6 +96,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_banana2_edit_S2A_run_8": Comfly_banana2_edit_S2A_run_8,
     "RunNode_banana2_edit_S2A_run_16": Comfly_banana2_edit_S2A_run_16,
     "RunNode_banana2_edit_S2A_run_32": Comfly_banana2_edit_S2A_run_32,
+    "RunNode_gemini_3_1_flash_image_edit_S2A": Comfly_gemini_3_1_flash_image_edit_S2A,
     "RunNode_Z_image_turbo": Comfly_Z_image_turbo,
     "RunNode_wan2_6_API": Comfly_wan2_6_API,
     "RunNode_LLm_API": Comfly_LLm_API,
@@ -120,7 +121,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_video_extend": "RunNode video_extend",
     "RunNode_lip_sync": "RunNode lip_sync",
     "RunNodeGeminiAPI": "RunNode Gemini API",
-    "RunNodeSeededit": "RunNode Doubao SeedEdit2.0",
+    "RunNodeSeededit": "RunNode Doubao SeedEdit",
     "RunNodeChatGPTApi": "RunNode ChatGPT Api",
     "RunNode_sora2_openai": "RunNode Sora2 OpenAI",
     "RunNode_sora2": "RunNode Sora2",
@@ -180,6 +181,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_banana2_edit_S2A_run_8": "RunNode banana2_edit S2A Run 8",
     "RunNode_banana2_edit_S2A_run_16": "RunNode banana2_edit S2A Run 16",
     "RunNode_banana2_edit_S2A_run_32": "RunNode banana2_edit S2A Run 32",
+    "RunNode_gemini_3_1_flash_image_edit_S2A": "RunNode gemini_3_1_flash_image_edit_S2A",
     "RunNode_Z_image_turbo": "RunNode Z Image Turbo",
     "RunNode_wan2_6_API": "RunNode wan2.6 video",
     "RunNode_LLm_API": "RunNode LLM API",

@@ -14,7 +14,7 @@ class Comfly_suno_description:
             "required": {
                 "title": ("STRING", {"default": ""}),
                 "description_prompt": ("STRING", {"multiline": True}),
-                "version": (["v3.0", "v3.5", "v4", "v4.5", "v4.5+", "v5"], {"default": "v4.5"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 4.5"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
                 "make_instrumental": ("BOOLEAN", {"default": False}),
             },
@@ -39,7 +39,8 @@ class Comfly_suno_description:
             "Authorization": "Bearer " + self.api_key
         }
     
-    def generate_music(self, title, description_prompt, version="v4.5", seed=0, make_instrumental=False, apikey=""):
+    def generate_music(self, title, description_prompt, version="Suno 4.5", seed=0, make_instrumental=False, apikey=""):
+        version = get_api_model_name(version)
         request_id = generate_request_id("music_gen", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="description")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
@@ -54,7 +55,7 @@ class Comfly_suno_description:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_music_description_failed",
@@ -378,7 +379,7 @@ class Comfly_suno_lyrics:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_lyrics_failed",
@@ -536,7 +537,7 @@ class Comfly_suno_custom:
         return {
             "required": {
                 "title": ("STRING", {"default": ""}),
-                "version": (["v3.0", "v3.5", "v4", "v4.5", "v4.5+", "v5"], {"default": "v4.5"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 4.5"}),
                 "prompt": ("STRING", {"multiline": True}), 
                 "tags": ("STRING", {"default": ""}),  
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
@@ -564,7 +565,8 @@ class Comfly_suno_custom:
             "Authorization": "Bearer " + self.api_key
         }
     
-    def generate_music(self, title, version="v4.5", prompt="", tags="", seed=0, apikey=""):
+    def generate_music(self, title, version="Suno 4.5", prompt="", tags="", seed=0, apikey=""):
+        version = get_api_model_name(version)
         request_id = generate_request_id("music_custom", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="custom")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
@@ -579,7 +581,7 @@ class Comfly_suno_custom:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_music_custom_failed",
@@ -893,7 +895,7 @@ class Comfly_suno_upload:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_audio_upload_failed",
@@ -1201,7 +1203,7 @@ class Comfly_suno_upload_extend:
                 "tags": ("STRING", {"default": ""}),
                 "title": ("STRING", {"default": ""}),
                 "continue_at": ("INT", {"default": 28, "min": 0, "max": 120}),
-                "version": (["v3.0", "v3.5", "v4", "v4.5", "v4.5+", "v5"], {"default": "v5"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 5.0"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": ""}),
@@ -1225,7 +1227,8 @@ class Comfly_suno_upload_extend:
             "Authorization": f"Bearer {self.api_key}"
         }
 
-    def extend_audio(self, clip_id, prompt, tags="", title="", continue_at=28, version="v5", api_key="", seed=0):
+    def extend_audio(self, clip_id, prompt, tags="", title="", continue_at=28, version="Suno 5.0", api_key="", seed=0):
+        version = get_api_model_name(version)
         request_id = generate_request_id("upload_extend", "suno")
         log_prepare("音频续写", request_id, "RunNode/Suno-", "Suno", rule_name="upload_extend")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音频续写", source="RunNode/Suno-")
@@ -1240,7 +1243,7 @@ class Comfly_suno_upload_extend:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_upload_extend_failed",
@@ -1519,7 +1522,7 @@ class Comfly_suno_cover:
                 "prompt": ("STRING", {"multiline": True}),
                 "title": ("STRING", {"default": ""}),
                 "tags": ("STRING", {"default": ""}),
-                "version": (["v3.0", "v3.5", "v4", "v4.5", "v4.5+", "v5"], {"default": "v5"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 5.0"}),
                 "make_instrumental": ("BOOLEAN", {"default": False}),
             },
             "optional": {
@@ -1546,8 +1549,9 @@ class Comfly_suno_cover:
             "content-type": "application/json"
         }
     
-    def generate_cover(self, cover_clip_id, prompt, title="", tags="", version="v5", 
+    def generate_cover(self, cover_clip_id, prompt, title="", tags="", version="Suno 5.0",
                     make_instrumental=False, api_key="", negative_tags="", seed=0):
+        version = get_api_model_name(version)
         request_id = generate_request_id("cover", "suno")
         log_prepare("翻唱生成", request_id, "RunNode/Suno-", "Suno", rule_name="cover")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="翻唱生成", source="RunNode/Suno-")
@@ -1562,7 +1566,7 @@ class Comfly_suno_cover:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_backend(
                 "suno_cover_failed",

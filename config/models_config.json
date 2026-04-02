@@ -1,0 +1,208 @@
+{
+  "_comment": "模型名称映射配置 - 统一管理模型显示名称和 API 调用名称",
+  "_display_name_mapping": "用于 UI 显示：内部模型名称 → 友好显示名称",
+  "_api_name_mapping": "用于 API 调用：友好显示名称 → 实际 API 模型名称",
+  "_note": "display_name 和 api_name 都是可选的，如果不设置则使用 key 本身",
+
+  "display_name_mapping": {
+    "sora-2": "Sora 2",
+    "sora-2-pro": "Sora 2 Pro",
+
+    "kling-v2-1-master": "Kling 2.1 Master",
+    "kling-v2-master": "Kling 2.0 Master",
+    "kling-v1-6": "Kling 1.6",
+    "kling-v1-5": "Kling 1.5",
+    "kling-v1": "Kling 1.0",
+
+    "midjourney": "Midjourney",
+    "midjourney-fast": "Midjourney Fast",
+    "midjourney-relax": "Midjourney Relax",
+    "midjourney-pro": "Midjourney Pro",
+
+    "suno-v3.0": "Suno 3.0",
+    "suno-v3.5": "Suno 3.5",
+    "suno-v4": "Suno 4.0",
+    "suno-v4.5": "Suno 4.5",
+    "suno-v4.5+": "Suno 4.5+",
+    "suno-v5": "Suno 5.0",
+
+    "doubao-seedream-3-0-t2i-250415": "Doubao Seedream 3.0",
+    "doubao-seedream-4-0-250828": "Doubao Seedream 4.0",
+    "doubao-seedream": "Doubao Seedream",
+    "doubao-seededit": "Doubao SeedEdit",
+
+    "jimeng-video": "Jimeng Video",
+    "jimeng-image": "Jimeng Image",
+
+    "grok-video-3": "Grok Video 3",
+
+    "viduq2-pro": "Vidu Q2 Pro",
+    "viduq2-turbo": "Vidu Q2 Turbo",
+    "viduq2": "Vidu Q2",
+    "viduq1": "Vidu Q1",
+    "viduq1-classic": "Vidu Q1 Classic",
+    "vidu2.0": "Vidu 2.0",
+    "vidu1.5": "Vidu 1.5",
+    "vidu-video": "Vidu Video",
+
+    "MiniMax-Hailuo-02": "MiniMax Hailuo 02",
+    "MiniMax-Hailuo-2.3": "MiniMax Hailuo 2.3",
+    "MiniMax-Hailuo-2.3-Fast": "MiniMax Hailuo 2.3 Fast",
+    "MiniMax-T2V-01": "MiniMax T2V-01",
+    "MiniMax-T2V-01-Director": "MiniMax T2V-01 Director",
+    "MiniMax-I2V-01": "MiniMax I2V-01",
+    "MiniMax-I2V-01-live": "MiniMax I2V-01 Live",
+    "MiniMax-I2V-01-Director": "MiniMax I2V-01 Director",
+    "MiniMax-S2V-01": "MiniMax S2V-01",
+    "MiniMax-minimax-video": "MiniMax Video",
+
+    "flux-kontext-dev": "Flux Kontext Dev",
+    "flux-kontext-pro": "Flux Kontext Pro",
+    "flux-kontext-max": "Flux Kontext Max",
+    "flux-kontext": "Flux Kontext",
+    "flux-2-max": "Flux 2 Max",
+    "flux-2-pro": "Flux 2 Pro",
+    "flux-2-flex": "Flux 2 Flex",
+
+    "qwen-image": "Qwen Image",
+    "qwen-image-edit": "Qwen Image Edit",
+    "z-image-turbo": "Z-Image Turbo",
+    "z-image": "Z-Image",
+
+    "veo3": "Veo 3",
+    "veo3-fast": "Veo 3 Fast",
+    "veo3-pro": "Veo 3 Pro",
+    "veo3.1": "Veo 3.1",
+    "veo3.1-pro": "Veo 3.1 Pro",
+    "veo3.1-components": "Veo 3.1 Components",
+    "veo3.1-components-4k": "Veo 3.1 Components 4K",
+    "veo3.1-pro-4k": "Veo 3.1 Pro 4K",
+    "veo3.1-4k": "Veo 3.1 4K",
+
+    "nano-banana-2": "Nano Banana 2",
+    "nano-banana-2-2k": "Nano Banana 2 2K",
+    "nano-banana-2-4k": "Nano Banana 2 4K",
+    "nano-banana": "Nano Banana",
+    "nano-banana-hd": "Nano Banana HD",
+
+    "gemini": "Gemini",
+    "gemini-pro": "Gemini Pro",
+    "gemini-2.0-flash-exp-image": "Gemini 2.0 Flash (Image)",
+    "gemini-2.5-flash-image": "Gemini 2.5 Flash (Image)",
+    "gemini-2.5-flash-image-preview": "Gemini 2.5 Flash (Image Preview)",
+    "gemini-3-pro-image-preview": "Gemini 3 Pro (Image Preview)",
+    "gemini-3.1-flash-image-preview": "Gemini 3.1 Flash (Image Preview)",
+
+    "wan2.6-video": "Wan 2.6 Video",
+
+    "ollama": "Ollama",
+
+    "openai/gpt-4": "GPT-4",
+    "openai/gpt-4o": "GPT-4o",
+    "openai/gpt-4o-image": "GPT-4o Image",
+    "openai/gpt-3.5-turbo": "GPT-3.5 Turbo",
+    "openai/gpt-image-1": "GPT Image 1",
+    "openai/gpt-image-1.5": "GPT Image 1.5"
+  },
+
+  "api_name_mapping": {
+    "Sora 2": "sora-2",
+    "Sora 2 Pro": "sora-2-pro",
+
+    "Kling 1.0": "kling-v1",
+    "Kling 1.5": "kling-v1-5",
+    "Kling 1.6": "kling-v1-6",
+    "Kling 2.0 Master": "kling-v2-master",
+    "Kling 2.1 Master": "kling-v2-1-master",
+
+    "Midjourney": "midjourney",
+    "Midjourney Fast": "midjourney-fast",
+    "Midjourney Relax": "midjourney-relax",
+    "Midjourney Pro": "midjourney-pro",
+
+    "Suno 3.0": "suno-v3.0",
+    "Suno 3.5": "suno-v3.5",
+    "Suno 4.0": "suno-v4",
+    "Suno 4.5": "suno-v4.5",
+    "Suno 4.5+": "suno-v4.5+",
+    "Suno 5.0": "suno-v5",
+
+    "Doubao Seedream 3.0": "doubao-seedream-3-0-t2i-250415",
+    "Doubao Seedream 4.0": "doubao-seedream-4-0-250828",
+    "Doubao Seedream": "doubao-seedream",
+    "Doubao SeedEdit": "doubao-seededit",
+
+    "Jimeng Video": "jimeng-video",
+    "Jimeng Image": "jimeng-image",
+
+    "Grok Video 3": "grok-video-3",
+
+    "Vidu Q1": "viduq1",
+    "Vidu Q1 Classic": "viduq1-classic",
+    "Vidu Q2": "viduq2",
+    "Vidu Q2 Pro": "viduq2-pro",
+    "Vidu Q2 Turbo": "viduq2-turbo",
+    "Vidu 1.5": "vidu1.5",
+    "Vidu 2.0": "vidu2.0",
+    "Vidu Video": "vidu-video",
+
+    "MiniMax Hailuo 02": "MiniMax-Hailuo-02",
+    "MiniMax Hailuo 2.3": "MiniMax-Hailuo-2.3",
+    "MiniMax Hailuo 2.3 Fast": "MiniMax-Hailuo-2.3-Fast",
+    "MiniMax T2V-01": "T2V-01",
+    "MiniMax T2V-01 Director": "T2V-01-Director",
+    "MiniMax I2V-01": "I2V-01",
+    "MiniMax I2V-01 Live": "I2V-01-live",
+    "MiniMax I2V-01 Director": "I2V-01-Director",
+    "MiniMax S2V-01": "S2V-01",
+    "MiniMax Video": "minimax-video",
+
+    "Flux Kontext Dev": "flux-kontext-dev",
+    "Flux Kontext Pro": "flux-kontext-pro",
+    "Flux Kontext Max": "flux-kontext-max",
+    "Flux Kontext": "flux-kontext",
+    "Flux 2 Max": "flux-2-max",
+    "Flux 2 Pro": "flux-2-pro",
+    "Flux 2 Flex": "flux-2-flex",
+
+    "Qwen Image": "qwen-image",
+    "Qwen Image Edit": "qwen-image-edit",
+    "Z-Image Turbo": "z-image-turbo",
+    "Z-Image": "z-image",
+
+    "Gemini": "gemini",
+    "Gemini Pro": "gemini-pro",
+    "Gemini 2.0 Flash (Image)": "gemini-2.0-flash-exp-image",
+    "Gemini 2.5 Flash (Image)": "gemini-2.5-flash-image",
+    "Gemini 2.5 Flash (Image Preview)": "gemini-2.5-flash-image-preview",
+    "Gemini 3 Pro (Image Preview)": "gemini-3-pro-image-preview",
+    "Gemini 3.1 Flash (Image Preview)": "gemini-3.1-flash-image-preview",
+
+    "Veo 3": "veo3",
+    "Veo 3 Fast": "veo3-fast",
+    "Veo 3 Pro": "veo3-pro",
+    "Veo 3.1": "veo3.1",
+    "Veo 3.1 Pro": "veo3.1-pro",
+    "Veo 3.1 Components": "veo3.1-components",
+    "Veo 3.1 Components 4K": "veo3.1-components-4k",
+    "Veo 3.1 Pro 4K": "veo3.1-pro-4k",
+    "Veo 3.1 4K": "veo3.1-4k",
+
+    "Nano Banana": "nano-banana",
+    "Nano Banana HD": "nano-banana-hd",
+    "Nano Banana 2": "nano-banana-2",
+    "Nano Banana 2 2K": "nano-banana-2-2k",
+    "Nano Banana 2 4K": "nano-banana-2-4k",
+
+    "Wan 2.6 Video": "wan2.6-video",
+
+    "Ollama": "ollama",
+
+    "GPT-4": "openai/gpt-4",
+    "GPT-4o": "openai/gpt-4o",
+    "GPT-4o Image": "openai/gpt-4o-image",
+    "GPT-3.5 Turbo": "openai/gpt-3.5-turbo",
+    "GPT Image 1": "openai/gpt-image-1",
+    "GPT Image 1.5": "openai/gpt-image-1.5"
+  }
+}

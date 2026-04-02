@@ -1,0 +1,44 @@
+# ComfyUI_RN_External_Interface - Docker Compose 示例
+#
+# 用法:
+#   1. 将此文件复制到 ComfyUI 目录下
+#   2. 修改配置文件路径（如果需要）
+#   3. 运行: docker compose -f docker-compose.billing-test.yml up
+#
+# 价格配置更新:
+#   修改 config/billing_config.json 后，重启容器即可生效
+#   或挂载到宿主机: - ./billing_config.json:/app/custom_nodes/ComfyUI_RN_External_Interface/config/billing_config.json
+
+version: '3.8'
+
+services:
+  # ComfyUI 主服务
+  comfyui:
+    image: ghcr.io/comfyanonymous/comfyui:latest
+    container_name: comfyui_billing_test
+    ports:
+      - "8188:8188"
+    volumes:
+      # 挂载 ComfyUI_RN_External_Interface（开发调试模式）
+      - ./ComfyUI_RN_External_Interface:/app/custom_nodes/ComfyUI_RN_External_Interface:rw
+
+      # 可选：挂载价格配置文件（无需重建镜像即可更新价格）
+      # - ./billing_config.json:/app/custom_nodes/ComfyUI_RN_External_Interface/config/billing_config.json:ro
+
+      # ComfyUI 模型/输出目录
+      - ./models:/app/models:ro
+      - ./output:/app/output:rw
+    environment:
+      # 计费配置（可选，通过环境变量指定配置文件路径）
+      - BILLING_CONFIG_PATH=/app/custom_nodes/ComfyUI_RN_External_Interface/config/billing_config.json
+
+      # ComfyUI_RN_External_Interface 的 API 配置
+      - COMFLY_API_KEY=${COMFLY_API_KEY:-your_api_key_here}
+      - COMFLY_BASE_URL=${COMFLY_BASE_URL:-https://api.example.com}
+    networks:
+      - comfyui_network
+    restart: unless-stopped
+
+networks:
+  comfyui_network:
+    driver: bridge

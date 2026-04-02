@@ -8,7 +8,7 @@ class Comfly_Doubao_Seedream:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["doubao-seedream-3-0-t2i-250415"], {"default": "doubao-seedream-3-0-t2i-250415"}),
+                "model": (["Doubao Seedream 3.0"], {"default": "Doubao Seedream 3.0"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "size": (["1024x1024", "864x1152", "1152x864", "1280x720", "720x1280", "832x1248", 
                          "1248x832", "1512x648", "Custom"], {"default": "1024x1024"}),
@@ -53,9 +53,10 @@ class Comfly_Doubao_Seedream:
         except ValueError:
             return False, "Custom size must contain valid integers in format 'widthxheight'"
     
-    def generate_image(self, prompt, model, response_format="url", size="1024x1024", 
-                       Custom_size="1536x1024", guidance_scale=2.5, apikey="", 
+    def generate_image(self, prompt, model, response_format="url", size="1024x1024",
+                       Custom_size="1536x1024", guidance_scale=2.5, apikey="",
                        seed=-1, watermark=True):
+        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "doubao")
         log_prepare("图像生成", request_id, "RunNode/Doubao-", "Doubao", model_name=model)
         rn_pbar = ProgressBar(request_id, "Doubao", streaming=True, task_type="图像生成", source="RunNode/Doubao-")
@@ -66,7 +67,7 @@ class Comfly_Doubao_Seedream:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error(error_message, request_id, "RunNode/Doubao-", "Doubao")
             raise Exception(error_message)
@@ -193,7 +194,7 @@ class Comfly_Doubao_Seedream_4:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["doubao-seedream-4-0-250828"], {"default": "doubao-seedream-4-0-250828"}),
+                "model": (["Doubao Seedream 4.0"], {"default": "Doubao Seedream 4.0"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "resolution": (["1K", "2K", "4K"], {"default": "1K"}),
             },
@@ -286,11 +287,12 @@ class Comfly_Doubao_Seedream_4:
         image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{image_base64}"
     
-    def generate_image(self, prompt, model, response_format="url", resolution="1K", 
-                  aspect_ratio="1:1", width=1024, height=1024, apikey="", 
-                  image1=None, image2=None, image3=None, image4=None, image5=None, 
-                  sequential_image_generation="disabled", max_images=1, seed=-1, 
+    def generate_image(self, prompt, model, response_format="url", resolution="1K",
+                  aspect_ratio="1:1", width=1024, height=1024, apikey="",
+                  image1=None, image2=None, image3=None, image4=None, image5=None,
+                  sequential_image_generation="disabled", max_images=1, seed=-1,
                   watermark=True, stream=False):
+        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "doubao")
         log_prepare("图像生成", request_id, "RunNode/Doubao-", "Doubao", model_name=model)
         rn_pbar = ProgressBar(request_id, "Doubao", streaming=True, task_type="图像生成", source="RunNode/Doubao-")
@@ -304,7 +306,7 @@ class Comfly_Doubao_Seedream_4:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Doubao")
             raise Exception(error_message)
@@ -564,7 +566,7 @@ class Comfly_Doubao_Seedream_4_5:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Doubao")
             raise Exception(error_message)
@@ -771,7 +773,7 @@ class Comfly_Doubao_Seededit:
             self.api_key = get_config().get('api_key', '')
             
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             rn_pbar.error(error_message)
             log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "SeedEdit")
             raise Exception(error_message)
@@ -1000,7 +1002,7 @@ class ComflyJimengApi:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Jimeng")
                 raise Exception(error_message)
@@ -1318,7 +1320,7 @@ class ComflyJimengVideoApi:
         request_id = generate_request_id("video_gen", "jimeng")
         
         if not self.api_key:
-            error_message = "API key not found in Comflyapi.json"
+            error_message = "API key not found in configuration file or environment variables."
             log_error(error_message, request_id, "RunNode/Doubao-", "JimengVideo")
             raise Exception(error_message)
             
@@ -1560,7 +1562,7 @@ class ComflySeededit:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
                 raise Exception(error_message)
                 

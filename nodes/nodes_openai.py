@@ -57,7 +57,7 @@ class Comfly_gpt_image_1_edit:
                 "mask9": ("MASK",),
                 "mask10": ("MASK",),
                 "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API 密钥，留空则使用全局配置"}),
-                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1", "tooltip": "使用的模型版本"}),
+                "model": (["GPT Image 1", "GPT Image 1.5"], {"default": "GPT Image 1", "tooltip": "使用的模型版本"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成的图像数量"}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto", "tooltip": "输出图像尺寸，'auto'表示保持原尺寸"}),
@@ -160,7 +160,7 @@ class Comfly_gpt_image_1_edit:
                 wait_time = min(2 ** (attempt - 1), 60)
                 time.sleep(wait_time)
     
-    def edit_image(self, image, prompt, model="gpt-image-1", n=1, quality="auto", 
+    def edit_image(self, image, prompt, model="gpt-image-1", n=1, quality="auto",
               seed=0, api_key="", size="auto", clear_chats=True,
               background="auto", output_compression=100, output_format="png",
               max_retries=5, initial_timeout=300, input_fidelity="low", partial_images=0,
@@ -168,6 +168,8 @@ class Comfly_gpt_image_1_edit:
               image6=None, image7=None, image8=None, image9=None, image10=None,
               mask1=None, mask2=None, mask3=None, mask4=None, mask5=None,
               mask6=None, mask7=None, mask8=None, mask9=None, mask10=None):
+        # 将显示名称转换为API名称
+        model = get_api_model_name(model)
         request_id = generate_request_id("img_edit", "openai")
         log_prepare("图像编辑", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像编辑", source="RunNode/OpenAI-")
@@ -249,7 +251,7 @@ class Comfly_gpt_image_1_edit:
         
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_image_edit_failed",
@@ -533,19 +535,19 @@ class Comfly_gpt_image_1:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成的描述提示词。详细描述想要生成的图像内容。"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1"}),
-                "n": ("INT", {"default": 1, "min": 1, "max": 10}),
-                "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
-                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
-                "background": (["auto", "transparent", "opaque"], {"default": "auto"}),
-                "output_format": (["png", "jpeg", "webp"], {"default": "png"}),
-                "moderation": (["auto", "low"], {"default": "auto"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
+                "model": (["GPT Image 1", "GPT Image 1.5"], {"default": "GPT Image 1", "tooltip": "使用的图像生成模型版本。GPT Image 1.5为较新版本。"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成的图像数量，范围1-10。"}),
+                "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量等级。auto表示由模型自动选择。"}),
+                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto", "tooltip": "输出图像尺寸。auto表示保持原图尺寸或由模型决定。"}),
+                "background": (["auto", "transparent", "opaque"], {"default": "auto", "tooltip": "背景处理方式。transparent生成透明背景，opaque生成不透明背景。"}),
+                "output_format": (["png", "jpeg", "webp"], {"default": "png", "tooltip": "输出图像格式。png支持透明背景。"}),
+                "moderation": (["auto", "low"], {"default": "auto", "tooltip": "内容审核级别。auto为标准审核，low为宽松审核。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "tooltip": "随机种子。0表示随机。相同seed和参数可能产生相似结果（注意:API可能不完全支持seed）。"}),
             }
         }
     
@@ -564,10 +566,11 @@ class Comfly_gpt_image_1:
             "Authorization": f"Bearer {self.api_key}"
         }
     
-    def generate_image(self, prompt, model="gpt-image-1", n=1, quality="auto", 
-                size="auto", background="auto", output_format="png", 
+    def generate_image(self, prompt, model="gpt-image-1", n=1, quality="auto",
+                size="auto", background="auto", output_format="png",
                 moderation="auto", seed=0, api_key=""):
-        
+        # 将显示名称转换为API名称
+        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "openai")
         log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像生成", source="RunNode/OpenAI-")
@@ -589,7 +592,7 @@ class Comfly_gpt_image_1:
             
         try:
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                 log_backend(
                     "openai_image_generate_failed",
@@ -777,23 +780,23 @@ class ComflyChatGPTApi:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["gpt-4o-image"], {"default": "gpt-4o-image"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "发送给模型的提示词。可以包含文本描述和Markdown格式。"}),
+                "model": (["GPT-4o Image"], {"default": "GPT-4o Image", "tooltip": "使用的GPT模型。该模型支持图像处理和生成。"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "files": ("FILES",), 
-                "image_url": ("STRING", {"multiline": False, "default": ""}),
-                "images": ("IMAGE", {"default": None}),  
-                "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0, "step": 0.01}),
-                "max_tokens": ("INT", {"default": 4096, "min": 1, "max": 16384, "step": 1}),
-                "top_p": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "frequency_penalty": ("FLOAT", {"default": -2.0, "min": -2.0, "max": 2.0, "step": 0.01}),
-                "presence_penalty": ("FLOAT", {"default": 0.0, "min": -2.0, "max": 2.0, "step": 0.01}),
-                "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647}),
-                "image_download_timeout": ("INT", {"default": 600, "min": 300, "max": 1200, "step": 10}),
-                "clear_chats": ("BOOLEAN", {"default": True}),
+                "files": ("FILES", {"tooltip": "上传的文件。支持多种文件格式，模型可以读取并理解文件内容。"}),
+                "image_url": ("STRING", {"multiline": False, "default": "", "tooltip": "图像URL地址。模型可以从URL加载图像进行处理。"}),
+                "images": ("IMAGE", {"default": None, "tooltip": "直接传入的图像张量。优先级高于image_url。"}),
+                "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0, "step": 0.01, "tooltip": "采样温度。控制输出的随机性。较高值使输出更随机，较低值使输出更确定。"}),
+                "max_tokens": ("INT", {"default": 4096, "min": 1, "max": 16384, "step": 1, "tooltip": "最大生成token数。控制单次响应的最大长度。"}),
+                "top_p": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01, "tooltip": "核采样参数。控制候选词的多样性。与temperature配合使用。"}),
+                "frequency_penalty": ("FLOAT", {"default": -2.0, "min": -2.0, "max": 2.0, "step": 0.01, "tooltip": "频率惩罚。正值减少重复已出现的词，负值增加重复。"}),
+                "presence_penalty": ("FLOAT", {"default": 0.0, "min": -2.0, "max": 2.0, "step": 0.01, "tooltip": "存在惩罚。控制模型对已讨论话题的重复倾向。"}),
+                "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647, "tooltip": "随机种子。-1表示随机。用于获得可复现的结果（注意:API可能不完全支持）。"}),
+                "image_download_timeout": ("INT", {"default": 600, "min": 300, "max": 1200, "step": 10, "tooltip": "图像下载超时时间(秒)。当使用URL方式传入图像时的下载超时。"}),
+                "clear_chats": ("BOOLEAN", {"default": True, "tooltip": "是否清除之前的对话历史。True为清除，False为保留上下文。"}),
             }
         }
     
@@ -976,16 +979,18 @@ class ComflyChatGPTApi:
             )
             raise Exception(f"Error in streaming response: {format_runnode_error(str(e))}")
 
-    def process(self, prompt, model, clear_chats=True, files=None, image_url="", images=None, temperature=0.7, 
+    def process(self, prompt, model, clear_chats=True, files=None, image_url="", images=None, temperature=0.7,
            max_tokens=4096, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, seed=-1,
            image_download_timeout=100, api_key=""):
+        # 将显示名称转换为API名称
+        model = get_api_model_name(model)
         request_id = generate_request_id("chat", "openai")
         log_prepare("图文对话", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图文对话", source="RunNode/OpenAI-")
         _rn_start = time.perf_counter()
 
-        if model.lower() == "gpt-image-1":
-            error_message = "不支持此模型，请使用 gpt-4o-image，gpt-4o-image-vip，sora_image，sora_image-vip 这4个模型。"
+        if model.lower() in ["gpt-image-1", "openai/gpt-image-1"]:
+            error_message = "不支持此模型，请使用 GPT-4o Image 等模型。"
             rn_pbar.error(error_message)
 
             if images is not None:
@@ -1012,7 +1017,7 @@ class ComflyChatGPTApi:
                 self.conversation_history = []
                 
             if not self.api_key:
-                error_message = "API key not found in Comflyapi.json"
+                error_message = "API key not found in configuration file or environment variables."
                 rn_pbar.error(error_message)
                
                 blank_img = Image.new('RGB', (512, 512), color='white')
@@ -1206,17 +1211,17 @@ class Comfly_sora2_openai:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容。"}),
+                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
             },
             "optional": {
-                "apikey": ("STRING", {"default": ""}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "seconds": (["10", "15", "25"], {"default": "15"}),
-                "size": (["1280x720", "720x1280", "1792x1024", "1024x1792"], {"default": "1280x720"}),
-                "image": ("IMAGE",),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "private": ("BOOLEAN", {"default": True})
+                "seconds": (["10", "15", "25"], {"default": "15", "tooltip": "视频时长(秒)。sora-2最大支持15秒，sora-2-pro最大支持25秒。"}),
+                "size": (["1280x720", "720x1280", "1792x1024", "1024x1792"], {"default": "1280x720", "tooltip": "视频分辨率。横屏16:9或竖屏9:16。1792x1024和1024x1792为1080P，仅sora-2-pro支持。"}),
+                "image": ("IMAGE", {"tooltip": "参考图像。提供则走图生视频模式，不提供则走文生视频模式。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的视频生成结果。"}),
+                "private": ("BOOLEAN", {"default": True, "tooltip": "是否私有生成。True为私有，False为公开。"})
             }
         }
     
@@ -1246,6 +1251,8 @@ class Comfly_sora2_openai:
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
     def process(self, prompt, model, apikey="", seconds="15", size="1280x720", image=None, seed=0, private=True):
+        # 将显示名称转换为API名称
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "openai")
         log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
@@ -1534,26 +1541,26 @@ class Comfly_sora2:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
-                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "16:9"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
-                "hd": ("BOOLEAN", {"default": False}),
-                "apikey": ("STRING", {"default": ""})
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容、动作、场景等。"}),
+                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率、HD模式和25秒时长。"}),
+                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "16:9", "tooltip": "视频宽高比。16:9为横屏，9:16为竖屏，3:4和4:3仅Sora 2 Pro+HD支持。"}),
+                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持，启用后可以支持更高分辨率和3:4/4:3比例。"}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"})
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             },
             "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "image5": ("IMAGE",),
-                "image6": ("IMAGE",),
-                "image7": ("IMAGE",),
-                "image8": ("IMAGE",),
-                "image9": ("IMAGE",),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "private": ("BOOLEAN", {"default": True})
+                "image1": ("IMAGE", {"tooltip": "参考图像1。最多支持9张图作为视频生成的参考。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "image5": ("IMAGE", {"tooltip": "参考图像5。"}),
+                "image6": ("IMAGE", {"tooltip": "参考图像6。"}),
+                "image7": ("IMAGE", {"tooltip": "参考图像7。"}),
+                "image8": ("IMAGE", {"tooltip": "参考图像8。"}),
+                "image9": ("IMAGE", {"tooltip": "参考图像9。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的视频生成结果。"}),
+                "private": ("BOOLEAN", {"default": True, "tooltip": "是否私有生成。True为私有，False为公开。"})
             }
         }
     
@@ -2108,9 +2115,11 @@ class Comfly_sora2:
             )
             raise
 
-    def process(self, prompt, model, aspect_ratio="16:9", duration="10", hd=False, apikey="", 
+    def process(self, prompt, model, aspect_ratio="16:9", duration="10", hd=False, apikey="",
                 image1=None, image2=None, image3=None, image4=None, image5=None, image6=None, image7=None, image8=None, image9=None,
                 seed=0, private=True):
+        # 将显示名称转换为API名称
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "openai")
         log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
@@ -2222,17 +2231,17 @@ class Comfly_sora2_chat:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
-                "orientation": (["portrait", "landscape"], {"default": "portrait"})
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。通过聊天接口生成视频，支持更自然的语言描述。"}),
+                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持HD模式和25秒时长。"}),
+                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。Sora 2最大15秒，Sora 2 Pro最大25秒。25秒和HD不能同时启用。"}),
+                "orientation": (["portrait", "landscape"], {"default": "portrait", "tooltip": "视频方向。portrait为竖屏，landscape为横屏。"})
             },
             "optional": {
-                "image": ("IMAGE",),
-                "hd": ("BOOLEAN", {"default": False}),
-                "apikey": ("STRING", {"default": ""}),
+                "image": ("IMAGE", {"tooltip": "参考图像。提供则走图生视频模式，对图像进行动画处理。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。25秒和HD不能同时启用。"}),
+                "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647})
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的视频生成结果。"})
             }
         }
     
@@ -2263,8 +2272,10 @@ class Comfly_sora2_chat:
         base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{base64_str}"
     
-    def generate_video(self, prompt, model="sora-2", duration="10", orientation="portrait", 
+    def generate_video(self, prompt, model="sora-2", duration="10", orientation="portrait",
                       image=None, hd=False, apikey="", seed=0):
+        # 将显示名称转换为API名称
+        model = get_api_model_name(model)
         request_id = generate_request_id("video_chat", "openai")
         config = get_config()
         baseurl = config.get('sora2_base_url') or config.get('base_url', '')
@@ -2577,13 +2588,13 @@ class Comfly_sora2_character:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "timestamps": ("STRING", {"default": "1,3", "multiline": False}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "timestamps": ("STRING", {"default": "1,3", "multiline": False, "tooltip": "视频中用于提取角色的时间戳范围，格式为'开始秒,结束秒'，如'1,3'表示1到3秒。注意:时长必须在1-3秒之间。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。用于获得可复现的角色创建结果。"}),
             },
             "optional": {
-                "url": ("STRING", {"default": "", "multiline": False}),
-                "from_task": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": ""}),
+                "url": ("STRING", {"default": "", "multiline": False, "tooltip": "视频URL地址。通过网络视频创建角色，与from_task参数二选一。"}),
+                "from_task": ("STRING", {"default": "", "multiline": False, "tooltip": "已有任务的ID。通过已完成视频生成任务创建角色，与url参数二选一。"}),
+                "api_key": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             }
         }
     
@@ -2732,18 +2743,18 @@ class Comfly_sora2_character:
 
 class OpenAISoraAPIPlus:
     """
-    ComfyUI自定义节点：{base_url} Sora-2 视频生成（OpenAI兼容流式接口）
+    ComfyUI自定义节点:{base_url} Sora-2 视频生成（OpenAI兼容流式接口）
     - 参考 openai_chat_api_node.py 的结构与风格
     - 通过 {base_url} 的 /chat/completions 接口，以 stream=True 获取流式增量内容
-    - 适配示例返回：每行均为 JSON，字段为 choices[0].delta.content
-    - 超时时间：600 秒（10 分钟）
-    输入参数：
+    - 适配示例返回:每行均为 JSON，字段为 choices[0].delta.content
+    - 超时时间:600 秒（10 分钟）
+    输入参数:
       - base_url: 默认 {base_url}/v1
       - model: 默认 sora_video2
       - api_key: 必填
       - system_prompt: 可选，用于设定系统指令
       - user_prompt: 必填，视频生成描述
-    输出：
+    输出:
       - reasoning_content: 保留为空（""），与参考节点保持一致
       - answer: 汇总的增量内容（通常包含进度与最终信息）
       - tokens_usage: 由于返回中未提供 usage，这里一般为空字符串
@@ -2755,17 +2766,17 @@ class OpenAISoraAPIPlus:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model": (["sora_video2"], {"default": "sora_video2"}),
+                "model": (["sora_video2"], {"default": "sora_video2", "tooltip": "Sora视频模型版本。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容"}),
+                "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容", "tooltip": "视频生成提示词。详细描述想要生成的视频内容。"}),
             },
             "optional": {
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
-                # 可选图像输入：提供则走“图生视频（image-to-video）”，不提供则为“文生视频（text-to-video）”
-                "aspect_ratio": ("STRING", {"default": "16:9", "multiline": False, "options": ["16:9", "9:16"]}),
-                "hd": ("BOOLEAN", {"default": True}),
-                "duration": ("INT", {"default": 15, "options": [10, 15]}),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL地址。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
+                # 可选图像输入:提供则走"图生视频（image-to-video）"，不提供则为"文生视频（text-to-video）"
+                "aspect_ratio": ("STRING", {"default": "16:9", "multiline": False, "options": ["16:9", "9:16"], "tooltip": "视频宽高比。16:9为横屏，9:16为竖屏。"}),
+                "hd": ("BOOLEAN", {"default": True, "tooltip": "高清模式。启用后可生成更高质量的视频。"}),
+                "duration": ("INT", {"default": 15, "options": [10, 15], "tooltip": "视频时长(秒)。可选10秒或15秒。"}),
             }
         }
 
@@ -2777,7 +2788,7 @@ class OpenAISoraAPIPlus:
     def generate(self, base_url, model, api_key, user_prompt,image=None,hd=True,duration=15,aspect_ratio="16:9"):
         """
         调用 {base_url} 的 sora-2 模型进行视频生成（流式）。
-        请求：
+        请求:
           POST {base_url}/chat/completions
           headers:
             - Authorization: Bearer {api_key}
@@ -2789,10 +2800,10 @@ class OpenAISoraAPIPlus:
               "messages": [{"role": "system","content": system_prompt}, {"role":"user","content": user_prompt}],
               "stream": true
             }
-        解析：
+        解析:
           - 逐行读取，每行是 JSON，取 choices[0].delta.content 累加
           - 若流式无内容，降级为非流式请求（stream=false）再解析
-        超时：
+        超时:
           - timeout=600 秒
         """
         request_id = generate_request_id("sora_plus", "openai")
@@ -2817,7 +2828,7 @@ class OpenAISoraAPIPlus:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
+            return (EmptyVideoAdapter(), "", "错误:未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
             log_backend(
                 "openai_sora_plus_failed",
@@ -2827,7 +2838,7 @@ class OpenAISoraAPIPlus:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", "错误：未配置 base_url，请在节点参数中设置 base_url")
+            return (EmptyVideoAdapter(), "", "错误:未配置 base_url，请在节点参数中设置 base_url")
         if not user_prompt.strip():
             log_backend(
                 "openai_sora_plus_failed",
@@ -2838,15 +2849,15 @@ class OpenAISoraAPIPlus:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", "错误：user_prompt 为空，请提供视频描述")
+            return (EmptyVideoAdapter(), "", "错误:user_prompt 为空，请提供视频描述")
 
         try:
             headers = self._build_headers(api_key)
             api_url = f"{base_url.rstrip('/')}/chat/completions"
 
-            # 构建聊天内容：
-            # - 若提供 image：按 OpenAI 多模态格式使用 content 数组，携带文本与图片
-            # - 若不提供 image：保持纯文本 content 字符串，兼容各类兼容接口
+            # 构建聊天内容:
+            # - 若提供 image:按 OpenAI 多模态格式使用 content 数组，携带文本与图片
+            # - 若不提供 image:保持纯文本 content 字符串，兼容各类兼容接口
             if image is not None:
                 try:
                     from io import BytesIO
@@ -2958,7 +2969,7 @@ class OpenAISoraAPIPlus:
                 except Exception as _e:
                     print(f"[OpenAISoraAPI] 非流式降级异常: {_e}")
 
-            # 正常流式结果：提取视频URL并下载
+            # 正常流式结果:提取视频URL并下载
             video_url = self._extract_video_url(answer)
             video_output = self._download_and_convert_video(video_url)
             log_backend(
@@ -3105,9 +3116,9 @@ class OpenAISoraAPIPlus:
     def _parse_302_stream(self, resp):
         """
         解析 {base_url} 的流式响应。
-        示例行：
+        示例行:
           {"choices":[{"delta":{"content":"...","role":"assistant"},"index":0}],"id":"...","model":"sora-2","object":"chat.completion.chunk"}
-        策略：
+        策略:
           - 逐行解析 JSON
           - 提取 choices[0].delta.content 累加
           - 无 usage 字段，tokens_usage 保持为空
@@ -3140,9 +3151,9 @@ class OpenAISoraAPIPlus:
                     if isinstance(delta, dict):
                         piece = delta.get("content")
                         if isinstance(piece, str) and piece:
-                            # 进度日志：尽量识别诸如 "进度 36.."、"41.."、"60.." 等
+                            # 进度日志:尽量识别诸如 "进度 36.."、"41.."、"60.." 等
                             text = piece.strip()
-                            # 优先匹配包含“进度”的片段
+                            # 优先匹配包含"进度"的片段
                             prog_candidates = []
                             if "进度" in text or "progress" in text.lower():
                                 prog_candidates = re.findall(r'(\d{1,3})(?=%|\.{2,})', text)
@@ -3172,7 +3183,7 @@ class OpenAISoraAPIPlus:
                                     print(f"[OpenAISoraAPI] 可能的视频URL: {urls[0]}")
                                     printed_url = True
 
-                            # 心跳：每收到一定数量块打印一次累计长度
+                            # 心跳:每收到一定数量块打印一次累计长度
                             chunk_count += 1
                             if chunk_count % 20 == 0:
                                 total_len = sum(len(x) for x in answer_parts) + len(text)
@@ -3189,7 +3200,7 @@ class OpenAISoraAPIPlus:
     def _parse_non_stream(self, resp):
         """
         非流式响应解析（兼容 OpenAI chat/completions）
-        预期结构：
+        预期结构:
           {"choices":[{"message":{"role":"assistant","content":"..."},"finish_reason":"..." }], "usage": {...}}
         """
         try:
@@ -3228,7 +3239,7 @@ class OpenAISoraAPIPlus:
 
     def _parse_content_tags(self, content: str):
         """
-        复用与参考节点一致的标签解析逻辑：
+        复用与参考节点一致的标签解析逻辑:
         - <think>...</think> 抽取思考
         - <answer>...</answer> 抽取答案
         - <reasoning>...</reasoning> 抽取思考
@@ -3352,18 +3363,18 @@ class OpenAISoraAPIPlus:
 
 class OpenAISoraAPI:
     """
-    ComfyUI自定义节点：{base_url} Sora-2 视频生成（OpenAI兼容流式接口）
+    ComfyUI自定义节点:{base_url} Sora-2 视频生成（OpenAI兼容流式接口）
     - 参考 openai_chat_api_node.py 的结构与风格
     - 通过 {base_url} 的 /chat/completions 接口，以 stream=True 获取流式增量内容
-    - 适配示例返回：每行均为 JSON，字段为 choices[0].delta.content
-    - 超时时间：600 秒（10 分钟）
-    输入参数：
+    - 适配示例返回:每行均为 JSON，字段为 choices[0].delta.content
+    - 超时时间:600 秒（10 分钟）
+    输入参数:
       - base_url: 默认 {base_url}/v1
       - model: 默认 sora_video2
       - api_key: 必填
       - system_prompt: 可选，用于设定系统指令
       - user_prompt: 必填，视频生成描述
-    输出：
+    输出:
       - reasoning_content: 保留为空（""），与参考节点保持一致
       - answer: 汇总的增量内容（通常包含进度与最终信息）
       - tokens_usage: 由于返回中未提供 usage，这里一般为空字符串
@@ -3375,18 +3386,18 @@ class OpenAISoraAPI:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model": ("STRING", {"default": "sora_video2", "multiline": False}),
+                "model": ("STRING", {"default": "sora_video2", "multiline": False, "tooltip": "Sora视频模型版本。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容"}),
+                "user_prompt": ("STRING", {"multiline": True, "default": "请描述要生成的视频内容", "tooltip": "视频生成提示词。详细描述想要生成的视频内容。"}),
                 #"hd": (["true", "false"], {"default": "false"}),
                 #"duration": (["10", "15"], {"default": "15"}),
                 #"aspect_ratio": (["16:9", "9:16"], {"default": "9:16"}),
             },
             "optional": {
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
-                # 可选图像输入：提供则走“图生视频（image-to-video）”，不提供则为“文生视频（text-to-video）”
-                "image": ("IMAGE",),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL地址。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
+                # 可选图像输入:提供则走"图生视频（image-to-video）"，不提供则为"文生视频（text-to-video）"
+                "image": ("IMAGE", {"tooltip": "参考图像。提供则走图生视频模式，对图像进行动画处理。"}),
             }
         }
 
@@ -3398,7 +3409,7 @@ class OpenAISoraAPI:
     def generate(self, base_url, model, api_key, user_prompt, image=None):
         """
         调用 {base_url} 的 sora-2 模型进行视频生成（流式）。
-        请求：
+        请求:
           POST {base_url}/chat/completions
           headers:
             - Authorization: Bearer {api_key}
@@ -3410,10 +3421,10 @@ class OpenAISoraAPI:
               "messages": [{"role": "system","content": system_prompt}, {"role":"user","content": user_prompt}],
               "stream": true
             }
-        解析：
+        解析:
           - 逐行读取，每行是 JSON，取 choices[0].delta.content 累加
           - 若流式无内容，降级为非流式请求（stream=false）再解析
-        超时：
+        超时:
           - timeout=600 秒
         """
         request_id = generate_request_id("sora", "openai")
@@ -3440,7 +3451,7 @@ class OpenAISoraAPI:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", "错误：未配置API Key，请在节点参数中设置 api_key")
+            return (EmptyVideoAdapter(), "", "错误:未配置API Key，请在节点参数中设置 api_key")
         if not base_url:
             log_backend(
                 "openai_sora_stream_failed",
@@ -3450,7 +3461,7 @@ class OpenAISoraAPI:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", "错误：未配置 base_url，请在节点参数中设置 base_url")
+            return (EmptyVideoAdapter(), "", "错误:未配置 base_url，请在节点参数中设置 base_url")
         if not user_prompt.strip():
             log_backend(
                 "openai_sora_stream_failed",
@@ -3461,7 +3472,7 @@ class OpenAISoraAPI:
                 model=model,
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            return (EmptyVideoAdapter(), "", "错误：user_prompt 为空，请提供视频描述")
+            return (EmptyVideoAdapter(), "", "错误:user_prompt 为空，请提供视频描述")
 
         try:
             headers = self._build_headers(api_key)
@@ -3476,9 +3487,9 @@ class OpenAISoraAPI:
                 has_image=bool(image is not None),
             )
 
-            # 构建聊天内容：
-            # - 若提供 image：按 OpenAI 多模态格式使用 content 数组，携带文本与图片
-            # - 若不提供 image：保持纯文本 content 字符串，兼容各类兼容接口
+            # 构建聊天内容:
+            # - 若提供 image:按 OpenAI 多模态格式使用 content 数组，携带文本与图片
+            # - 若不提供 image:保持纯文本 content 字符串，兼容各类兼容接口
             if image is not None:
                 try:
                     from io import BytesIO
@@ -3593,7 +3604,7 @@ class OpenAISoraAPI:
                     )
                     print(f"[OpenAISoraAPI] 非流式降级异常: {_e}")
 
-            # 正常流式结果：提取视频URL并下载
+            # 正常流式结果:提取视频URL并下载
             video_url = self._extract_video_url(answer)
             video_output = self._download_and_convert_video(video_url)
             if not video_url:
@@ -3755,9 +3766,9 @@ class OpenAISoraAPI:
     def _parse_302_stream(self, resp):
         """
         解析 {base_url} 的流式响应。
-        示例行：
+        示例行:
           {"choices":[{"delta":{"content":"...","role":"assistant"},"index":0}],"id":"...","model":"sora-2","object":"chat.completion.chunk"}
-        策略：
+        策略:
           - 逐行解析 JSON
           - 提取 choices[0].delta.content 累加
           - 无 usage 字段，tokens_usage 保持为空
@@ -3790,9 +3801,9 @@ class OpenAISoraAPI:
                     if isinstance(delta, dict):
                         piece = delta.get("content")
                         if isinstance(piece, str) and piece:
-                            # 进度日志：尽量识别诸如 "进度 36.."、"41.."、"60.." 等
+                            # 进度日志:尽量识别诸如 "进度 36.."、"41.."、"60.." 等
                             text = piece.strip()
-                            # 优先匹配包含“进度”的片段
+                            # 优先匹配包含"进度"的片段
                             prog_candidates = []
                             if "进度" in text or "progress" in text.lower():
                                 prog_candidates = re.findall(r'(\d{1,3})(?=%|\.{2,})', text)
@@ -3822,7 +3833,7 @@ class OpenAISoraAPI:
                                     print(f"[OpenAISoraAPI] 可能的视频URL: {urls[0]}")
                                     printed_url = True
 
-                            # 心跳：每收到一定数量块打印一次累计长度
+                            # 心跳:每收到一定数量块打印一次累计长度
                             chunk_count += 1
                             if chunk_count % 20 == 0:
                                 total_len = sum(len(x) for x in answer_parts) + len(text)
@@ -3839,7 +3850,7 @@ class OpenAISoraAPI:
     def _parse_non_stream(self, resp):
         """
         非流式响应解析（兼容 OpenAI chat/completions）
-        预期结构：
+        预期结构:
           {"choices":[{"message":{"role":"assistant","content":"..."},"finish_reason":"..." }], "usage": {...}}
         """
         try:
@@ -3878,7 +3889,7 @@ class OpenAISoraAPI:
 
     def _parse_content_tags(self, content: str):
         """
-        复用与参考节点一致的标签解析逻辑：
+        复用与参考节点一致的标签解析逻辑:
         - <think>...</think> 抽取思考
         - <answer>...</answer> 抽取答案
         - <reasoning>...</reasoning> 抽取思考
@@ -4006,83 +4017,83 @@ class Comfly_sora2_batch_32:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "multiline": False}),
+                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "multiline": False, "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
             },
             "optional": {
                 # 1-32 组图片+Prompt输入项
-                "image_1": ("IMAGE",),
-                "prompt_1": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_2": ("IMAGE",),
-                "prompt_2": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_3": ("IMAGE",),
-                "prompt_3": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_4": ("IMAGE",),
-                "prompt_4": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_5": ("IMAGE",),
-                "prompt_5": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_6": ("IMAGE",),
-                "prompt_6": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_7": ("IMAGE",),
-                "prompt_7": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_8": ("IMAGE",),
-                "prompt_8": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_9": ("IMAGE",),
-                "prompt_9": ("STRING", {"forceInput": True, "multiline": True}), 
-                "image_10": ("IMAGE",),
-                "prompt_10": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_11": ("IMAGE",),
-                "prompt_11": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_12": ("IMAGE",),
-                "prompt_12": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_13": ("IMAGE",),
-                "prompt_13": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_14": ("IMAGE",),
-                "prompt_14": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_15": ("IMAGE",),
-                "prompt_15": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_16": ("IMAGE",),
-                "prompt_16": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_17": ("IMAGE",),
-                "prompt_17": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_18": ("IMAGE",),
-                "prompt_18": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_19": ("IMAGE",),
-                "prompt_19": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_20": ("IMAGE",),
-                "prompt_20": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_21": ("IMAGE",),
-                "prompt_21": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_22": ("IMAGE",),
-                "prompt_22": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_23": ("IMAGE",),
-                "prompt_23": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_24": ("IMAGE",),
-                "prompt_24": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_25": ("IMAGE",),
-                "prompt_25": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_26": ("IMAGE",),
-                "prompt_26": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_27": ("IMAGE",),
-                "prompt_27": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_28": ("IMAGE",),
-                "prompt_28": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_29": ("IMAGE",),
-                "prompt_29": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_30": ("IMAGE",),
-                "prompt_30": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_31": ("IMAGE",),
-                "prompt_31": ("STRING", {"forceInput": True, "multiline": True}),
-                "image_32": ("IMAGE",),
-                "prompt_32": ("STRING", {"forceInput": True, "multiline": True}),
-                
+                "image_1": ("IMAGE", {"tooltip": "第1个任务的参考图像（可选）。"}),
+                "prompt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个视频的生成提示词。"}),
+                "image_2": ("IMAGE", {"tooltip": "第2个任务的参考图像（可选）。"}),
+                "prompt_2": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第2个视频的生成提示词。"}),
+                "image_3": ("IMAGE", {"tooltip": "第3个任务的参考图像（可选）。"}),
+                "prompt_3": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第3个视频的生成提示词。"}),
+                "image_4": ("IMAGE", {"tooltip": "第4个任务的参考图像（可选）。"}),
+                "prompt_4": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第4个视频的生成提示词。"}),
+                "image_5": ("IMAGE", {"tooltip": "第5个任务的参考图像（可选）。"}),
+                "prompt_5": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第5个视频的生成提示词。"}),
+                "image_6": ("IMAGE", {"tooltip": "第6个任务的参考图像（可选）。"}),
+                "prompt_6": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第6个视频的生成提示词。"}),
+                "image_7": ("IMAGE", {"tooltip": "第7个任务的参考图像（可选）。"}),
+                "prompt_7": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第7个视频的生成提示词。"}),
+                "image_8": ("IMAGE", {"tooltip": "第8个任务的参考图像（可选）。"}),
+                "prompt_8": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第8个视频的生成提示词。"}),
+                "image_9": ("IMAGE", {"tooltip": "第9个任务的参考图像（可选）。"}),
+                "prompt_9": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第9个视频的生成提示词。"}),
+                "image_10": ("IMAGE", {"tooltip": "第10个任务的参考图像（可选）。"}),
+                "prompt_10": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第10个视频的生成提示词。"}),
+                "image_11": ("IMAGE", {"tooltip": "第11个任务的参考图像（可选）。"}),
+                "prompt_11": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第11个视频的生成提示词。"}),
+                "image_12": ("IMAGE", {"tooltip": "第12个任务的参考图像（可选）。"}),
+                "prompt_12": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第12个视频的生成提示词。"}),
+                "image_13": ("IMAGE", {"tooltip": "第13个任务的参考图像（可选）。"}),
+                "prompt_13": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第13个视频的生成提示词。"}),
+                "image_14": ("IMAGE", {"tooltip": "第14个任务的参考图像（可选）。"}),
+                "prompt_14": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第14个视频的生成提示词。"}),
+                "image_15": ("IMAGE", {"tooltip": "第15个任务的参考图像（可选）。"}),
+                "prompt_15": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第15个视频的生成提示词。"}),
+                "image_16": ("IMAGE", {"tooltip": "第16个任务的参考图像（可选）。"}),
+                "prompt_16": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第16个视频的生成提示词。"}),
+                "image_17": ("IMAGE", {"tooltip": "第17个任务的参考图像（可选）。"}),
+                "prompt_17": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第17个视频的生成提示词。"}),
+                "image_18": ("IMAGE", {"tooltip": "第18个任务的参考图像（可选）。"}),
+                "prompt_18": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第18个视频的生成提示词。"}),
+                "image_19": ("IMAGE", {"tooltip": "第19个任务的参考图像（可选）。"}),
+                "prompt_19": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第19个视频的生成提示词。"}),
+                "image_20": ("IMAGE", {"tooltip": "第20个任务的参考图像（可选）。"}),
+                "prompt_20": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第20个视频的生成提示词。"}),
+                "image_21": ("IMAGE", {"tooltip": "第21个任务的参考图像（可选）。"}),
+                "prompt_21": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第21个视频的生成提示词。"}),
+                "image_22": ("IMAGE", {"tooltip": "第22个任务的参考图像（可选）。"}),
+                "prompt_22": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第22个视频的生成提示词。"}),
+                "image_23": ("IMAGE", {"tooltip": "第23个任务的参考图像（可选）。"}),
+                "prompt_23": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第23个视频的生成提示词。"}),
+                "image_24": ("IMAGE", {"tooltip": "第24个任务的参考图像（可选）。"}),
+                "prompt_24": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第24个视频的生成提示词。"}),
+                "image_25": ("IMAGE", {"tooltip": "第25个任务的参考图像（可选）。"}),
+                "prompt_25": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第25个视频的生成提示词。"}),
+                "image_26": ("IMAGE", {"tooltip": "第26个任务的参考图像（可选）。"}),
+                "prompt_26": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第26个视频的生成提示词。"}),
+                "image_27": ("IMAGE", {"tooltip": "第27个任务的参考图像（可选）。"}),
+                "prompt_27": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第27个视频的生成提示词。"}),
+                "image_28": ("IMAGE", {"tooltip": "第28个任务的参考图像（可选）。"}),
+                "prompt_28": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第28个视频的生成提示词。"}),
+                "image_29": ("IMAGE", {"tooltip": "第29个任务的参考图像（可选）。"}),
+                "prompt_29": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第29个视频的生成提示词。"}),
+                "image_30": ("IMAGE", {"tooltip": "第30个任务的参考图像（可选）。"}),
+                "prompt_30": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第30个视频的生成提示词。"}),
+                "image_31": ("IMAGE", {"tooltip": "第31个任务的参考图像（可选）。"}),
+                "prompt_31": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第31个视频的生成提示词。"}),
+                "image_32": ("IMAGE", {"tooltip": "第32个任务的参考图像（可选）。"}),
+                "prompt_32": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第32个视频的生成提示词。"}),
+
                 # 全局配置项
-                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16"}),
-                "duration": ("INT", {"default": 10, "min": 1, "max": 60}),
-                "hd": ("BOOLEAN", {"default": False}),
-                "max_concurrent": ("INT", {"default": 1, "min": 1, "max": 32}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16", "tooltip": "视频宽高比。16:9横屏，9:16竖屏，3:4/4:3仅sora-2-pro+HD支持。"}),
+                "duration": ("INT", {"default": 10, "min": 1, "max": 60, "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。"}),
+                "max_concurrent": ("INT", {"default": 1, "min": 1, "max": 32, "tooltip": "最大并发数。同时处理的任务数量上限。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。将被追加到每个单独提示词之后。"}),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             },
         }
 
@@ -4152,7 +4163,7 @@ class Comfly_sora2_batch_32:
         
         # 时长范围额外校验
         if duration < 1 or duration > 60:
-            return False, f"时长必须在1-60秒之间（当前值：{duration}）"
+            return False, f"时长必须在1-60秒之间（当前值:{duration}）"
         
         return True, ""
 
@@ -4549,13 +4560,15 @@ class Comfly_sora2_batch_32:
 
     def generate_video(self, **kwargs):
         """核心批量生成逻辑"""
+        # 将显示名称转换为API名称
+        kwargs["model"] = get_api_model_name(kwargs.get("model", "Sora 2"))
         request_id = generate_request_id("video_batch", "openai")
         model_for_log = kwargs.get("model") or "sora-2"
         log_prepare("视频批量生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model_for_log)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"并发:{kwargs.get('max_concurrent', 1)}", streaming=True, task_type="视频批量生成", source="RunNode/OpenAI-")
         rn_pbar.set_generating()
         _rn_start = time.perf_counter()
-        # 1. 处理base_url优先级：手动覆盖 > 配置文件 > 默认值
+        # 1. 处理base_url优先级:手动覆盖 > 配置文件 > 默认值
         base_url = kwargs.get("base_url", "").strip()
         current_base_url = base_url if base_url else self.base_url
         if not current_base_url:
@@ -4666,7 +4679,7 @@ class Comfly_sora2_batch_32:
                         "status": "failed",
                         "video": EmptyVideoAdapter(),
                         "video_url": "",
-                        "error": f"任务执行异常：{format_runnode_error(str(e))}",
+                        "error": f"任务执行异常:{format_runnode_error(str(e))}",
                         "response": "",
                         "task_id": ""
                     }
@@ -4745,26 +4758,26 @@ class Comfly_sora2_group:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "prompt": ("STRING", {"multiline": True}),
+                "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。这个提示词将与其他参数组合生成一组视频。"}),
             },
             "optional": {
-                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2"}),
-                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "16:9"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
-                "hd": ("BOOLEAN", {"default": False}),
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-                "image3": ("IMAGE",),
-                "image4": ("IMAGE",),
-                "image5": ("IMAGE",),
-                "image6": ("IMAGE",),
-                "image7": ("IMAGE",),
-                "image8": ("IMAGE",),
-                "image9": ("IMAGE",),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-                "private": ("BOOLEAN", {"default": True}),
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False})
+                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
+                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "16:9", "tooltip": "视频宽高比。3:4/4:3仅Sora 2 Pro+HD支持。"}),
+                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。"}),
+                "image1": ("IMAGE", {"tooltip": "参考图像1。最多支持9张图。"}),
+                "image2": ("IMAGE", {"tooltip": "参考图像2。"}),
+                "image3": ("IMAGE", {"tooltip": "参考图像3。"}),
+                "image4": ("IMAGE", {"tooltip": "参考图像4。"}),
+                "image5": ("IMAGE", {"tooltip": "参考图像5。"}),
+                "image6": ("IMAGE", {"tooltip": "参考图像6。"}),
+                "image7": ("IMAGE", {"tooltip": "参考图像7。"}),
+                "image8": ("IMAGE", {"tooltip": "参考图像8。"}),
+                "image9": ("IMAGE", {"tooltip": "参考图像9。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"}),
+                "private": ("BOOLEAN", {"default": True, "tooltip": "是否私有生成。True为私有，False为公开。"}),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"})
             }
         }
     RETURN_TYPES = ("STRING",)
@@ -4784,6 +4797,8 @@ class Comfly_sora2_group:
         b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{b64}"
     def build_group(self, **kwargs):
+        # 将显示名称转换为API名称
+        kwargs["model"] = get_api_model_name(kwargs.get("model", "Sora 2"))
         prompt = kwargs.get("prompt", "")
         model = kwargs.get("model", "sora-2")
         aspect_ratio = kwargs.get("aspect_ratio", "16:9")
@@ -4837,7 +4852,7 @@ class _ComflySora2BatchRunner:
             if hd:
                 return False, "sora-2模型不支持HD模式（需使用sora-2-pro）"
         if duration < 1 or duration > 60:
-            return False, f"时长必须在1-60秒之间（当前值：{duration}）"
+            return False, f"时长必须在1-60秒之间（当前值:{duration}）"
         return True, ""
     def _process_v1(self, idx, payload, base_url, api_key, request_id: str | None = None):
         res = {
@@ -5375,7 +5390,7 @@ class _ComflySora2BatchRunner:
                             "status": "failed",
                             "video": EmptyVideoAdapter(),
                             "video_url": "",
-                            "error": f"任务执行异常：{format_runnode_error(str(e))}",
+                            "error": f"任务执行异常:{format_runnode_error(str(e))}",
                             "response": "",
                             "task_id": ""
                         }
@@ -5444,19 +5459,19 @@ class Comfly_sora2_run_4:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个视频的生成提示词。"}),
             },
             "optional": {
-                "promt_2": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_3": ("STRING", {"forceInput": True, "multiline": True}),
-                "promt_4": ("STRING", {"forceInput": True, "multiline": True}),
-                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
-                "hd": ("BOOLEAN", {"default": False}),
-                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "promt_2": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第2个视频的生成提示词。"}),
+                "promt_3": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第3个视频的生成提示词。"}),
+                "promt_4": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第4个视频的生成提示词。"}),
+                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16", "tooltip": "视频宽高比。3:4/4:3仅sora-2-pro+HD支持。"}),
+                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。"}),
+                "max_concurrent": ("INT", {"default": 4, "min": 1, "max": 4, "tooltip": "最大并发数。同时处理的任务数量上限。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。将被追加到每个单独提示词之后。"}),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             }
         }
     RETURN_TYPES = (IO.VIDEO, IO.VIDEO, IO.VIDEO, IO.VIDEO, "STRING")
@@ -5475,20 +5490,20 @@ class Comfly_sora2_run_4:
 class Comfly_sora2_run_8:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 9)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个视频的生成提示词。"}) for i in range(2, 9)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个视频的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
-                "hd": ("BOOLEAN", {"default": False}),
-                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16", "tooltip": "视频宽高比。3:4/4:3仅sora-2-pro+HD支持。"}),
+                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。"}),
+                "max_concurrent": ("INT", {"default": 8, "min": 1, "max": 8, "tooltip": "最大并发数。同时处理的任务数量上限。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。将被追加到每个单独提示词之后。"}),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             }
         }
     RETURN_TYPES = (
@@ -5513,20 +5528,20 @@ class Comfly_sora2_run_8:
 class Comfly_sora2_run_16:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 17)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个视频的生成提示词。"}) for i in range(2, 17)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个视频的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
-                "hd": ("BOOLEAN", {"default": False}),
-                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16", "tooltip": "视频宽高比。3:4/4:3仅sora-2-pro+HD支持。"}),
+                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。"}),
+                "max_concurrent": ("INT", {"default": 16, "min": 1, "max": 16, "tooltip": "最大并发数。同时处理的任务数量上限。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。将被追加到每个单独提示词之后。"}),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             }
         }
     RETURN_TYPES = (
@@ -5553,20 +5568,20 @@ class Comfly_sora2_run_16:
 class Comfly_sora2_run_32:
     @classmethod
     def INPUT_TYPES(cls):
-        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True}) for i in range(2, 33)}
+        promt_ = {f"promt_{i}": ("STRING", {"forceInput": True, "multiline": True, "tooltip": f"第{i}个视频的生成提示词。"}) for i in range(2, 33)}
         return {
             "required": {
-                "promt_1": ("STRING", {"forceInput": True, "multiline": True}),
+                "promt_1": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "第1个视频的生成提示词。"}),
             },
             "optional": {
                 **promt_,
-                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16"}),
-                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10"}),
-                "hd": ("BOOLEAN", {"default": False}),
-                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32}),
-                "global_prompt": ("STRING", {"default": "", "multiline": True}),
-                "base_url": ("STRING", {"default": "", "multiline": False}),
-                "api_key": ("STRING", {"default": "", "multiline": False}),
+                "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "9:16", "tooltip": "视频宽高比。3:4/4:3仅sora-2-pro+HD支持。"}),
+                "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
+                "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。"}),
+                "max_concurrent": ("INT", {"default": 32, "min": 1, "max": 32, "tooltip": "最大并发数。同时处理的任务数量上限。"}),
+                "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。将被追加到每个单独提示词之后。"}),
+                "base_url": ("STRING", {"default": "", "multiline": False, "tooltip": "API基础URL。留空则使用Comflyapi.json中的配置。"}),
+                "api_key": ("STRING", {"default": "", "multiline": False, "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
             }
         }
     RETURN_TYPES = (
@@ -5599,9 +5614,9 @@ class Comfly_sora2_log_parser:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "log": ("STRING", {"forceInput": True, "multiline": True}),
-                "data_type": (["task_id", "video_url", "response", "status", "error", "prompt"], {"default": "task_id"}),
-                "task_index": ("INT", {"default": 1, "min": 1, "max": 32}),
+                "log": ("STRING", {"forceInput": True, "multiline": True, "tooltip": "批量任务的日志字符串输入。包含所有任务的详细信息JSON。"}),
+                "data_type": (["task_id", "video_url", "response", "status", "error", "prompt"], {"default": "task_id", "tooltip": "要提取的数据类型。task_id:任务ID, video_url:视频URL, response:响应内容, status:状态, error:错误信息, prompt:提示词。"}),
+                "task_index": ("INT", {"default": 1, "min": 1, "max": 32, "tooltip": "任务索引。从1开始，对应第N个任务。"}),
             }
         }
     RETURN_TYPES = ("STRING",)
@@ -5640,16 +5655,16 @@ class ComflySora2New:
     def INPUT_TYPES(cls):
         return {
             'required': {
-                'prompt': ('STRING', {'multiline': True}),
-                'model': (['sora-2'], {'default': 'sora-2'}),
-                'orientation': (['portrait', 'landscape'], {'default': 'portrait'}),
-                'size': (['small'], {'default': 'small'}),
-                'duration': (['10s', '15s'], {'default': '15s'}),
+                'prompt': ('STRING', {'multiline': True, 'tooltip': '视频生成的描述提示词。详细描述想要生成的视频内容。'}),
+                'model': (['sora-2'], {'default': 'sora-2', 'tooltip': 'Sora-2模型版本。'}),
+                'orientation': (['portrait', 'landscape'], {'default': 'portrait', 'tooltip': '视频方向。portrait为竖屏，landscape为横屏。'}),
+                'size': (['small'], {'default': 'small', 'tooltip': '视频尺寸大小。small为小尺寸。'}),
+                'duration': (['10s', '15s'], {'default': '15s', 'tooltip': '视频时长。10s或15s。'}),
             },
             'optional': {
-                'api_key': ('STRING', {'default': ''}),
-                'reference_image': ('IMAGE',),
-                'seed': ('INT', {'default': 0, 'min': 0, 'max': 2147483647}),
+                'api_key': ('STRING', {'default': '', 'tooltip': 'API密钥。留空则使用Comflyapi.json中的全局配置。'}),
+                'reference_image': ('IMAGE', {'tooltip': '参考图像。用于图生视频模式，对图像进行动画处理。'}),
+                'seed': ('INT', {'default': 0, 'min': 0, 'max': 2147483647, 'tooltip': '随机种子。0表示随机。用于获得可复现的视频生成结果。'}),
             }
         }
     
