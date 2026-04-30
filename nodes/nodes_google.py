@@ -1,3 +1,5 @@
+from tkinter import E
+from urllib import response
 from ..comfly_config import *
 from .__init__ import *
 
@@ -3232,29 +3234,409 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                       image_size="2K", image1=None, image2=None, image3=None, image4=None,
                       image5=None, image6=None, image7=None, image8=None, image9=None,
                       image10=None, image11=None, image12=None, image13=None, image14=None,
-                      apikey="", task_id="", response_format="url", seed=0):
-        return Comfly_nano_banana2_edit_S2A().generate_image(
-            prompt=prompt,
-            mode=mode,
-            model=model,
-            aspect_ratio=aspect_ratio,
-            image_size=image_size,
-            image1=image1,
-            image2=image2,
-            image3=image3,
-            image4=image4,
-            image5=image5,
-            image6=image6,
-            image7=image7,
-            image8=image8,
-            image9=image9,
-            image10=image10,
-            image11=image11,
-            image12=image12,
-            image13=image13,
-            image14=image14,
-            apikey=apikey,
-            task_id=task_id,
-            response_format=response_format,
-            seed=seed,
-        )
+                      api_key="", task_id="", response_format="url", seed=0):
+
+        model = get_model_name(model)
+        request_id = generate_request_id("img_edit", "google")
+        log_prepare("图像编辑", request_id, "RunNode/Google-", "Google", model_name=model)
+        rn_pbar = ProgressBar(request_id, "Google", streaming=True, task_type="图像编辑", source="RunNode/Google-")
+        rn_pbar.set_generating()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        if not self.api_key:
+            error_message = "API key not found in configuration file or environment variables."
+            rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Google-", "Google")
+            raise ValueError(error_message)
+
+        try:
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update(10)
+
+            # 如果提供了task_id，则查询任务状态
+            if task_id.strip():
+                print(f"Querying task status for task_id: {task_id}")
+                result = self._query_task_status(task_id, pbar)
+                try:
+                    rn_pbar.done(char_count=len(str(result[-1])))
+                except Exception:
+                    pass
+                return result
+
+            # 否则创建新的异步任务
+            print(f"Creating new async task with mode: {mode}")
+            final_prompt = prompt
+
+            if mode == "text2img":
+                headers = self.get_headers()
+                headers["Content-Type"] = "application/json"
+
+                payload = {
+                    "prompt": final_prompt,
+                    "model": model,
+                    "aspect_ratio": aspect_ratio,
+                    
+                }
+                
+                if model == "gemini-3.1-flash-preview":
+                    payload["image_size"] = image_size
+
+                if response_format:
+                    payload["response_format"] = response_format
+
+                if seed > 0:
+                    payload["seed"] = seed
+
+                # 异步查询
+                params = {"async": "true"}
+
+                print(f"Submitting text2img async request with payload: {payload}")
+                response = requests.post(
+                    f"{baseurl}/v1/images/generations",
+                    headers=headers,
+                    json=payload,
+                    params=params,
+                    timeout=self.timeout
+                )
+            else: # img2img mode
+                headers = self.get_headers()
+                
+                all_images = [image1, image2, image3, image4, image5, image6, image7,
+                            image8, image9, image10, image11, image12, image13, image14]
+
+                files = []
+                image_count = 0
+                for image in all_images:
+                    if image is not None:
+                        pil_img = tensor2pil(image)[0]
+                        buffered = BytesIO()
+                        pil_img.save(buffered, format="PNG")
+                        buffered.seek(0)
+                        files.append(('image', (f'image_{image_count}.png', buffered, 'image/png')))
+                        image_count += 1
+                
+                print(f"Processing {image_count} input images")
+
+                data = {
+                    "prompt": final_prompt,
+                    "model": model,
+                    "aspect_ratio": aspect_ratio
+                }
+
+                if model == "gemini-3.1-flash-preview":
+                    data["image_size"] = image_size
+
+                if response_format:
+                    data["response_format"] = response_format
+
+                if seed > 0:
+                    data["seed"] = seed
+
+                # 异步查询
+                params = {"async": "true"}
+
+                print(f"Submitting img2img async request with {image_count} images")
+                response = requests.post(
+                    f"{baseurl}/v1/images/generations",
+                    headers=headers,
+                    files=files,
+                    data=data,
+                    params=params,
+                    timeout=self.timeout
+                )
+
+            pbar.update_absolute(30)
+
+            if response.status_code != 200:
+                error_message = format_runnode_error(response)
+                rn_pbar.error(error_message)
+                raise ValueError(error_message)
+
+            result = response.json()
+            print(f'API response: {result}')
+
+            # 智能判断：API返回异步task_id还是同步data
+            if "task_id" in result:
+                # 异步任务，返回task_id
+                return_task_id = result["task_id"]
+                
+                # 构建结构化JSON响应
+                result_info = {
+                    "status": "pending",
+                    "task_id": return_task_id,
+                    "model": model,
+                    "prompt": prompt,
+                    "aspect_ratio": aspect_ratio,
+                    "image_size": image_size if model == "gemini-3.1-flash-preview" else None,
+                    "seed": seed if seed > 0 else None,
+                    "message": "Async task created successfully. Please use this task_id to query the status."
+                }
+
+                # 打印调试信息
+                print(f"[ASYNC_RESPONSE] {json.dumps(result_info, ensure_ascii=False)}")
+                
+                blank_image = Image.new('RGB', (512, 512), color='lightgray')
+                blank_tensor = pil2tensor(blank_image)
+                pbar.update_absolute(100)
+
+                # 异步模式：轮询任务状态直到完成
+                print(f"Waiting for task completion: {returned_task_id}")
+                max_attempts = 60  # 最多等待10分钟(每10秒查询一次)
+                attempt = 0
+
+                while attempt < max_attempts:
+                    attempt += 1
+                    time.sleep(10)  
+
+                    try:
+                        # 查询任务状态
+                        query_url = f"{baseurl}/v1/images/tasks/{returned_task_id}"
+                        query_response = requests.get(
+                            query_url,
+                            headers=headers,
+                            timeout=self.timeout
+                        )
+
+                        if query_response.status_code == 200:
+                            query_result = query_response.json()
+                            # 处理嵌套响应结构
+                            # API返回：{“data”：{“status”：“success”， “data”: {...}}}
+                            actual_status = "unknown"
+                            actual_data = None
+
+                            if "data" in query_result and isinstance(query_result["data"], dict):
+                                actual_status = query_result["data"].get("status", "unknown")
+                                actual_data = query_result["data"].get("data", None)
+                            
+                            print(f"Task status (attempt {attempt}): {actual_status}")
+
+                            # 处理更多表示成功的状态
+                            completed_statuses = {"completed", "success", "done", "finished", "SUCCESS"}
+                            if actual_status in completed_statuses or (actual_status == "unknown" and actual_data):
+                                # 任务完成，处理结果
+                                # 使用实际的数据字段
+                                if actual_data:
+                                    generated_tensors = []
+                                    image_urls = []
+
+                                    # 安全处理图片数据
+                                    data_items = actual_data.get("data", []) if isinstance(actual_data, dict) else actual_data
+                                    if not isinstance(data_items, list):
+                                        data_items = [data_items]
+
+                                    for item in data_items:
+                                        try:
+                                            if "b64_json" in item and item["b64_json"]:
+                                                # 处理Base64图片数据
+                                                image_data = base64.b64decode(item["b64_json"])
+                                                image_stream = BytesIO(image_data)
+                                                generated_image = Image.open(image_stream)
+                                                generated_image.verify()  # 验证图片完整性
+                                                # 重新打开图片（verify后流位置改变）
+                                                image_stream.seek(0)
+                                                generated_image = Image.open(image_stream)
+                                                # 确保RGB模式
+                                                if generated_image.mode != 'RGB':
+                                                    generated_image = generated_image.convert('RGB')
+                                                generated_tensor = pil2tensor(generated_image)
+                                                generated_tensors.append(generated_tensor)
+                                            elif "url" in item and item["url"]:
+                                                # 处理URL图片数据
+                                                image_url = item["url"]
+                                                image_urls.append(image_url)
+                                                img_response = requests.get(image_url, timeout=self.timeout)
+                                                img_response.raise_for_status()
+                                                image_stream = BytesIO(img_response.content)
+                                                generated_image = Image.open(image_stream)
+                                                generated_image.verify()  # 验证图片完整性
+                                                # 重新打开图片（verify后流位置改变）
+                                                image_stream.seek(0)
+                                                generated_image = Image.open(image_stream)
+                                                # 确保RGB模式
+                                                if generated_image.mode != 'RGB':
+                                                    generated_image = generated_image.convert('RGB')
+                                                generated_tensor = pil2tensor(generated_image)
+                                                generated_tensors.append(generated_tensor)
+                                        except Exception as e:
+                                            print(f"Error processing image item: {str(e)}")
+                                            continue
+                                    
+                                    if generated_tensors:
+                                        combined_tensor = torch.cat(generated_tensors, dim=0)
+                                        first_image_url = image_urls[0] if image_urls else ""
+                                        final_result_info = {
+                                            "status": "success",
+                                            "task_id": returned_task_id,
+                                            "model": model,
+                                            "mode": mode,
+                                            "prompt": prompt,
+                                            "aspect_ratio": aspect_ratio,
+                                            "image_size": image_size if model == "gemini-3.1-flash-image-preview" else None,
+                                            "seed": seed if seed > 0 else None,
+                                            "images_count": len(generated_tensors),
+                                            "image_url": first_image_url,
+                                            "all_urls": image_urls
+                                        }
+                                        pbar.update_absolute(100)
+                                        try:
+                                            rn_pbar.done(char_count=len(json.dumps(final_result_info, ensure_ascii=False)))
+                                        except Exception:
+                                            pass
+                                        return (combined_tensor, first_image_url, returned_task_id, json.dumps(final_result_info))
+
+                            elif actual_status == "failed" or actual_status == "error" or actual_status == "FAILURE":
+                                # 任务失败
+                                error_msg = query_result.get("error", "Unknown error")
+                                if not error_msg and "data" in query_result and isinstance(query_result["data"], dict):
+                                    error_msg = query_result["data"].get("error", "Unknown error")
+                                if not error_msg:
+                                    error_msg = "Unknown error"
+                                
+                                rn_pbar.error(f"任务失败: {error_msg}")
+                                raise ValueError(f"Task failed: {error_msg}")
+
+                        else ValueError as e:
+                            rn_pbar.error(f"查询失败，状态码为: {query_response.status_code}")
+
+                    except ValueError as e:
+                        raise e
+                    except Exception as e:
+                        rn_pbar.error(f"查询失败，错误信息: {str(e)}")
+
+                # 超时未完成
+                print("Task polling timed out")
+                blank_image = Image.new('RGB', (512, 512), color='yellow')
+                blank_tensor = pil2tensor(blank_image)
+                pbar.update_absolute(100)
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gemini_3_1_flash_image_edit_S2A] Task polling timed out")
+                return (blank_tensor, "", returned_task_id, json.dumps({"status": "timeout", "task_id": returned_task_id, "message": "Task polling timed out. Please query manually."}))
+
+            elif "data" in result and result["data"]:
+                # 同步模式：直接返回图片数据
+                print(f"Sync mode detected, processing {len(result['data'])} images directly")
+                generated_tensors = []
+                image_urls = []
+                response_info = f"Generated {len(result['data'])} images using {model}\n"
+                
+                if model == "gemini-3.1-flash-image-preview":
+                    response_info += f"Image size: {image_size}\n"
+                
+                response_info += f"Aspect ratio: {aspect_ratio}\n"
+                
+                if mode == "img2img":
+                    response_info += f"Input images: {image_count}\n"
+                
+                if seed > 0:
+                    response_info += f"Seed: {seed}\n"
+                
+                # 安全处理图片数据
+                data_items = result.get("data", [])
+                if not isinstance(data_items, list):
+                    data_items = [data_items]
+                    
+                for i, item in enumerate(data_items):
+                    try:
+                        pbar.update_absolute(50 + (i+1) * 40 // len(data_items))
+                        
+                        if "b64_json" in item and item["b64_json"]:
+                            # 处理Base64图片数据
+                            image_data = base64.b64decode(item["b64_json"])
+                            image_stream = BytesIO(image_data)
+                            generated_image = Image.open(image_stream)
+                            generated_image.verify()  # 验证图片完整性
+                            # 重新打开图片（verify后流位置改变）
+                            image_stream.seek(0)
+                            generated_image = Image.open(image_stream)
+                            # 确保RGB模式
+                            if generated_image.mode != 'RGB':
+                                generated_image = generated_image.convert('RGB')
+                            generated_tensor = pil2tensor(generated_image)
+                            generated_tensors.append(generated_tensor)
+                            response_info += f"Image {i+1}: Base64 data\n"
+                        elif "url" in item and item["url"]:
+                            # 处理URL图片数据
+                            image_url = item["url"]
+                            image_urls.append(image_url)
+                            response_info += f"Image {i+1}: {image_url}\n"
+                            img_response = requests.get(image_url, timeout=self.timeout)
+                            img_response.raise_for_status()
+                            image_stream = BytesIO(img_response.content)
+                            generated_image = Image.open(image_stream)
+                            generated_image.verify()  # 验证图片完整性
+                            # 重新打开图片（verify后流位置改变）
+                            image_stream.seek(0)
+                            generated_image = Image.open(image_stream)
+                            # 确保RGB模式
+                            if generated_image.mode != 'RGB':
+                                generated_image = generated_image.convert('RGB')
+                            generated_tensor = pil2tensor(generated_image)
+                            generated_tensors.append(generated_tensor)
+                    except Exception as e:
+                        print(f"Error processing image item {i}: {str(e)}")
+                        continue
+                
+                pbar.update_absolute(100)
+                
+                if generated_tensors:
+                    combined_tensor = torch.cat(generated_tensors, dim=0)
+                    first_image_url = image_urls[0] if image_urls else ""
+                    
+                    # 构建结构化JSON响应（添加task_id以便网站识别）
+                    import uuid
+                    sync_task_id = f"sync_{uuid.uuid4().hex[:16]}"
+                    
+                    result_info = {
+                        "status": "success",
+                        "task_id": sync_task_id,
+                        "model": model,
+                        "mode": mode,
+                        "prompt": prompt,
+                        "aspect_ratio": aspect_ratio,
+                        "image_size": image_size if model == "gemini-3.1-flash-image-preview" else None,
+                        "seed": result.get("seed", seed) if seed > 0 else None,
+                        "images_count": len(generated_tensors),
+                        "image_url": first_image_url,
+                        "all_urls": image_urls
+                    }
+                    
+                    # 打印调试信息
+                    print(f"[SYNC_RESPONSE] {json.dumps(result_info, ensure_ascii=False)}")
+                    
+                    return (combined_tensor, first_image_url, sync_task_id, json.dumps(result_info))
+                else:
+                    error_message = "Failed to process any images"
+                    print(error_message)
+                    blank_image = Image.new('RGB', (1024, 1024), color='white')
+                    blank_tensor = pil2tensor(blank_image)
+                    if not skip_error:
+                        raise RuntimeError(f"[Comfly_gemini_3_1_flash_image_edit_S2A] {error_message}")
+                    return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+                    
+            else:
+                # 未知响应格式
+                error_message = f"Unexpected API response format: {result}"
+                print(error_message)
+                blank_image = Image.new('RGB', (1024, 1024), color='white')
+                blank_tensor = pil2tensor(blank_image)
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gemini_3_1_flash_image_edit_S2A] {error_message}")
+                return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+
+        except Exception as e:
+            error_message = f"Error creating progress bar: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_message)
+            log_backend_exception(
+                "gemini-3.1-flash_image-edit_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e)
+            )
+            raise ValueError(error_message)
+
+
+

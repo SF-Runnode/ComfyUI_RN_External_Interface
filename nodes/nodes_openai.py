@@ -5895,6 +5895,8 @@ class ComflySora2New:
             max_attempts = 300
             attempts = 0
             video_url = None
+            completed_wait_attempts = 0
+            max_completed_wait = 600
             
             while attempts < max_attempts:
                 time.sleep(10)
