@@ -16,7 +16,7 @@ from .nodes.nodes_xai import *
 
 WEB_DIRECTORY = "./web/js"
 
-__version__ = "1.19.5"
+__version__ = "1.20.0"
 
 NODE_CLASS_MAPPINGS = {
     "RunNode_api_set": Comfly_api_set,
@@ -68,6 +68,9 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_Doubao_Seedream_4": Comfly_Doubao_Seedream_4,
     "RunNode_Doubao_Seedream_4_5": Comfly_Doubao_Seedream_4_5,
     "RunNode_Doubao_Seededit": Comfly_Doubao_Seededit,
+    "RunNode_Doubao_Seedance_2_0": Comfly_Doubao_Seedance_2_0,
+    "RunNode_Doubao_Seedance_2_0_AssetIdBundle": Comfly_Doubao_Seedance_2_0_AssetIdBundle,
+    "RunNode_Doubao_Seedance_2_0_Asset": Comfly_Doubao_Seedance_2_0_Asset,
     "RunNodeJimengVideoApi": ComflyJimengVideoApi,
     "RunNodeJimengApi": ComflyJimengApi,
     "RunNode_MiniMax_video": Comfly_MiniMax_video,
@@ -98,7 +101,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_banana2_edit_S2A_run_32": Comfly_banana2_edit_S2A_run_32,
     "RunNode_gemini_3_1_flash_image_edit_S2A": Comfly_gemini_3_1_flash_image_edit_S2A,
     "RunNode_Z_image_turbo": Comfly_Z_image_turbo,
-    "RunNode_wan2_6_API": Comfly_wan2_6_API,
+    # "RunNode_wan2_6_API": Comfly_wan2_6_API,
     "RunNode_LLm_API": Comfly_LLm_API,
     "RunNode_Grok3VideoApi": ComflyGrok3VideoApi,
 }
@@ -153,6 +156,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_Doubao_Seedream_4": "RunNode Doubao Seedream4.0",
     "RunNode_Doubao_Seedream_4_5": "RunNode Doubao Seedream4.5",
     "RunNode_Doubao_Seededit": "RunNode Doubao Seededit3.0",
+    "RunNode_Doubao_Seedance_2_0": "RunNode Doubao Seedance 2.0",
+    "RunNode_Doubao_Seedance_2_0_AssetIdBundle": "RunNode Doubao Seedance 2.0 AssetIdBundle",
+    "RunNode_Doubao_Seedance_2_0_Asset": "RunNode Doubao Seedance 2.0 Asset Upload",
     "RunNodeJimengVideoApi": "RunNode Jimeng Video API",
     "RunNodeJimengApi": "RunNode Jimeng API",
     "RunNode_MiniMax_video": "RunNode MiniMax Hailuo Video",
@@ -183,7 +189,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_banana2_edit_S2A_run_32": "RunNode banana2_edit S2A Run 32",
     "RunNode_gemini_3_1_flash_image_edit_S2A": "RunNode gemini_3_1_flash_image_edit_S2A",
     "RunNode_Z_image_turbo": "RunNode Z Image Turbo",
-    "RunNode_wan2_6_API": "RunNode wan2.6 video",
+    # "RunNode_wan2_6_API": "RunNode wan2.6 video",
     "RunNode_LLm_API": "RunNode LLM API",
     "RunNode_Grok3VideoApi": "RunNode Grok3 Video",
 }

@@ -102,7 +102,9 @@
     "openai/gpt-4o-image": "GPT-4o Image",
     "openai/gpt-3.5-turbo": "GPT-3.5 Turbo",
     "openai/gpt-image-1": "GPT Image 1",
-    "openai/gpt-image-1.5": "GPT Image 1.5"
+    "openai/gpt-image-1.5": "GPT Image 1.5",
+    "gpt-image-2": "GPT Image 2",
+    "gpt-image-2-all": "GPT Image 2 ALL"
   },
 
   "api_name_mapping": {
@@ -126,11 +128,14 @@
     "Suno 4.5": "suno-v4.5",
     "Suno 4.5+": "suno-v4.5+",
     "Suno 5.0": "suno-v5",
+    "Suno 5.5": "suno-v5.5",
 
     "Doubao Seedream 3.0": "doubao-seedream-3-0-t2i-250415",
     "Doubao Seedream 4.0": "doubao-seedream-4-0-250828",
     "Doubao Seedream": "doubao-seedream",
     "Doubao SeedEdit": "doubao-seededit",
+    "Doubao Seedance 2.0": "doubao-seedance-2-0-260128",
+    "Doubao Seedance 2.0 Fast": "doubao-seedance-2-0-fast-260128",
 
     "Jimeng Video": "jimeng-video",
     "Jimeng Image": "jimeng-image",
@@ -198,11 +203,13 @@
 
     "Ollama": "ollama",
 
+    "GPT-3.5 Turbo": "openai/gpt-3.5-turbo",
     "GPT-4": "openai/gpt-4",
     "GPT-4o": "openai/gpt-4o",
-    "GPT-4o Image": "openai/gpt-4o-image",
-    "GPT-3.5 Turbo": "openai/gpt-3.5-turbo",
-    "GPT Image 1": "openai/gpt-image-1",
-    "GPT Image 1.5": "openai/gpt-image-1.5"
+    "GPT-4o Image": "gpt-4o-image",
+    "GPT Image 1": "gpt-image-1",
+    "GPT Image 1.5": "gpt-image-1.5",
+    "GPT Image 2": "gpt-image-2",
+    "GPT Image 2 ALL": "gpt-image-2-all"
   }
 }

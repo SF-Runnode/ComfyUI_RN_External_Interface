@@ -542,3 +542,44 @@ class ProgressBar:
         
     def done(self, char_count=0, elapsed_ms=0):
         print(f"{PREFIX} Done in {elapsed_ms}ms")
+
+def _parse_asset_bundle_only(bundle_json):
+    """Parse JSON from Asset ID Bundle (asset_id strings per slot) -> five fields for API."""
+    if not bundle_json or not str(bundle_json).strip():
+        return "", "", "", "", ""
+    try:
+        b = json.loads(bundle_json.strip())
+    except Exception as e:
+        print(f"[Comfly Seedance] asset_bundle JSON parse failed: {e}")
+        return "", "", "", "", ""
+
+    def jl(key):
+        v = b.get(key)
+        if isinstance(v, list):
+            return ",".join(str(x).strip() for x in v if str(x).strip())
+        if isinstance(v, str):
+            return v.strip()
+        return ""
+
+    return (
+        str(b.get("first_frame") or "").strip(),
+        str(b.get("last_frame") or "").strip(),
+        jl("ref_images"),
+        jl("videos"),
+        jl("audios"),
+    )
+
+def _comfly_split_asset_ids(s):
+    if not s or not str(s).strip():
+        return []
+    return [p.strip() for p in re.split(r"[\n,]+", str(s)) if p.strip()]
+
+def _comfly_asset_id_to_url(s):
+    """Bare id -> asset://<id>; already http(s) or asset:// left unchanged."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    low = s.lower()
+    if low.startswith("http://") or low.startswith("https://") or low.startswith("asset://"):
+        return s
+    return f"asset://{s}"

@@ -241,7 +241,19 @@ def get_api_model_name(friendly_name: str) -> str:
     根据友好显示名称获取实际 API 模型名称
     """
     mapping = load_models_config().get("api_name_mapping", {})
-    return mapping.get(friendly_name, friendly_name)
+    if not isinstance(friendly_name, str):
+        return friendly_name
+    if not friendly_name:
+        return friendly_name
+    if friendly_name in mapping:
+        return mapping[friendly_name]
+    name = friendly_name.strip()
+    if not name:
+        return friendly_name
+    if name in mapping:
+        return mapping[name]
+    normalized_mapping = {k.strip(): v for k, v in mapping.items() if isinstance(k, str)}
+    return normalized_mapping.get(name, name)
 
 
 def get_display_name(internal_name: str) -> str:
@@ -250,4 +262,3 @@ def get_display_name(internal_name: str) -> str:
     """
     mapping = load_models_config().get("display_name_mapping", {})
     return mapping.get(internal_name, internal_name)
-

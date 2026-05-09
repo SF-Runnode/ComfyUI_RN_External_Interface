@@ -361,7 +361,11 @@
       "billing_type": "per_model",
       "price_per_model": 0
     },
-
+    "openai/gpt-3.5-turbo": {
+      "billing_type": "token",
+      "input_price_per_1k": 0.0005,
+      "output_price_per_1k": 0.0015
+    },
     "openai/gpt-4": {
       "billing_type": "token",
       "input_price_per_1k": 0.01,
@@ -372,22 +376,25 @@
       "input_price_per_1k": 0.005,
       "output_price_per_1k": 0.015
     },
-    "openai/gpt-3.5-turbo": {
-      "billing_type": "token",
-      "input_price_per_1k": 0.0005,
-      "output_price_per_1k": 0.0015
-    },
-    "openai/gpt-image-1": {
+    "gpt-4o-image": {
       "billing_type": "per_use",
       "price_per_use": 0.05
     },
-    "openai/gpt-image-1.5": {
+    "gpt-image-1": {
+      "billing_type": "per_use",
+      "price_per_use": 0.05
+    },
+    "gpt-image-1.5": {
       "billing_type": "per_use",
       "price_per_use": 0.10
     },
-    "openai/gpt-4o-image": {
+    "gpt-image-2": {
       "billing_type": "per_use",
-      "price_per_use": 0.05
+      "price_per_use": 0.15
+    },
+    "gpt-image-2-all": {
+      "billing_type": "per_use",
+      "price_per_use": 0.150
     }
   },
 
