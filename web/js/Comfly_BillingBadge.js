@@ -17,6 +17,25 @@ import { app } from "../../../scripts/app.js";
     let modelsCurrency = 'USD';
     let modelDisplayNames = {};
     let modelApiNames = {};
+    let modelBillingNames = {};
+    let displayToBillingKey = {};
+
+    function flattenStringMap(input) {
+        if (!input || typeof input !== 'object') return {};
+        const out = {};
+        for (const [k, v] of Object.entries(input)) {
+            if (typeof v === 'string') {
+                out[k] = v;
+                continue;
+            }
+            if (v && typeof v === 'object') {
+                for (const [ik, iv] of Object.entries(v)) {
+                    if (typeof iv === 'string') out[ik] = iv;
+                }
+            }
+        }
+        return out;
+    }
 
     /**
      * 加载计费配置
@@ -25,7 +44,7 @@ import { app } from "../../../scripts/app.js";
         if (billingConfig) return billingConfig;
 
         try {
-            const resp = await fetch('/api/billing_config');
+            const resp = await fetch(`/api/billing_config?_=${Date.now()}`, { cache: 'no-store' });
             if (resp.ok) {
                 billingConfig = await resp.json();
                 const ds = billingConfig?.display_settings || {};
@@ -34,8 +53,10 @@ import { app } from "../../../scripts/app.js";
                 rates = ds.currency_rates || {};
                 creditsRate = ds.credits_conversion_rate || 211;
                 modelsCurrency = ds.models_currency || 'USD';
-                modelDisplayNames = ds.model_display_names || {};
-                modelApiNames = ds.model_api_names || {};
+                modelDisplayNames = flattenStringMap(ds.model_display_names || {});
+                modelApiNames = flattenStringMap(ds.model_api_names || {});
+                modelBillingNames = flattenStringMap(ds.model_billing_names || {});
+                rebuildDisplayToBillingKey();
                 console.log(`[${extensionId}] Loaded billing config`);
                 return billingConfig;
             }
@@ -45,6 +66,42 @@ import { app } from "../../../scripts/app.js";
 
         billingConfig = { models: {} };
         return billingConfig;
+    }
+
+    function rebuildDisplayToBillingKey() {
+        displayToBillingKey = {};
+        const models = billingConfig?.models || {};
+
+        for (const key of Object.keys(models)) {
+            const disp = modelDisplayNames?.[key];
+            if (typeof disp !== 'string') continue;
+            const t = disp.trim();
+            if (!t) continue;
+            displayToBillingKey[t] = key;
+            displayToBillingKey[t.toLowerCase()] = key;
+        }
+
+        for (const [k, v] of Object.entries(modelBillingNames || {})) {
+            if (typeof k !== 'string') continue;
+            if (typeof v !== 'string') continue;
+            const t = k.trim();
+            if (!t) continue;
+            if (models.hasOwnProperty(v)) {
+                displayToBillingKey[t] = v;
+                displayToBillingKey[t.toLowerCase()] = v;
+            }
+        }
+
+        for (const [k, v] of Object.entries(modelApiNames || {})) {
+            if (typeof k !== 'string') continue;
+            if (typeof v !== 'string') continue;
+            const t = k.trim();
+            if (!t) continue;
+            if (models.hasOwnProperty(v)) {
+                displayToBillingKey[t] = v;
+                displayToBillingKey[t.toLowerCase()] = v;
+            }
+        }
     }
 
     /**
@@ -57,14 +114,42 @@ import { app } from "../../../scripts/app.js";
     /**
      * 将友好显示名称转换为 API 名称（用于价格查找）
      */
-    function getApiModelName(displayName) {
+    function getBillingModelKey(displayName) {
         if (!displayName) return displayName;
-        // 如果已经是 API 名称（原名），直接返回
-        if (billingConfig?.models?.hasOwnProperty(displayName)) {
-            return displayName;
+        const raw = displayName;
+        const name = (typeof raw === 'string') ? raw.trim() : raw;
+
+        if (billingConfig?.models?.hasOwnProperty(raw)) return raw;
+        if (name !== raw && billingConfig?.models?.hasOwnProperty(name)) return name;
+
+        if (typeof raw === 'string') {
+            const t = raw.trim();
+            if (t && displayToBillingKey?.[t]) return displayToBillingKey[t];
+            const lower = t ? t.toLowerCase() : '';
+            if (lower && displayToBillingKey?.[lower]) return displayToBillingKey[lower];
         }
-        // 尝试从映射表中查找
-        return modelApiNames[displayName] || displayName;
+
+        const billingNameRaw = modelBillingNames?.[raw];
+        const billingName = (typeof billingNameRaw === 'string') ? billingNameRaw.trim() : billingNameRaw;
+        if (billingNameRaw && billingConfig?.models?.hasOwnProperty(billingNameRaw)) return billingNameRaw;
+        if (billingName && billingConfig?.models?.hasOwnProperty(billingName)) return billingName;
+
+        const apiNameRaw = modelApiNames?.[raw];
+        const apiName = (typeof apiNameRaw === 'string') ? apiNameRaw.trim() : apiNameRaw;
+        if (apiNameRaw && billingConfig?.models?.hasOwnProperty(apiNameRaw)) return apiNameRaw;
+        if (apiName && billingConfig?.models?.hasOwnProperty(apiName)) return apiName;
+
+        if (typeof name === 'string' && name) {
+            const lower = name.toLowerCase();
+            for (const [k, v] of Object.entries(modelBillingNames || {})) {
+                if (typeof k === 'string' && k.trim().toLowerCase() === lower) return v;
+            }
+            for (const [k, v] of Object.entries(modelApiNames || {})) {
+                if (typeof k === 'string' && k.trim().toLowerCase() === lower) return v;
+            }
+        }
+
+        return billingName || apiName || name || raw;
     }
 
     /**
@@ -87,13 +172,41 @@ import { app } from "../../../scripts/app.js";
         return String(value);
     }
 
+    function extractWidgetValue(widget) {
+        if (!widget) return undefined;
+        const raw = (widget.value !== undefined) ? widget.value : widget;
+
+        if (typeof raw === 'number') {
+            const values = widget.options?.values;
+            if (Array.isArray(values)) {
+                const opt = values[raw];
+                if (typeof opt === 'string') return opt;
+                if (Array.isArray(opt) && opt.length) return opt[opt.length - 1];
+                if (opt && typeof opt === 'object') {
+                    if (opt.value !== undefined) return opt.value;
+                    if (opt.content !== undefined) return opt.content;
+                    if (opt.label !== undefined) return opt.label;
+                    if (opt.text !== undefined) return opt.text;
+                }
+            }
+        }
+
+        if (raw && typeof raw === 'object') {
+            if (raw.value !== undefined) return raw.value;
+            if (raw.content !== undefined) return raw.content;
+            if (raw.label !== undefined) return raw.label;
+            if (raw.text !== undefined) return raw.text;
+        }
+
+        return raw;
+    }
+
     function buildParamsFromWidgets(widgets) {
         const params = {};
         for (const w of (widgets || [])) {
             if (!w || !w.name) continue;
             if (w.name === '__comfly_price_badge') continue;
-            const raw = (w.value !== undefined) ? w.value : w;
-            const v = normalizeParamValue(raw);
+            const v = normalizeParamValue(extractWidgetValue(w));
             if (v !== undefined) params[w.name] = v;
         }
         return params;
@@ -196,10 +309,7 @@ import { app } from "../../../scripts/app.js";
         if (!billingConfig?.models) return null;
 
         const type = (nodeType || '').toLowerCase();
-        const getWidgetValue = (name) => {
-            const w = widgets?.find(w => w.name === name);
-            return w?.value ?? w;
-        };
+        const getWidgetValue = (name) => extractWidgetValue(widgets?.find(w => w.name === name));
 
         let modelKey = null;
         let duration = 10;
@@ -272,7 +382,7 @@ import { app } from "../../../scripts/app.js";
         }
 
         // 将友好名称转换为 API 名称（用于价格查找）
-        modelKey = getApiModelName(modelKey);
+        modelKey = getBillingModelKey(modelKey);
 
         let config = billingConfig.models[modelKey];
 
@@ -369,8 +479,8 @@ import { app } from "../../../scripts/app.js";
      */
     function isComflyNode(nodeName) {
         if (!nodeName) return false;
-        // 匹配 RunNode_* 或 RunNode + 大写字母开头 (camelCase)
-        if (/^RunNode[A-Z]/.test(nodeName) || nodeName.startsWith('RunNode_')) return true;
+        // 匹配 RunNode_* / RunNode + 大写字母开头 (camelCase) / 以及友好名（如 "RunNode Doubao Seedance 2.0"）
+        if (/^RunNode[A-Z]/.test(nodeName) || nodeName.startsWith('RunNode_') || nodeName.startsWith('RunNode ')) return true;
         // OpenAI Sora API 节点
         if (nodeName.startsWith('OpenAI_Sora_API')) return true;
         // Comfly_* 节点
@@ -499,15 +609,16 @@ import { app } from "../../../scripts/app.js";
         },
 
         async beforeRegisterNodeDef(nodeType, nodeData, app) {
-            const nodeName = nodeData.name || '';
-            if (!isComflyNode(nodeName)) return;
+            const nodeTypeName = nodeData?.name || '';
+            const nodeDisplayName = nodeData?.display_name || nodeData?.displayName || '';
+            if (!isComflyNode(nodeTypeName) && !isComflyNode(nodeDisplayName)) return;
 
             const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
 
             nodeType.prototype.onNodeCreated = function () {
                 const result = originalOnNodeCreated?.apply(this, arguments);
                 requestAnimationFrame(() => {
-                    attachBadge(this, nodeName);
+                    attachBadge(this, this.type || nodeTypeName || nodeDisplayName);
                 });
                 return result;
             };

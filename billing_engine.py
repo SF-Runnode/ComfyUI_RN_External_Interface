@@ -137,10 +137,9 @@ class BillingCalculator:
         Returns:
             BillingResult: 计费结果
         """
-        from comfly_config import get_billing_config
+        from comfly_config import get_billing_models
 
-        config = get_billing_config()
-        models_config = config.get("models", {})
+        models_config = get_billing_models()
         model_config = models_config.get(model_key)
 
         if not model_config:
@@ -184,10 +183,9 @@ class BillingCalculator:
         Returns:
             BillingResult: 计费结果
         """
-        from comfly_config import get_billing_config
+        from comfly_config import get_billing_models
 
-        config = get_billing_config()
-        models_config = config.get("models", {})
+        models_config = get_billing_models()
         model_config = models_config.get(model_key)
 
         if not model_config:

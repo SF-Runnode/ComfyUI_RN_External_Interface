@@ -4011,8 +4011,10 @@ class OpenAISoraAPI:
             return None
 
 
-TIMEOUT = 1800
 class Comfly_sora2_batch_32:
+    TASK_TIMEOUT_SECONDS = 1800
+    HTTP_TIMEOUT_SECONDS = 120
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -4241,7 +4243,7 @@ class Comfly_sora2_batch_32:
             headers={"Authorization": f"Bearer {self.api_key}"},
             data=form_data,
             files=files if files else None,
-            timeout=TIMEOUT
+            timeout=self.HTTP_TIMEOUT_SECONDS
         )
 
         if response.status_code != 200:
@@ -4257,7 +4259,7 @@ class Comfly_sora2_batch_32:
         self.task_progress[task_idx] = 30
 
         # Polling
-        max_attempts = int(TIMEOUT / 10)
+        max_attempts = int(self.TASK_TIMEOUT_SECONDS / 10)
         attempts = 0
         
         while attempts < max_attempts:
@@ -4273,7 +4275,7 @@ class Comfly_sora2_batch_32:
                 status_resp = requests.get(
                     f"{current_base_url.rstrip('/')}/v1/videos/{task_id}",
                     headers={"Authorization": f"Bearer {self.api_key}"},
-                    timeout=TIMEOUT
+                    timeout=self.HTTP_TIMEOUT_SECONDS
                 )
                 
                 if status_resp.status_code != 200:
@@ -4315,7 +4317,7 @@ class Comfly_sora2_batch_32:
                 if attempts >= max_attempts:
                     raise e
                 
-        raise Exception(f"Task timed out after {TIMEOUT} seconds")
+        raise Exception(f"Task timed out after {self.TASK_TIMEOUT_SECONDS} seconds")
 
     def _process_single_task_v2(
         self, 
@@ -4373,7 +4375,7 @@ class Comfly_sora2_batch_32:
             f"{current_base_url.rstrip('/')}/v2/videos/generations",
             headers=self.get_headers(),
             json=payload,
-            timeout=TIMEOUT
+            timeout=self.HTTP_TIMEOUT_SECONDS
         )
 
         if response.status_code != 200:
@@ -4388,7 +4390,7 @@ class Comfly_sora2_batch_32:
         task_result["task_id"] = task_id
         self.task_progress[task_idx] = 30
 
-        max_attempts = int(TIMEOUT / 10)
+        max_attempts = int(self.TASK_TIMEOUT_SECONDS / 10)
         attempts = 0
         
         while attempts < max_attempts:
@@ -4400,7 +4402,7 @@ class Comfly_sora2_batch_32:
                 status_resp = requests.get(
                     f"{current_base_url.rstrip('/')}/v2/videos/generations/{task_id}",
                     headers=self.get_headers(),
-                    timeout=TIMEOUT
+                    timeout=self.HTTP_TIMEOUT_SECONDS
                 )
 
                 if status_resp.status_code != 200:
@@ -4445,7 +4447,7 @@ class Comfly_sora2_batch_32:
                 if attempts >= max_attempts:
                     raise e
                     
-        raise Exception(f"Task timed out after {TIMEOUT} seconds")
+        raise Exception(f"Task timed out after {self.TASK_TIMEOUT_SECONDS} seconds")
 
     def process_single_task(
         self, 
@@ -5895,6 +5897,8 @@ class ComflySora2New:
             max_attempts = 300
             attempts = 0
             video_url = None
+            completed_wait_attempts = 0
+            max_completed_wait = 600
             
             while attempts < max_attempts:
                 time.sleep(10)
@@ -5957,3 +5961,1029 @@ class ComflySora2New:
             rn_pbar.error(error_message)
             log_backend_exception('sora2_video_exception', request_id=request_id, error=str(e))
             return ('', '', json.dumps({'status': 'error', 'message': error_message}))
+
+
+class Comfly_gpt_image_2:
+    """GPT-Image-2 node: supports both image generation and image editing via Chat Completions API"""
+
+    _last_generated_image_urls = ""
+    _conversation_history = []
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+            },
+            "optional": {
+                # "api_key": ("STRING", {"default": ""}),
+                "model": (["GPT Image 2", "GPT Image 2 ALL"], {"default": "GPT Image 2"}),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
+                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
+                "background": (["auto", "transparent", "opaque"], {"default": "auto"}),
+                "output_format": (["png", "jpeg", "webp"], {"default": "png"}),
+                "moderation": (["auto", "low"], {"default": "auto"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
+                "clear_chats": ("BOOLEAN", {"default": True}),
+                "image_download_timeout": ("INT", {"default": 600, "min": 60, "max": 1200, "step": 10}),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"})
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("images", "response", "image_urls", "chats")
+    FUNCTION = "process"
+    CATEGORY = "RunNode/Openai"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 900
+        self.image_download_timeout = 600
+        self.api_endpoint = f"{baseurl}/v1/chat/completions"
+
+    def get_headers(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def image_to_base64(self, image):
+        """Convert PIL image to base64 string"""
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    def extract_image_urls(self, response_text):
+        """Extract image URLs from markdown format in response"""
+        image_pattern = r'!\[.*?\]\((.*?)\)'
+        matches = re.findall(image_pattern, response_text)
+        if not matches:
+            url_pattern = r'https?://\S+\.(?:jpg|jpeg|png|gif|webp)'
+            matches = re.findall(url_pattern, response_text)
+        if not matches:
+            all_urls_pattern = r'https?://\S+'
+            matches = re.findall(all_urls_pattern, response_text)
+        return matches if matches else []
+
+    def download_image(self, url, timeout=30):
+        """Download image from URL and convert to tensor"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            }
+            response = requests.get(url, headers=headers, timeout=timeout)
+            response.raise_for_status()
+            image = Image.open(BytesIO(response.content))
+            return pil2tensor(image)
+        except Exception as e:
+            log_backend_exception(
+                "openai_gpt_image2_download_exception",
+                request_id=None,
+                url=safe_public_url(url),
+                error=str(e),
+            )
+            return None
+
+    def format_conversation_history(self):
+        """Format the conversation history for display"""
+        if not Comfly_gpt_image_2._conversation_history:
+            return ""
+        formatted_history = ""
+        for entry in Comfly_gpt_image_2._conversation_history:
+            formatted_history += f"**User**: {entry['user']}\n\n"
+            formatted_history += f"**AI**: {entry['ai']}\n\n"
+            formatted_history += "---\n\n"
+        return formatted_history.strip()
+
+    def send_request(self, payload, request_id=None, model=None):
+        """Send a streaming request to the API and collect full response"""
+        full_response = ""
+        try:
+            payload["stream"] = True
+            _rn_stream_start = time.perf_counter()
+            log_backend(
+                "openai_gpt_image2_stream_start",
+                request_id=request_id,
+                model=model,
+            )
+            response = requests.post(
+                self.api_endpoint,
+                headers=self.get_headers(),
+                json=payload,
+                stream=True,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if line:
+                    line_text = line.decode('utf-8').strip()
+                    if line_text.startswith('data: '):
+                        data = line_text[6:]
+                        if data == '[DONE]':
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            if 'choices' in chunk and chunk['choices']:
+                                delta = chunk['choices'][0].get('delta', {})
+                                if 'content' in delta:
+                                    full_response += delta['content']
+                        except json.JSONDecodeError:
+                            continue
+            log_backend(
+                "openai_gpt_image2_stream_done",
+                request_id=request_id,
+                model=model,
+                response_len=int(len(full_response)),
+                elapsed_ms=int((time.perf_counter() - _rn_stream_start) * 1000),
+            )
+            return full_response
+        except requests.exceptions.Timeout:
+            raise TimeoutError(f"API request timed out after {self.timeout} seconds")
+        except requests.exceptions.HTTPError as e:
+            raise Exception(f"HTTP Error: {e.response.status_code} - {e.response.text[:500]}")
+        except Exception as e:
+            raise Exception(f"Error in API request: {str(e)}")
+
+    def process(self, prompt, model="GPT Image 2", quality="auto", size="auto",
+                background="auto", output_format="png", moderation="auto",
+                seed=0, clear_chats=True, image_download_timeout=600, api_key="",
+                image1=None, image2=None, image3=None, image4=None, skip_error=False):
+
+        model = get_api_model_name(model)
+        _rn_start = time.perf_counter()
+        request_id = generate_request_id("img_gen", "openai")
+        log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(
+            request_id,
+            "OpenAI",
+            extra_info=f"模型:{model}",
+            streaming=True,
+            task_type="图像生成",
+            source="RunNode/OpenAI-",
+        )
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        try:
+            self.image_download_timeout = image_download_timeout
+
+            if clear_chats:
+                Comfly_gpt_image_2._conversation_history = []
+
+            if not self.api_key:
+                error_message = "API key not found in Comflyapi.json"
+                rn_pbar.error(error_message)
+                log_error("API Key缺失", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+                blank_img = Image.new('RGB', (1024, 1024), color='white')
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2] {error_message}")
+                return (pil2tensor(blank_img), error_message, "", self.format_conversation_history())
+
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update_absolute(10)
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+            # Build message content
+            content = []
+            content.append({"type": "text", "text": prompt})
+
+            # If not clearing chats and has previous image, use it for editing
+            if not clear_chats and Comfly_gpt_image_2._last_generated_image_urls:
+                prev_image_url = Comfly_gpt_image_2._last_generated_image_urls.split('\n')[0].strip()
+                if prev_image_url:
+                    log_backend(
+                        "openai_gpt_image2_use_prev_image",
+                        request_id=request_id,
+                        model=model,
+                        image_url=safe_public_url(prev_image_url),
+                    )
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": prev_image_url}
+                    })
+            else:
+                # Process input images for editing
+                all_images = [image1, image2, image3, image4]
+                for i, img in enumerate(all_images):
+                    if img is not None:
+                        batch_size = img.shape[0]
+                        for b in range(min(batch_size, 1)):
+                            pil_image = tensor2pil(img[b:b+1])[0]
+                            image_base64 = self.image_to_base64(pil_image)
+                            content.append({
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{image_base64}"}
+                            })
+                        log_backend(
+                            "openai_gpt_image2_add_input_image",
+                            request_id=request_id,
+                            model=model,
+                            image_index=int(i + 1),
+                        )
+
+            messages = [{
+                "role": "user",
+                "content": content
+            }]
+
+            payload = {
+                "model": model,
+                "messages": messages,
+            }
+
+            pbar.update_absolute(20)
+            log_backend(
+                "openai_gpt_image2_submit",
+                request_id=request_id,
+                model=model,
+                prompt_len=int(len(prompt or "")),
+                clear_chats=bool(clear_chats),
+            )
+
+            response_text = self.send_request(payload, request_id=request_id, model=model)
+
+            pbar.update_absolute(50)
+
+            Comfly_gpt_image_2._conversation_history.append({
+                "user": prompt,
+                "ai": response_text
+            })
+
+            technical_response = f"**Model**: {model}\n**Quality**: {quality}\n**Size**: {size}\n**Background**: {background}\n**Seed**: {seed}\n**Time**: {timestamp}"
+
+            image_urls = self.extract_image_urls(response_text)
+            image_urls_string = "\n".join(image_urls) if image_urls else ""
+
+            if image_urls:
+                Comfly_gpt_image_2._last_generated_image_urls = image_urls_string
+
+            chat_history = self.format_conversation_history()
+
+            if image_urls:
+                try:
+                    img_tensors = []
+                    for i, url in enumerate(image_urls):
+                        log_backend(
+                            "openai_gpt_image2_download_start",
+                            request_id=request_id,
+                            model=model,
+                            image_index=int(i + 1),
+                            images_total=int(len(image_urls)),
+                            image_url=safe_public_url(url),
+                        )
+                        pbar.update_absolute(min(80, 40 + (i+1) * 40 // len(image_urls)))
+                        img_tensor = self.download_image(url, self.image_download_timeout)
+                        if img_tensor is not None:
+                            img_tensors.append(img_tensor)
+
+                    if img_tensors:
+                        combined_tensor = torch.cat(img_tensors, dim=0)
+                        pbar.update_absolute(100)
+                        rn_pbar.done(char_count=len(response_text or ""), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                        log_complete(
+                            "图像生成",
+                            request_id,
+                            "RunNode/OpenAI-",
+                            "OpenAI",
+                            image_url=safe_public_url(image_urls[0]),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
+                        return (combined_tensor, technical_response, image_urls_string, chat_history)
+                except Exception as e:
+                    log_backend_exception(
+                        "openai_gpt_image2_process_urls_exception",
+                        request_id=request_id,
+                        model=model,
+                        error=str(e),
+                    )
+
+            # Fallback: return input images or blank
+            all_images = [image1, image2, image3, image4]
+            first_image = next((img for img in all_images if img is not None), None)
+            if first_image is not None:
+                pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_text or ""), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                log_complete(
+                    "图像生成",
+                    request_id,
+                    "RunNode/OpenAI-",
+                    "OpenAI",
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return (first_image, technical_response, image_urls_string, chat_history)
+            else:
+                blank_img = Image.new('RGB', (1024, 1024), color='white')
+                pbar.update_absolute(100)
+                rn_pbar.done(char_count=len(response_text or ""), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                log_complete(
+                    "图像生成",
+                    request_id,
+                    "RunNode/OpenAI-",
+                    "OpenAI",
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return (pil2tensor(blank_img), technical_response, image_urls_string, chat_history)
+
+        except Exception as e:
+            error_message = format_runnode_error(e)
+            rn_pbar.error(error_message)
+            log_error("图像生成失败", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+            log_backend_exception("openai_gpt_image2_exception", request_id=request_id, model=model, error=str(e))
+            all_images = [image1, image2, image3, image4]
+            first_image = next((img for img in all_images if img is not None), None)
+            if first_image is not None:
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2] {error_message}") from e
+                return (first_image, error_message, "", self.format_conversation_history())
+            else:
+                blank_img = Image.new('RGB', (1024, 1024), color='white')
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2] {error_message}") from e
+                return (pil2tensor(blank_img), error_message, "", self.format_conversation_history())
+
+
+class Comfly_gpt_image_2_S2A:
+    """GPT-Image-2 S2A node: supports image generation and editing via /v1/images/generations and /v1/images/edits with async polling"""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+                "mode": (["text2img", "img2img"], {"default": "text2img"}),
+            },
+            "optional": {
+                # "api_key": ("STRING", {"default": ""}),
+                "model": (["GPT Image 2", "GPT Image 2 ALL"], {"default": "GPT Image 2"}),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
+                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
+                "background": (["auto", "transparent", "opaque"], {"default": "auto"}),
+                "output_format": (["png", "jpeg", "webp"], {"default": "png"}),
+                "moderation": (["auto", "low"], {"default": "auto"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 4}),
+                "task_id": ("STRING", {"default": ""}),
+                "response_format": (["url", "b64_json"], {"default": "url"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"})
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("image", "image_url", "task_id", "response")
+    FUNCTION = "generate_image"
+    CATEGORY = "RunNode/Openai"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 900
+
+    def get_headers(self):
+        return {
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def image_to_base64(self, image_tensor):
+        """Convert tensor to base64 string"""
+        if image_tensor is None:
+            return None
+        pil_image = tensor2pil(image_tensor)[0]
+        buffered = BytesIO()
+        pil_image.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    def generate_image(self, prompt, mode="text2img", model="GPT Image 2",
+                       quality="auto", size="auto", background="auto",
+                       output_format="png", moderation="auto", n=1,
+                       task_id="", response_format="url", seed=0, api_key="",
+                       image1=None, image2=None, image3=None, image4=None, skip_error=False):
+        model = get_api_model_name(model)
+        _rn_start = time.perf_counter()
+        request_id = generate_request_id("img_gen", "openai")
+        log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(
+            request_id,
+            "OpenAI",
+            extra_info=f"模型:{model}",
+            streaming=True,
+            task_type="图像生成",
+            source="RunNode/OpenAI-",
+        )
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        if not self.api_key:
+            error_message = "API key not found in Comflyapi.json"
+            rn_pbar.error(error_message)
+            log_error("API Key缺失", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+            blank_image = Image.new('RGB', (1024, 1024), color='white')
+            blank_tensor = pil2tensor(blank_image)
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}")
+            return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+
+        try:
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update_absolute(10)
+
+            # 如果提供了task_id，则查询任务状态
+            if task_id.strip():
+                log_backend(
+                    "openai_gpt_image2_task_query_start",
+                    request_id=request_id,
+                    model=model,
+                    task_id=task_id,
+                )
+                result_tuple = self._query_task_status(task_id, pbar, request_id=request_id, model=model, skip_error=skip_error)
+                rn_pbar.done(elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                try:
+                    parsed = json.loads(result_tuple[3]) if isinstance(result_tuple[3], str) else {}
+                    if parsed.get("status") == "success":
+                        log_complete(
+                            "图像生成",
+                            request_id,
+                            "RunNode/OpenAI-",
+                            "OpenAI",
+                            image_url=safe_public_url(result_tuple[1]) if result_tuple[1] else None,
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
+                    else:
+                        log_backend(
+                            "openai_gpt_image2_task_query_done",
+                            request_id=request_id,
+                            model=model,
+                            task_id=task_id,
+                            status=str(parsed.get("status")),
+                        )
+                except Exception:
+                    pass
+                return result_tuple
+
+            # 否则创建新的异步任务
+            log_backend(
+                "openai_gpt_image2_submit_start",
+                request_id=request_id,
+                model=model,
+                mode=str(mode),
+                prompt_len=int(len(prompt or "")),
+                n=int(n),
+                has_images=bool(any(img is not None for img in [image1, image2, image3, image4])),
+            )
+
+            if mode == "text2img":
+                headers = self.get_headers()
+                headers["Content-Type"] = "application/json"
+
+                payload = {
+                    "prompt": prompt,
+                    "model": model,
+                    "quality": quality,
+                    "size": size,
+                    "background": background,
+                    "output_format": output_format,
+                    "moderation": moderation,
+                    "n": n,
+                }
+
+                if response_format:
+                    payload["response_format"] = response_format
+
+                if seed > 0:
+                    payload["seed"] = seed
+
+                # async作为查询参数
+                params = {"async": "true"}
+
+                response = requests.post(
+                    f"{baseurl}/v1/images/generations",
+                    headers=headers,
+                    params=params,
+                    json=payload,
+                    timeout=self.timeout
+                )
+            else:  # img2img mode
+                headers = self.get_headers()
+
+                all_images = [image1, image2, image3, image4]
+
+                files = []
+                image_count = 0
+                for img in all_images:
+                    if img is not None:
+                        pil_img = tensor2pil(img)[0]
+                        buffered = BytesIO()
+                        pil_img.save(buffered, format="PNG")
+                        buffered.seek(0)
+                        files.append(('image', (f'image_{image_count}.png', buffered, 'image/png')))
+                        image_count += 1
+
+                log_backend(
+                    "openai_gpt_image2_submit_input_images",
+                    request_id=request_id,
+                    model=model,
+                    mode=str(mode),
+                    image_count=int(image_count),
+                )
+
+                data = {
+                    "prompt": prompt,
+                    "model": model,
+                    "quality": quality,
+                    "size": size,
+                    "background": background,
+                    "output_format": output_format,
+                    "moderation": moderation,
+                    "n": str(n),
+                }
+
+                if response_format:
+                    data["response_format"] = response_format
+
+                if seed > 0:
+                    data["seed"] = str(seed)
+
+                # async作为查询参数
+                params = {"async": "true"}
+
+                response = requests.post(
+                    f"{baseurl}/v1/images/edits",
+                    headers=headers,
+                    params=params,
+                    data=data,
+                    files=files,
+                    timeout=self.timeout
+                )
+
+            pbar.update_absolute(30)
+
+            if response.status_code != 200:
+                error_message = format_runnode_error(response)
+                rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+                blank_image = Image.new('RGB', (1024, 1024), color='white')
+                blank_tensor = pil2tensor(blank_image)
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}")
+                return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+
+            result = response.json()
+            log_backend(
+                "openai_gpt_image2_submit_ok",
+                request_id=request_id,
+                model=model,
+                mode=str(mode),
+                has_task_id=bool("task_id" in result),
+                http_status=int(response.status_code),
+            )
+
+            # 智能判断：API返回异步task_id还是同步data
+            if "task_id" in result:
+                # 异步模式：返回task_id
+                returned_task_id = result["task_id"]
+
+                result_info = {
+                    "status": "pending",
+                    "task_id": returned_task_id,
+                    "model": model,
+                    "mode": mode,
+                    "prompt": prompt,
+                    "quality": quality,
+                    "size": size,
+                    "seed": seed if seed > 0 else None,
+                    "message": "Async task created successfully. Polling for result..."
+                }
+
+                pbar.update_absolute(40)
+
+                # 异步模式：轮询任务状态直到完成
+                log_backend(
+                    "openai_gpt_image2_poll_start",
+                    request_id=request_id,
+                    model=model,
+                    task_id=returned_task_id,
+                )
+                max_attempts = 60  # 最多等待10分钟(每10秒查询一次)
+                attempt = 0
+
+                while attempt < max_attempts:
+                    time.sleep(10)
+                    attempt += 1
+
+                    try:
+                        query_url = f"{baseurl}/v1/images/tasks/{returned_task_id}"
+                        query_headers = self.get_headers()
+                        query_headers["Content-Type"] = "application/json"
+                        query_response = requests.get(
+                            query_url,
+                            headers=query_headers,
+                            timeout=self.timeout
+                        )
+
+                        if query_response.status_code == 200:
+                            query_result = query_response.json()
+                            actual_status = "unknown"
+                            actual_data = None
+
+                            if "data" in query_result and isinstance(query_result["data"], dict):
+                                actual_status = query_result["data"].get("status", "unknown")
+                                actual_data = query_result["data"].get("data")
+
+                            log_backend(
+                                "openai_gpt_image2_poll_heartbeat",
+                                request_id=request_id,
+                                model=model,
+                                task_id=returned_task_id,
+                                attempt=int(attempt),
+                                status=str(actual_status),
+                                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                            )
+                            pbar.update_absolute(min(90, 40 + attempt * 50 // max_attempts))
+
+                            if actual_status in ("completed", "success", "done", "finished", "SUCCESS") or (actual_status == "unknown" and actual_data):
+                                if actual_data:
+                                    result_tuple = self._process_image_data(actual_data, returned_task_id, model, mode, prompt, quality, size, seed, pbar)
+                                    rn_pbar.done(elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                                    log_complete(
+                                        "图像生成",
+                                        request_id,
+                                        "RunNode/OpenAI-",
+                                        "OpenAI",
+                                        image_url=safe_public_url(result_tuple[1]) if result_tuple[1] else None,
+                                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                                    )
+                                    return result_tuple
+
+                            elif actual_status in ("failed", "error", "FAILURE"):
+                                error_msg = format_runnode_error(query_result)
+                                rn_pbar.error(error_msg)
+                                log_error("任务失败", request_id, error_msg, "RunNode/OpenAI-", "OpenAI")
+                                blank_image = Image.new('RGB', (1024, 1024), color='red')
+                                blank_tensor = pil2tensor(blank_image)
+                                pbar.update_absolute(100)
+                                if not skip_error:
+                                    raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_msg}")
+                                return (blank_tensor, "", returned_task_id, json.dumps({"status": "failed", "task_id": returned_task_id, "message": error_msg}))
+
+                        else:
+                            log_backend(
+                                "openai_gpt_image2_poll_query_http_failed",
+                                level="ERROR",
+                                request_id=request_id,
+                                model=model,
+                                task_id=returned_task_id,
+                                http_status=int(query_response.status_code),
+                            )
+
+                    except Exception as e:
+                        log_backend_exception(
+                            "openai_gpt_image2_poll_query_exception",
+                            request_id=request_id,
+                            model=model,
+                            task_id=returned_task_id,
+                            error=str(e),
+                        )
+
+                # 超时未完成
+                rn_pbar.error("Task polling timed out")
+                log_error("任务轮询超时", request_id, "Task polling timed out", "RunNode/OpenAI-", "OpenAI")
+                blank_image = Image.new('RGB', (512, 512), color='yellow')
+                blank_tensor = pil2tensor(blank_image)
+                pbar.update_absolute(100)
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_S2A] [Comfly_gpt_image_2_S2A] Task polling timed out")
+                return (blank_tensor, "", returned_task_id, json.dumps({"status": "timeout", "task_id": returned_task_id, "message": "Task polling timed out. Please query manually."}))
+
+            elif "data" in result and result["data"]:
+                # 同步模式：直接返回图片数据
+                result_tuple = self._process_sync_data(result, model, mode, prompt, quality, size, seed, pbar)
+                rn_pbar.done(elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                log_complete(
+                    "图像生成",
+                    request_id,
+                    "RunNode/OpenAI-",
+                    "OpenAI",
+                    image_url=safe_public_url(result_tuple[1]) if result_tuple[1] else None,
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return result_tuple
+
+            else:
+                error_message = f"Unexpected API response format: {result}"
+                rn_pbar.error(error_message)
+                log_error("响应格式异常", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+                blank_image = Image.new('RGB', (1024, 1024), color='white')
+                blank_tensor = pil2tensor(blank_image)
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}")
+                return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+
+        except Exception as e:
+            error_message = format_runnode_error(e)
+            rn_pbar.error(error_message)
+            log_error("图像生成失败", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+            log_backend_exception("openai_gpt_image2_s2a_exception", request_id=request_id, model=model, error=str(e))
+            blank_image = Image.new('RGB', (1024, 1024), color='white')
+            blank_tensor = pil2tensor(blank_image)
+            if not skip_error:
+                raise
+            return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+
+    def _process_image_data(self, actual_data, task_id, model, mode, prompt, quality, size, seed, pbar):
+        """处理异步任务完成后的图片数据"""
+        generated_tensors = []
+        image_urls = []
+
+        data_items = actual_data.get("data", []) if isinstance(actual_data, dict) else actual_data
+        if not isinstance(data_items, list):
+            data_items = [data_items]
+
+        for item in data_items:
+            try:
+                if "b64_json" in item and item["b64_json"]:
+                    image_data = base64.b64decode(item["b64_json"])
+                    image_stream = BytesIO(image_data)
+                    generated_image = Image.open(image_stream)
+                    generated_image.verify()
+                    image_stream.seek(0)
+                    generated_image = Image.open(image_stream)
+                    if generated_image.mode != 'RGB':
+                        generated_image = generated_image.convert('RGB')
+                    generated_tensor = pil2tensor(generated_image)
+                    generated_tensors.append(generated_tensor)
+                elif "url" in item and item["url"]:
+                    image_url = item["url"]
+                    image_urls.append(image_url)
+                    img_response = requests.get(image_url, timeout=self.timeout)
+                    img_response.raise_for_status()
+                    image_stream = BytesIO(img_response.content)
+                    generated_image = Image.open(image_stream)
+                    generated_image.verify()
+                    image_stream.seek(0)
+                    generated_image = Image.open(image_stream)
+                    if generated_image.mode != 'RGB':
+                        generated_image = generated_image.convert('RGB')
+                    generated_tensor = pil2tensor(generated_image)
+                    generated_tensors.append(generated_tensor)
+            except Exception as e:
+                print(f"[Comfly_gpt_image_2_S2A] Error processing image item: {str(e)}")
+                continue
+
+        if generated_tensors:
+            combined_tensor = torch.cat(generated_tensors, dim=0)
+            first_image_url = image_urls[0] if image_urls else ""
+            final_result_info = {
+                "status": "success",
+                "task_id": task_id,
+                "model": model,
+                "mode": mode,
+                "prompt": prompt,
+                "quality": quality,
+                "size": size,
+                "seed": seed if seed > 0 else None,
+                "images_count": len(generated_tensors),
+                "image_url": first_image_url,
+                "all_urls": image_urls
+            }
+            pbar.update_absolute(100)
+            return (combined_tensor, first_image_url, task_id, json.dumps(final_result_info))
+
+        error_message = "No valid images in completed task"
+        print(f"[Comfly_gpt_image_2_S2A] {error_message}")
+        blank_image = Image.new('RGB', (1024, 1024), color='white')
+        blank_tensor = pil2tensor(blank_image)
+        pbar.update_absolute(100)
+        return (blank_tensor, "", task_id, json.dumps({"status": "failed", "task_id": task_id, "message": error_message}))
+
+    def _process_sync_data(self, result, model, mode, prompt, quality, size, seed, pbar):
+        """处理同步返回的图片数据"""
+        generated_tensors = []
+        image_urls = []
+
+        data_items = result.get("data", [])
+        if not isinstance(data_items, list):
+            data_items = [data_items]
+
+        for i, item in enumerate(data_items):
+            try:
+                pbar.update_absolute(50 + (i + 1) * 40 // len(data_items))
+
+                if "b64_json" in item and item["b64_json"]:
+                    image_data = base64.b64decode(item["b64_json"])
+                    image_stream = BytesIO(image_data)
+                    generated_image = Image.open(image_stream)
+                    generated_image.verify()
+                    image_stream.seek(0)
+                    generated_image = Image.open(image_stream)
+                    if generated_image.mode != 'RGB':
+                        generated_image = generated_image.convert('RGB')
+                    generated_tensor = pil2tensor(generated_image)
+                    generated_tensors.append(generated_tensor)
+                elif "url" in item and item["url"]:
+                    image_url = item["url"]
+                    image_urls.append(image_url)
+                    img_response = requests.get(image_url, timeout=self.timeout)
+                    img_response.raise_for_status()
+                    image_stream = BytesIO(img_response.content)
+                    generated_image = Image.open(image_stream)
+                    generated_image.verify()
+                    image_stream.seek(0)
+                    generated_image = Image.open(image_stream)
+                    if generated_image.mode != 'RGB':
+                        generated_image = generated_image.convert('RGB')
+                    generated_tensor = pil2tensor(generated_image)
+                    generated_tensors.append(generated_tensor)
+            except Exception as e:
+                print(f"[Comfly_gpt_image_2_S2A] Error processing image item {i}: {str(e)}")
+                continue
+
+        pbar.update_absolute(100)
+
+        if generated_tensors:
+            combined_tensor = torch.cat(generated_tensors, dim=0)
+            first_image_url = image_urls[0] if image_urls else ""
+
+            import uuid
+            sync_task_id = f"sync_{uuid.uuid4().hex[:16]}"
+
+            result_info = {
+                "status": "success",
+                "task_id": sync_task_id,
+                "model": model,
+                "mode": mode,
+                "prompt": prompt,
+                "quality": quality,
+                "size": size,
+                "seed": seed if seed > 0 else None,
+                "images_count": len(generated_tensors),
+                "image_url": first_image_url,
+                "all_urls": image_urls
+            }
+
+            print(f"[Comfly_gpt_image_2_S2A] [SYNC_RESPONSE] {json.dumps(result_info, ensure_ascii=False)}")
+            return (combined_tensor, first_image_url, sync_task_id, json.dumps(result_info))
+        else:
+            error_message = "Failed to process any images"
+            print(f"[Comfly_gpt_image_2_S2A] {error_message}")
+            blank_image = Image.new('RGB', (1024, 1024), color='white')
+            blank_tensor = pil2tensor(blank_image)
+            return (blank_tensor, "", "", json.dumps({"status": "failed", "message": error_message}))
+
+    def _query_task_status(self, task_id, pbar, request_id=None, model=None, skip_error=False):
+        """查询异步任务状态"""
+        try:
+            headers = self.get_headers()
+            headers["Content-Type"] = "application/json"
+
+            query_url = f"{baseurl}/v1/images/tasks/{task_id}"
+            log_backend(
+                "openai_gpt_image2_task_query_http",
+                request_id=request_id,
+                model=model,
+                task_id=task_id,
+                url=safe_public_url(query_url),
+            )
+            response = requests.get(
+                query_url,
+                headers=headers,
+                timeout=self.timeout
+            )
+
+            pbar.update_absolute(50)
+
+            if response.status_code != 200:
+                error_message = format_runnode_error(response)
+                log_error("任务查询失败", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+                blank_image = Image.new('RGB', (1024, 1024), color='white')
+                blank_tensor = pil2tensor(blank_image)
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}")
+                return (blank_tensor, "", task_id, json.dumps({"status": "query_failed", "task_id": task_id, "message": error_message}))
+
+            result = response.json()
+
+            actual_status = "unknown"
+            actual_data = None
+
+            if "data" in result and isinstance(result["data"], dict):
+                actual_status = result["data"].get("status", "unknown")
+                actual_data = result["data"].get("data")
+
+            if actual_status in ("completed", "success", "done", "finished", "SUCCESS") or (actual_status == "unknown" and actual_data):
+                if actual_data:
+                    generated_tensors = []
+                    image_urls = []
+
+                    data_items = actual_data.get("data", []) if isinstance(actual_data, dict) else actual_data
+                    if not isinstance(data_items, list):
+                        data_items = [data_items]
+
+                    for i, item in enumerate(data_items):
+                        try:
+                            pbar.update_absolute(50 + (i + 1) * 40 // len(data_items))
+
+                            if "b64_json" in item and item["b64_json"]:
+                                image_data = base64.b64decode(item["b64_json"])
+                                image_stream = BytesIO(image_data)
+                                generated_image = Image.open(image_stream)
+                                generated_image.verify()
+                                image_stream.seek(0)
+                                generated_image = Image.open(image_stream)
+                                if generated_image.mode != 'RGB':
+                                    generated_image = generated_image.convert('RGB')
+                                generated_tensor = pil2tensor(generated_image)
+                                generated_tensors.append(generated_tensor)
+                            elif "url" in item and item["url"]:
+                                image_url = item["url"]
+                                image_urls.append(image_url)
+                                img_response = requests.get(image_url, timeout=self.timeout)
+                                img_response.raise_for_status()
+                                image_stream = BytesIO(img_response.content)
+                                generated_image = Image.open(image_stream)
+                                generated_image.verify()
+                                image_stream.seek(0)
+                                generated_image = Image.open(image_stream)
+                                if generated_image.mode != 'RGB':
+                                    generated_image = generated_image.convert('RGB')
+                                generated_tensor = pil2tensor(generated_image)
+                                generated_tensors.append(generated_tensor)
+                        except Exception as e:
+                            print(f"[Comfly_gpt_image_2_S2A] Error processing image item {i}: {str(e)}")
+                            continue
+
+                    pbar.update_absolute(100)
+
+                    if generated_tensors:
+                        combined_tensor = torch.cat(generated_tensors, dim=0)
+                        first_image_url = image_urls[0] if image_urls else ""
+                        log_backend(
+                            "openai_gpt_image2_task_query_success",
+                            request_id=request_id,
+                            model=model,
+                            task_id=task_id,
+                            images_count=int(len(generated_tensors)),
+                            image_url=safe_public_url(first_image_url) if first_image_url else None,
+                        )
+                        return (combined_tensor, first_image_url, task_id, json.dumps({"status": "success", "task_id": task_id, "images_count": len(generated_tensors), "image_url": first_image_url, "all_urls": image_urls}))
+                    else:
+                        error_message = "No valid images in completed task"
+                        log_error("任务完成但无有效图片", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+                        blank_image = Image.new('RGB', (1024, 1024), color='white')
+                        blank_tensor = pil2tensor(blank_image)
+                        if not skip_error:
+                            raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}")
+                        return (blank_tensor, "", task_id, json.dumps({"status": "failed", "task_id": task_id, "message": error_message}))
+                else:
+                    error_message = "Task completed but no image data"
+                    log_error("任务完成但无图片数据", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+                    blank_image = Image.new('RGB', (1024, 1024), color='white')
+                    blank_tensor = pil2tensor(blank_image)
+                    if not skip_error:
+                        raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}")
+                    return (blank_tensor, "", task_id, json.dumps({"status": "failed", "task_id": task_id, "message": error_message}))
+
+            elif actual_status in ("processing", "pending", "in_progress", "NOT_START", "IN_PROGRESS"):
+                blank_image = Image.new('RGB', (512, 512), color='yellow')
+                blank_tensor = pil2tensor(blank_image)
+                pbar.update_absolute(100)
+                return (blank_tensor, "", task_id, json.dumps({"status": actual_status, "task_id": task_id, "message": "Task is still processing. Please query again later."}))
+
+            elif actual_status in ("failed", "error", "FAILURE"):
+                error_msg = format_runnode_error(result)
+                blank_image = Image.new('RGB', (512, 512), color='red')
+                blank_tensor = pil2tensor(blank_image)
+                pbar.update_absolute(100)
+                log_error("任务失败", request_id, error_msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_msg}")
+                return (blank_tensor, "", task_id, json.dumps({"status": "failed", "task_id": task_id, "message": error_msg}))
+
+            else:
+                blank_image = Image.new('RGB', (512, 512), color='gray')
+                blank_tensor = pil2tensor(blank_image)
+                pbar.update_absolute(100)
+                return (blank_tensor, "", task_id, json.dumps({"status": actual_status, "task_id": task_id, "message": f"Unknown status: {actual_status}", "response": str(result)}))
+
+        except Exception as e:
+            error_message = format_runnode_error(e)
+            log_error("任务查询异常", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+            log_backend_exception("openai_gpt_image2_task_query_exception", request_id=request_id, model=model, task_id=task_id, error=str(e))
+            blank_image = Image.new('RGB', (1024, 1024), color='white')
+            blank_tensor = pil2tensor(blank_image)
+            pbar.update_absolute(100)
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}") from e
+            return (blank_tensor, "", task_id, json.dumps({"status": "query_failed", "task_id": task_id, "message": error_message}))

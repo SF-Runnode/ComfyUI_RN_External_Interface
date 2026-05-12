@@ -1,5 +1,7 @@
 from ..comfly_config import *
 from .__init__ import *
+from ..utils import *
+from ..utils import _parse_asset_bundle_only, _comfly_split_asset_ids, _comfly_asset_id_to_url, _doubao_seedance_video_input_to_bytes, _doubao_seedance_io_file_to_bytes, _comfy_waveform_to_wav_bytes
 
 
 class Comfly_Doubao_Seedream:
@@ -1688,3 +1690,1027 @@ class ComflySeededit:
             error_message = f"Error in image editing: {format_runnode_error(str(e))}"
             log_error(error_message, request_id, "RunNode/Doubao-", "SeedEdit")
             raise Exception(error_message)
+
+
+class Comfly_Doubao_Seedance_2_0:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return{
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+                "model": (["Doubao Seedance 2.0", "Doubao Seedance 2.0 Fast"], {"default": "Doubao Seedance 2.0"}),
+                "duration": ("INT", {"default": 5, "min": 4, "max": 15, "step": 1, "tooltip": "视频时长，单位秒"}),
+                "ratio": (["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21", "adaptive"], {"default": "16:9", "tooltip": "视频比例"}),
+                "resolution": (["720p", "480p", "native1080p", "1080p", "2k", "4k"], {"default": "720p", "tooltip": "视频分辨率"}),
+            },
+            "optional": {
+                "api_key": ("STRING", {"default": ""}),
+                "first_frame": ("IMAGE", {"tooltip": "第一帧"}),
+                "last_frame": ("IMAGE", {"tooltip": "最后一帧"}),
+                "ref_image1": ("IMAGE", {"tooltip": "参考图片1"}),
+                "ref_image2": ("IMAGE", {"tooltip": "参考图片2"}),
+                "ref_image3": ("IMAGE", {"tooltip": "参考图片3"}),
+                "ref_image4": ("IMAGE", {"tooltip": "参考图片4"}),
+                "ref_image5": ("IMAGE", {"tooltip": "参考图片5"}),
+                "ref_image6": ("IMAGE", {"tooltip": "参考图片6"}),
+                "ref_image7": ("IMAGE", {"tooltip": "参考图片7"}),
+                "ref_image8": ("IMAGE", {"tooltip": "参考图片8"}),
+                "ref_image9": ("IMAGE", {"tooltip": "参考图片9"}),  
+                "video1": (IO.VIDEO, {"tooltip": "参考视频1"}),
+                "video2": (IO.VIDEO, {"tooltip": "参考视频2"}),
+                "video3": (IO.VIDEO, {"tooltip": "参考视频3"}),
+                "audio1": (IO.AUDIO, {"tooltip": "参考音频1"}),
+                "audio2": (IO.AUDIO, {"tooltip": "参考音频2"}),
+                "audio3": (IO.AUDIO, {"tooltip": "参考音频3"}),
+                "generate_audio": ("BOOLEAN", {"default": True}),
+                "return_last_frame": ("BOOLEAN", {"default": False}),
+                "web_search": ("BOOLEAN", {"default": False}),
+                "watermark": ("BOOLEAN", {"default": False}),
+                "seed": ("INT", {"default": -1, "min": -1, "max": 2147483647}),
+                "asset_bundle": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "multiline": True,
+                        "tooltip": "请连接「Asset ID Bundle」的输出。 它会生成一个 JSON 数据，把每个槽位里那张资产的编号（asset_id）整理到一起，方便后续节点使用。",
+                    },
+                ),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"})
+            }
+        }
+
+    RETURN_TYPES = (IO.VIDEO, "STRING", "STRING", "STRING", "IMAGE")
+    RETURN_NAMES = ("video", "task_id", "response", "video_url", "last_frame_image")
+    FUNCTION = "generate_video"
+    CATEGORY = "RunNode/Doubao"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 3600
+        self.poll_interval = 10
+        self.max_wait_time = 3600
+
+    def get_headers(self):
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+    
+    def image_tensor_to_base64(self, image_tensor):
+        if image_tensor is None:
+            return None
+        try:
+            pil_image = tensor2pil(image_tensor)[0]
+            buffered = BytesIO()
+            pil_image.save(buffered, format="PNG")
+            b64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            return f"data:image/png;base64,{b64_str}"
+        except Exception as e:
+            print(f"Image to base64 error: {str(e)}")
+            return None
+
+    def upload_file(self, file_content, filename, content_type):
+        try:
+            files = {'file': (filename, file_content, content_type)}
+            response = requests.post(
+                f"{baseurl}/v1/files",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                files=files,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            if isinstance(result, dict) and result.get("url"):
+                return result["url"]
+            msg = f"Unexpected response from file upload API: {result}"
+            raise Exception(msg)
+                
+        except Exception as e:
+            msg = f"File upload error: {format_runnode_error(str(e))}"
+            raise Exception(msg)
+
+    def upload_image_get_url(self, image_tensor):
+        """Upload IMAGE tensor to /v1/files as PNG; return HTTPS URL for assets/create."""
+        if image_tensor is None:
+            return None
+        try:
+            pil_image = tensor2pil(image_tensor)[0]
+            buf = BytesIO()
+            pil_image.save(buf, format="PNG")
+            data = buf.getvalue()
+            fn = f"upload_{abs(hash(data)) % 10**10}.png"
+            url = self.upload_file(data, fn, "image/png")
+            if url:
+                print(f"Image uploaded successfully: {url}")
+            return url
+        except Exception as e:
+            raise Exception(f"Image upload error: {format_runnode_error(str(e))}")
+
+    def upload_video_get_url(self, video_input):
+        if video_input is None:
+            return None
+        try:
+            file_content, filename = _doubao_seedance_video_input_to_bytes(video_input)
+            if not file_content:
+                raise Exception("empty file content")
+            if not filename:
+                filename = f"reference_video_{abs(hash(file_content)) % 10**10}.mp4"
+
+            mime_type, _ = mimetypes.guess_type(filename)
+            if not mime_type:
+                mime_type = "video/mp4"
+
+            url = self.upload_file(file_content, filename, mime_type)
+            if url:
+                print(f"Video uploaded successfully: {url}")
+            return url
+        except Exception as e:
+            raise Exception(f"Video upload error: {format_runnode_error(str(e))}")
+
+    def upload_audio_get_url(self, audio_input):
+        """
+        POST /v1/files: prefer reading an on-disk / stream file as raw bytes (no re-encode).
+        Only when the input is pure Comfy AUDIO {waveform, sample_rate} with no file path,
+        encode to WAV via _comfy_waveform_to_wav_bytes.
+        """
+        if audio_input is None:
+            return None
+        try:
+            # 1) Path, dict.path, get_stream_source(), etc. — upload original bytes
+            file_content, filename = _doubao_seedance_io_file_to_bytes(audio_input, ".wav", "audio")
+            if file_content:
+                if not filename:
+                    filename = f"reference_audio_{abs(hash(file_content)) % 10**10}.wav"
+                mime_type, _ = mimetypes.guess_type(filename)
+                if not mime_type:
+                    mime_type = "audio/wav"
+                url = self.upload_file(file_content, filename, mime_type)
+                if url:
+                    print(f"Audio uploaded successfully (from file/stream): {url}")
+                return url
+
+            # 2) Standard Comfy AUDIO: waveform tensor only — must encode to WAV bytes
+            if isinstance(audio_input, dict) and audio_input.get("waveform") is not None:
+                waveform = audio_input["waveform"]
+                if torch.is_tensor(waveform):
+                    sample_rate = int(audio_input.get("sample_rate", 44100))
+                    if waveform.dim() == 3:
+                        waveform = waveform.squeeze(0)
+                    if waveform.dim() == 1:
+                        waveform = waveform.unsqueeze(0)
+                    file_content = _comfy_waveform_to_wav_bytes(waveform, sample_rate)
+                    url = self.upload_file(file_content, "audio.wav", "audio/wav")
+                    if url:
+                        print(f"Audio uploaded successfully (from waveform): {url}")
+                    return url
+
+            return None
+        except Exception as e:
+            raise Exception(f"Audio upload error: {format_runnode_error(str(e))}")
+
+    def download_image_from_url(self, url):
+        try:
+            img_response = requests.get(url, timeout=60)
+            img_response.raise_for_status()
+            pil_image = Image.open(BytesIO(img_response.content))
+            return pil2tensor(pil_image)
+        except Exception as e:
+            return None
+
+    def generate_video(self, prompt, model, duration, ratio, resolution,
+                       api_key="",
+                       first_frame=None, last_frame=None,
+                       ref_image1=None, ref_image2=None, ref_image3=None,
+                       ref_image4=None, ref_image5=None, ref_image6=None,
+                       ref_image7=None, ref_image8=None, ref_image9=None,
+                       video1=None, video2=None, video3=None,
+                       audio1=None, audio2=None, audio3=None,
+                       generate_audio=True, return_last_frame=False,
+                       web_search=False,
+                       watermark=False, seed=-1,
+                       asset_bundle="", skip_error=False):
+        
+        model = get_api_model_name(model)
+        blank_image = Image.new('RGB', (1, 1), color='black')
+        blank_tensor = pil2tensor(blank_image)
+        empty_video = ComflyVideoAdapter("")
+        task_id = ""
+
+        request_id = generate_request_id("video_gen", "doubao")
+        log_prepare("Seedance视频生成", request_id, "RunNode/Doubao-", "Seedance2")
+        rn_pbar = ProgressBar(request_id, "Seedance2", streaming=True, task_type="视频生成", source="RunNode/Doubao-")
+        rn_pbar.set_generating()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        if not self.api_key:
+            error_message = "API key not found in configuration file or environment variables."
+            rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Seedance2")
+            if skip_error:
+                return (empty_video, "", json.dumps({"error": error_message}, ensure_ascii=False), "", blank_tensor)
+            raise RuntimeError(error_message)
+
+        try:
+            _rn_start = time.perf_counter()
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update_absolute(5)
+
+            asset_id_first_frame, asset_id_last_frame, asset_ids_ref_images, asset_ids_ref_videos, asset_ids_ref_audios = _parse_asset_bundle_only(
+                asset_bundle
+            )
+
+            content = []
+            content.append({"type": "text", "text": prompt})
+
+            frame_count = 0
+            has_first_tensor = first_frame is not None
+            has_last_tensor = last_frame is not None
+
+            if has_first_tensor:
+                b64 = self.image_tensor_to_base64(first_frame)
+                if b64:
+                    entry = {'type': 'image_url', 'image_url': {'url':b64}}
+                    if has_last_tensor:
+                        entry['role'] = "first_frame"
+                    content.append(entry)
+                    frame_count += 1
+            else:
+                u = _comfly_asset_id_to_url(asset_id_first_frame)
+                if u:
+                    content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": u},
+                            "role": "first_frame",
+                        }
+                    )
+                    frame_count += 1
+
+            has_first_effective = has_first_tensor or bool(_comfly_asset_id_to_url(asset_id_first_frame))
+
+            if has_last_tensor:
+                if not has_first_effective:
+                    print("Warning: last_frame without first_frame, skipping.")
+                else:
+                    b64 = self.image_tensor_to_base64(last_frame)
+                    if b64:
+                        content.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": b64},
+                                "role": "last_frame"
+                            }
+                        )
+                        frame_count += 1
+
+            if not has_last_tensor and has_first_effective:
+                u = _comfly_asset_id_to_url(asset_id_last_frame)
+                if u:
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": u},
+                        "role": "last_frame"
+                    })
+                    frame_count += 1
+                
+            ref_images = [
+                ref_image1, ref_image2, ref_image3, 
+                ref_image4, ref_image5, ref_image6, 
+                ref_image7, ref_image8, ref_image9
+            ]
+            ref_count = 0
+
+            for img in ref_images:
+                if img is not None:
+                    b64 = self.image_tensor_to_base64(img)
+                    if b64:
+                        content.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": b64},
+                                "role": "reference_image"
+                            }
+                        )
+                        ref_count += 1
+
+            for aid in _comfly_split_asset_ids(asset_ids_ref_images):
+                u = _comfly_asset_id_to_url(aid)
+                if u:
+                    content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": u},
+                            "role": "reference_image"
+                        }
+                    )
+                    ref_count += 1
+            
+            video_inputs = [video1, video2, video3]
+            video_count = 0
+
+            for vid in video_inputs:
+                url = self.upload_video_get_url(vid)
+                if url:
+                    content.append(
+                        {
+                            "type": "video_url",
+                            "video_url": {"url": url},
+                            "role": "reference_video"
+                        }
+                    )
+                    video_count += 1
+
+            for aid in _comfly_split_asset_ids(asset_ids_ref_videos):
+                u = _comfly_asset_id_to_url(aid)
+                if u:
+                    content.append(
+                        {
+                            "type": "video_url",
+                            "video_url": {"url": u},
+                            "role": "reference_video"
+                        }
+                    )
+                    video_count += 1
+
+            pbar.update_absolute(25)
+
+            audio_inputs = [audio1, audio2, audio3]
+            audio_count = 0
+
+            for aud in audio_inputs:
+                url = self.upload_audio_get_url(aud)
+                if url:
+                    content.append(
+                        {
+                            "type": "audio_url",
+                            "audio_url": {"url": url},
+                            "role": "reference_audio"
+                        }
+                    )
+                    audio_count += 1
+
+            for aud in _comfly_split_asset_ids(asset_ids_ref_audios):
+                u = _comfly_asset_id_to_url(aud)
+                if u:
+                    content.append(
+                        {
+                            "type": "audio_url",
+                            "audio_url": {"url": u},
+                            "role": "reference_audio"
+                        }
+                    )
+                    audio_count += 1
+
+            pbar.update_absolute(30)
+
+            payload = {
+                "model": model,
+                "content": content,
+                "duration": int(duration),
+                "ratio": ratio,
+                "resolution": resolution,
+                "generate_audio": generate_audio,
+                "return_last_frame": return_last_frame,
+                "watermark": watermark
+            }
+            
+            if web_search:
+                payload["tools"] = [{"type": "web_search"}]
+            if seed != -1:
+                payload["seed"] = seed
+
+            log_backend(
+                "doubao_seedance_submit",
+                request_id=request_id,
+                model=model,
+                duration=int(duration),
+                ratio=ratio,
+                resolution=resolution,
+                frames=frame_count,
+                ref_images=ref_count,
+                videos=video_count,
+                audios=audio_count,
+            )
+
+            response = requests.post(
+                f"{baseurl}/seedance/v3/contents/generations/tasks",
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
+
+            pbar.update_absolute(35)
+
+            if response.status_code != 200:
+                error_message = format_runnode_error(response)
+                rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Doubao-", "Seedance2")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_Doubao_Seedance2_0] {error_message}")
+                return (empty_video, "", json.dumps({"error": error_message}, ensure_ascii=False), "", blank_tensor)
+
+            result = response.json()
+            task_id = result.get('id', '') or result.get('task_id', '')
+            if not task_id:
+                error_message = f"No task ID. Response: {json.dumps(result, ensure_ascii=False)}"
+                rn_pbar.error(error_message)
+                log_error("任务ID缺失", request_id, error_message, "RunNode/Doubao-", "Seedance2")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_Doubao_Seedance2_0] {error_message}")
+                return (empty_video, "", json.dumps({"error": error_message}, ensure_ascii=False), "", blank_tensor)
+
+            log_backend("doubao_seedance_poll_start", request_id=request_id, task_id=task_id)
+
+            pbar.update_absolute(40)
+            start_time = time.time()
+            video_url = None
+            last_frame_url = None
+            final_status_data = None
+            last_log_time = start_time
+
+            while True:
+                elapsed = time.time() - start_time
+                if elapsed > self.max_wait_time:
+                    if not skip_error:
+                        raise RuntimeError(f"[Comfly_Doubao_Seedance2_0] Timeout {elapsed:.1f}s")
+                    error_message = f"Timeout {elapsed:.1f}s"
+                    rn_pbar.error(error_message)
+                    log_error("生成超时", request_id, error_message, "RunNode/Doubao-", "Seedance2")
+                    return (empty_video, task_id, json.dumps({"error": error_message, "task_id": task_id}, ensure_ascii=False), "", blank_tensor)
+
+                time.sleep(self.poll_interval)
+
+                try:
+                    now = time.time()
+                    if now - last_log_time >= 15:
+                        log_backend(
+                            "doubao_seedance_poll_heartbeat",
+                            request_id=request_id,
+                            task_id=task_id,
+                            elapsed=int(now - start_time),
+                        )
+                        last_log_time = now
+
+                    status_response = requests.get(
+                        f"{baseurl}/seedance/v3/contents/generations/tasks/{task_id}",
+                        headers={"Authorization": f"Bearer {self.api_key}"},
+                        timeout=30
+                    )
+                    if status_response.status_code != 200:
+                        continue
+
+                    status_data = status_response.json()
+                    final_status_data = status_data
+
+                    raw_status = status_data.get("status", "")
+                    status = raw_status.lower()
+                    if status == "success":
+                        status = "succeeded"
+                    elif status in ("fail", "failure"):
+                        status = "failed"
+
+                    progress_str = status_data.get("progress", "")
+                    progress = min(90, 40 + int((elapsed / self.max_wait_time) * 50))
+                    pbar.update_absolute(progress)
+
+                    if status == "succeeded":
+                        # Root { "content": { "video_url": "..." }, "status": "succeeded" } — common shape
+                        root_content = status_data.get("content")
+                        if isinstance(root_content, dict):
+                            video_url = root_content.get("video_url") or root_content.get("videoUrl")
+
+                        # Nested: data.content.video_url
+                        data = status_data.get("data")
+                        if isinstance(data, dict):
+                            data_content = data.get("content")
+                            if isinstance(data_content, dict):
+                                if not video_url:
+                                    video_url = data_content.get("video_url") or data_content.get("videoUrl")
+                                if video_url:
+                                    print("Found video in data.content.video_url")
+                            if not video_url:
+                                video_url = data.get("video_url") or data.get("videoUrl")
+
+                        if not video_url:
+                            results = status_data.get("results", [])
+                            if isinstance(results, list):
+                                for r in results:
+                                    if isinstance(r, dict):
+                                        r_url = r.get("url", "")
+                                        r_type = r.get("outputType", "")
+                                        if r_type in ("mp4", "video") or r_url.endswith(".mp4"):
+                                            video_url = r_url
+                                            break
+                                        elif r_url and not video_url:
+                                            video_url = r_url
+
+                        if not video_url:
+                            content_list = status_data.get("content")
+                            if isinstance(content_list, list):
+                                for item in content_list:
+                                    if not isinstance(item, dict):
+                                        continue
+                                    item_type = item.get("type", "")
+                                    item_role = item.get("role", "")
+                                    if item_type == "video_url":
+                                        vu = item.get("video_url")
+                                        if isinstance(vu, dict):
+                                            video_url = vu.get("url", "")
+                                        elif isinstance(vu, str):
+                                            video_url = vu
+                                        if video_url:
+                                            break
+                                    if item_type == "image_url" and item_role == "last_frame":
+                                        iu = item.get("image_url")
+                                        if isinstance(iu, dict):
+                                            last_frame_url = iu.get("url", "")
+                                        elif isinstance(iu, str):
+                                            last_frame_url = iu
+
+                        if not video_url:
+                            video_url = status_data.get("video_url") or status_data.get("videoUrl")
+
+                        if not last_frame_url and return_last_frame:
+                            last_frame_url = (
+                                status_data.get("last_frame_url")
+                                or status_data.get("lastFrameUrl")
+                                or status_data.get("last_frame_image_url")
+                            )
+                            if not last_frame_url:
+                                lf = status_data.get("last_frame") or status_data.get("lastFrame")
+                                if isinstance(lf, dict):
+                                    last_frame_url = lf.get("url", "")
+                                elif isinstance(lf, str):
+                                    last_frame_url = lf
+
+                        if video_url:
+                            log_backend(
+                                "doubao_seedance_poll_success",
+                                request_id=request_id,
+                                task_id=task_id,
+                                video_url=safe_public_url(video_url),
+                            )
+                            break
+                        else:
+                            error_message = f"Succeeded but no video URL found: {json.dumps(status_data, ensure_ascii=False)}"
+                            rn_pbar.error(error_message)
+                            log_error("结果缺失", request_id, error_message, "RunNode/Doubao-", "Seedance2")
+                            if not skip_error:
+                                raise RuntimeError(f"[Comfly_Doubao_Seedance2_0] {error_message}")
+                            return (empty_video, task_id, json.dumps({"error": error_message, "task_id": task_id}, ensure_ascii=False), "", blank_tensor)
+
+                    elif status == "failed":
+                        fail_reason = status_data.get("fail_reason", "") or status_data.get("failReason", "")
+                        error_message = f"Task failed: {fail_reason}"
+                        rn_pbar.error(error_message)
+                        log_error("生成失败", request_id, fail_reason, "RunNode/Doubao-", "Seedance2")
+                        if not skip_error:
+                            raise RuntimeError(f"[Comfly_Doubao_Seedance2_0] {fail_reason}")
+                        return (empty_video, task_id, json.dumps(status_data, indent=2, ensure_ascii=False), "", blank_tensor)
+                
+                except requests.exceptions.Timeout:
+                    continue
+                except Exception as e:
+                    continue
+
+            if video_url:
+                pbar.update_absolute(95)
+
+                last_frame_tensor = blank_tensor
+                if return_last_frame and last_frame_url:
+                    downloaded_frame = self.download_image_from_url(last_frame_url)
+                    if downloaded_frame is not None:
+                        last_frame_tensor = downloaded_frame
+
+                response_info = {
+                    "task_id": task_id,
+                    "model": model,
+                    "status": "succeeded",
+                    "video_url": video_url,
+                    "duration": duration,
+                    "ratio": ratio,
+                    "resolution": resolution,
+                    "generate_audio": generate_audio,
+                    "return_last_frame": return_last_frame,
+                    "seed": seed if seed != -1 else "auto",
+                    "first_frame": has_first_effective,
+                    "last_frame_input": has_first_effective
+                    and (has_last_tensor or bool(_comfly_asset_id_to_url(asset_id_last_frame))),
+                    "reference_images": ref_count,
+                    "reference_videos": video_count,
+                    "reference_audios": audio_count,
+                }
+
+                if last_frame_url:
+                    response_info["last_frame_image_url"] = last_frame_url
+                if final_status_data and isinstance(final_status_data, dict):
+                    data = final_status_data.get("data")
+                    if isinstance(data, dict):
+                        if "duration" in data:
+                            response_info["actual_duration"] = data["duration"]
+                        if "usage" in data:
+                            response_info["usage"] = data["usage"]
+                    if "usage" in final_status_data:
+                        response_info["usage"] = final_status_data["usage"]
+                    if "duration" in final_status_data and "actual_duration" not in response_info:
+                        response_info["actual_duration"] = final_status_data["duration"]
+
+                # Prefer comfy_api VideoFromFile so Save Video (IO.VIDEO) can preview/save reliably
+                video_out = ComflyVideoAdapter(video_url)
+                try:
+                    from comfy_api.latest import VideoFromFile as CFVideoFromFile
+
+                    fd, tmp_path = tempfile.mkstemp(suffix=".mp4", prefix="comfly_seedance_")
+                    os.close(fd)
+                    if video_out.save_to(tmp_path):
+                        video_out = CFVideoFromFile(tmp_path)
+                except Exception as e:
+                    print(f"[Comfly Seedance] Using ComflyVideoAdapter (VideoFromFile unavailable): {e}")
+
+                pbar.update_absolute(100)
+                response_text = json.dumps(response_info, indent=2, ensure_ascii=False)
+                elapsed_ms = int((time.perf_counter() - _rn_start) * 1000)
+                rn_pbar.done(char_count=len(response_text), elapsed_ms=elapsed_ms)
+                log_complete(
+                    "Seedance视频生成完成",
+                    request_id,
+                    "RunNode/Doubao-",
+                    "Seedance2",
+                    video_url=safe_public_url(video_url),
+                    char_count=len(response_text),
+                    elapsed_ms=elapsed_ms,
+                )
+                return (video_out, task_id, response_text, video_url, last_frame_tensor)
+            else:
+                if not skip_error:
+                    raise RuntimeError("[Comfly_Doubao_Seedance2_0] Video adapter init failed (see terminal log for details)")
+                error_message = "No video URL"
+                rn_pbar.error(error_message)
+                log_error("结果缺失", request_id, error_message, "RunNode/Doubao-", "Seedance2")
+                return (empty_video, task_id, json.dumps({"error": error_message, "task_id": task_id}, ensure_ascii=False), "", blank_tensor)
+
+        except Exception as e:
+            error_message = f"Seedance 2.0 generate_video failed: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_message)
+            log_error("系统异常", request_id, error_message, "RunNode/Doubao-", "Seedance2")
+            import traceback
+            traceback.print_exc()
+            if skip_error:
+                return (empty_video, "", json.dumps({"error": error_message, "task_id": task_id}, ensure_ascii=False), "", blank_tensor)
+            raise Exception(error_message)
+
+
+class Comfly_Doubao_Seedance_2_0_AssetIdBundle:
+    """
+    Collect asset_id strings from «Comfly Doubao Seedance 2.0 Asset Upload» (one slot per wire),
+    same layout as Seedance 2.0, into one JSON for the main node's asset_bundle input.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        opt = {
+            "apikey": ("STRING", {"default": ""}),
+            "first_frame": ("STRING", {"default": "", "tooltip": "来自「RunNode Doubao Seedance 2.0 Asset」节点的 asset_id"}),
+            "last_frame": ("STRING", {"default": "", "tooltip": "来自「RunNode Doubao Seedance 2.0 Asset」节点的 asset_id"}),
+        }
+        for i in range(1, 10):
+            opt[f"ref_image{i}"] = ("STRING", {"default": "", "tooltip": "来自「RunNode Doubao Seedance 2.0 Asset」节点的 asset_id"})
+        for i in range(1, 4):
+            opt[f"video{i}"] = ("STRING", {"default": "", "tooltip": "来自「RunNode Doubao Seedance 2.0 Asset」节点的 asset_id"})
+        for i in range(1, 4):
+            opt[f"audio{i}"] = ("STRING", {"default": "", "tooltip": "来自「RunNode Doubao Seedance 2.0 Asset」节点的 asset_id"})
+        return {"required": {}, "optional": opt}
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("asset_bundle",)
+    FUNCTION = "bundle"
+    CATEGORY = "RunNode/Doubao"
+
+    def bundle(
+        self,
+        apikey="",
+        first_frame="",
+        last_frame="",
+        ref_image1="",
+        ref_image2="",
+        ref_image3="",
+        ref_image4="",
+        ref_image5="",
+        ref_image6="",
+        ref_image7="",
+        ref_image8="",
+        ref_image9="",
+        video1="",
+        video2="",
+        video3="",
+        audio1="",
+        audio2="",
+        audio3="",
+    ):
+        request_id = generate_request_id("asset_bundle", "doubao")
+        log_prepare("Seedance资产Bundle", request_id, "RunNode/Doubao-", "Seedance2AssetBundle")
+        rn_pbar = ProgressBar(request_id, "Seedance2AssetBundle", streaming=True, task_type="资产Bundle", source="RunNode/Doubao-")
+        rn_pbar.set_generating()
+
+        try:
+            def sid(x):
+                return (x or "").strip() if x is not None else ""
+
+            ff = sid(first_frame)
+            lf = sid(last_frame)
+            ref_images = []
+            for i in range(1, 10):
+                t = sid(locals().get(f"ref_image{i}"))
+                if t:
+                    ref_images.append(t)
+            videos = []
+            for i in range(1, 4):
+                t = sid(locals().get(f"video{i}"))
+                if t:
+                    videos.append(t)
+            audios = []
+            for i in range(1, 4):
+                t = sid(locals().get(f"audio{i}"))
+                if t:
+                    audios.append(t)
+
+            payload = {
+                "first_frame": ff,
+                "last_frame": lf,
+                "ref_images": ref_images,
+                "videos": videos,
+                "audios": audios,
+            }
+
+            response_text = json.dumps(payload, ensure_ascii=False)
+            rn_pbar.done(char_count=len(response_text))
+            log_complete(
+                "Seedance资产Bundle完成",
+                request_id,
+                "RunNode/Doubao-",
+                "Seedance2AssetBundle",
+                char_count=len(response_text),
+            )
+            return (response_text,)
+        except Exception as e:
+            error_message = f"Seedance资产Bundle失败: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_message)
+            log_error("系统异常", request_id, error_message, "RunNode/Doubao-", "Seedance2AssetBundle")
+            raise
+
+
+class Comfly_Doubao_Seedance_2_0_Asset:
+    """
+    Create Seedance asset from Comfy IMAGE / VIDEO / AUDIO.
+    Image → /v1/files (HTTPS URL); video/audio → same upload path as Seedance 2.0. assetType inferred; no url widget.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {},
+            "optional": {
+                # "apikey": ("STRING", {"default": ""}),
+                "name": ("STRING", {"default": "", "multiline": False}),
+                "image": ("IMAGE",),
+                "video": (IO.VIDEO, {"tooltip": "参考视频；上传方式与 Seedance 2.0 主节点一致。"}),
+                "audio": (IO.AUDIO, {"tooltip": "参考音频；上传方式与 Seedance 2.0 主节点一致。"}),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"})
+            },
+        }
+
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("asset_id", "status", "response")
+    FUNCTION = "upload_asset"
+    CATEGORY = "RunNode/Doubao"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 120
+        self.poll_interval = 3
+        self.max_wait_time = 300
+
+    def get_headers(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def query_asset_status(self, asset_id):
+        payload = {"assetId": asset_id}
+        response = requests.post(
+            f"{baseurl}/seedance/v3/assets/query",
+            headers=self.get_headers(),
+            json=payload,
+            timeout=self.timeout
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def upload_asset(self, apikey="", name="", image=None, video=None, audio=None, skip_error=False):
+        request_id = generate_request_id("asset_upload", "doubao")
+        log_prepare("Seedance资产上传", request_id, "RunNode/Doubao-", "Seedance2Asset")
+        rn_pbar = ProgressBar(request_id, "Seedance2Asset", streaming=True, task_type="资产上传", source="RunNode/Doubao-")
+        rn_pbar.set_generating()
+
+        if apikey and str(apikey).strip():
+            self.api_key = str(apikey).strip()
+        else:
+            self.api_key = get_config().get("api_key", "")
+
+        if not self.api_key:
+            error_message = "API key not found in configuration file or environment variables."
+            rn_pbar.error(error_message)
+            log_error("配置缺失", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_Doubao_Seedance2_0_Asset] {error_message}")
+            return ("", "", json.dumps({"error": error_message}, ensure_ascii=False))
+
+        seed = Comfly_Doubao_Seedance_2_0()
+        seed.api_key = self.api_key
+        seed.timeout = self.timeout
+
+        wired = []
+        if image is not None:
+            wired.append("image")
+        if video is not None:
+            wired.append("video")
+        if audio is not None:
+            wired.append("audio")
+        if len(wired) > 1:
+            log_backend(
+                "doubao_seedance_asset_multiple_inputs",
+                request_id=request_id,
+                wired=",".join(wired),
+            )
+
+        try:
+            _rn_start = time.perf_counter()
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update_absolute(5)
+
+            asset_type = None
+            media_url = None
+            if image is not None:
+                asset_type = "Image"
+                media_url = seed.upload_image_get_url(image)
+            elif video is not None:
+                asset_type = "Video"
+                media_url = seed.upload_video_get_url(video)
+            elif audio is not None:
+                asset_type = "Audio"
+                media_url = seed.upload_audio_get_url(audio)
+            else:
+                error_message = "Connect image, video, or audio."
+                rn_pbar.error(error_message)
+                log_error("参数缺失", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_Doubao_Seedance2_0_Asset] {error_message}")
+                return ("", "", json.dumps({"error": error_message}, ensure_ascii=False))
+
+            if not media_url:
+                error_message = "Could not obtain HTTPS URL for asset (upload failed or empty media)."
+                rn_pbar.error(error_message)
+                log_error("上传失败", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_Doubao_Seedance2_0_Asset] {error_message}")
+                return ("", "", json.dumps({"error": error_message}, ensure_ascii=False))
+
+            display_name = (name or "").strip() or f"asset_{uuid.uuid4().hex[:12]}"
+
+            log_backend(
+                "doubao_seedance_asset_create_submit",
+                request_id=request_id,
+                asset_type=asset_type,
+                name=display_name,
+            )
+
+            payload = {"url": media_url, "assetType": asset_type, "name": display_name}
+            response = requests.post(
+                f"{baseurl}/seedance/v3/assets/create",
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout,
+            )
+
+            if response.status_code != 200:
+                error_message = format_runnode_error(response)
+                rn_pbar.error(error_message)
+                log_error("API请求失败", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_Doubao_Seedance2_0_Asset] {error_message}")
+                return ("", "", json.dumps({"error": error_message}, ensure_ascii=False))
+
+            result = response.json()
+            if result.get("code") != 0:
+                error_message = format_runnode_error(result)
+                rn_pbar.error(error_message)
+                log_error("API返回错误", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_Doubao_Seedance2_0_Asset] {error_message}")
+                return ("", "", json.dumps(result, indent=2, ensure_ascii=False))
+
+            data = result.get("data", {}) if isinstance(result, dict) else {}
+            asset_id = data.get("assetId", "")
+            status = data.get("status", "")
+
+            pbar.update_absolute(20)
+
+            if status == "Active":
+                response_text = json.dumps(result, indent=2, ensure_ascii=False)
+                elapsed_ms = int((time.perf_counter() - _rn_start) * 1000)
+                rn_pbar.done(char_count=len(response_text), elapsed_ms=elapsed_ms)
+                log_complete(
+                    "Seedance资产上传完成",
+                    request_id,
+                    "RunNode/Doubao-",
+                    "Seedance2Asset",
+                    asset_id=asset_id,
+                    status=status,
+                    char_count=len(response_text),
+                    elapsed_ms=elapsed_ms,
+                )
+                return (asset_id, status, response_text)
+
+            start_time = time.time()
+            last_log_time = start_time
+            while True:
+                elapsed = time.time() - start_time
+                if elapsed > self.max_wait_time:
+                    error_message = f"Asset processing timeout after {elapsed:.1f}s. Last status: {status}"
+                    rn_pbar.error(error_message)
+                    log_error("生成超时", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+                    if not skip_error:
+                        raise RuntimeError(f"[Comfly_Doubao_Seedance2_0_Asset] {error_message}")
+                    return ("", status, json.dumps({"error": error_message, "asset_id": asset_id, "last_status": status}, ensure_ascii=False))
+
+                now = time.time()
+                if now - last_log_time >= 15:
+                    log_backend(
+                        "doubao_seedance_asset_poll_heartbeat",
+                        request_id=request_id,
+                        asset_id=asset_id,
+                        elapsed=int(now - start_time),
+                        status=status,
+                    )
+                    last_log_time = now
+
+                time.sleep(self.poll_interval)
+                progress = min(90, 20 + int((elapsed / self.max_wait_time) * 70))
+                pbar.update_absolute(progress)
+
+                try:
+                    query_result = self.query_asset_status(asset_id)
+                    if query_result.get("code") != 0:
+                        continue
+
+                    query_data = query_result.get("data", {})
+                    status = query_data.get("status", "")
+
+                    if status == "Active":
+                        response_text = json.dumps(query_result, indent=2, ensure_ascii=False)
+                        elapsed_ms = int((time.perf_counter() - _rn_start) * 1000)
+                        rn_pbar.done(char_count=len(response_text), elapsed_ms=elapsed_ms)
+                        log_complete(
+                            "Seedance资产上传完成",
+                            request_id,
+                            "RunNode/Doubao-",
+                            "Seedance2Asset",
+                            asset_id=asset_id,
+                            status=status,
+                            char_count=len(response_text),
+                            elapsed_ms=elapsed_ms,
+                        )
+                        pbar.update_absolute(100)
+                        return (asset_id, status, response_text)
+
+                    if status in ("Failed", "Error", "Deleted"):
+                        error_message = f"Asset processing failed with status: {status}"
+                        rn_pbar.error(error_message)
+                        log_error("生成失败", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+                        if not skip_error:
+                            raise RuntimeError(f"[Comfly_Doubao_Seedance2_0_Asset] {error_message}")
+                        return ("", status, json.dumps(query_result, indent=2, ensure_ascii=False))
+
+                except requests.exceptions.Timeout:
+                    continue
+                except Exception as e:
+                    log_backend_exception(
+                        "doubao_seedance_asset_poll_exception",
+                        request_id=request_id,
+                        asset_id=asset_id,
+                        error=format_runnode_error(str(e)),
+                    )
+                    continue
+
+        except Exception as e:
+            error_message = f"Asset upload error: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_message)
+            log_error("系统异常", request_id, error_message, "RunNode/Doubao-", "Seedance2Asset")
+            if not skip_error:
+                raise
+            return ("", "", json.dumps({"error": error_message}, ensure_ascii=False))
