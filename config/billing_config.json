@@ -29,372 +29,424 @@
   },
 
   "models": {
-    "sora-2": {
-      "billing_type": "per_second",
-      "price_per_second": 0.005
-    },
-    "sora-2-pro": {
-      "billing_type": "per_second",
-      "price_per_second": 0.01
+    "openai": {
+      "sora_video2": {
+        "billing_type": "price_per_use",
+        "price_per_use": 0.135
+      },
+      "sora-2": {
+        "billing_type": "price_per_use",
+        "price_per_use": 0.135
+      },
+      "sora-2-pro": {
+        "billing_type": "price_per_use",
+        "price_per_use": 3.375
+      },
+      "gpt-4o-image": {
+        "billing_type": "per_use",
+        "price_per_use": 0.05
+      },
+      "gpt-image-1": {
+        "billing_type": "per_use",
+        "price_per_use": 0.0081
+      },
+      "gpt-image-1.5": {
+        "billing_type": "per_use",
+        "price_per_use": 0.0675
+      },
+      "gpt-image-2": {
+        "billing_type": "per_use",
+        "price_per_use": 0.054
+      },
+      "gpt-image-2-all": {
+        "billing_type": "per_use",
+        "price_per_use": 0.054
+      }
     },
 
-    "kling-v2-1-master": {
-      "billing_type": "per_second_with_conditions",
-      "billing_conditions": [
-        {"mode": "std", "price_per_second": 0.001},
-        {"mode": "pro", "price_per_second": 0.004}
-      ]
+
+    "google": {
+      "gemini-2.5-flash-image": {
+        "billing_type": "per_use",
+        "price_per_use": 0.054
+      },
+      "gemini-2.5-flash-image-preview": {
+        "billing_type": "per_use",
+        "price_per_use": 0.054
+      },
+      "gemini-2.5-flash-nothinking": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.0004,
+        "output_price_per_1k": 0.00338
+      },
+      "gemini-2.5-flash-thinking": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.0004,
+        "output_price_per_1k": 0.00338
+      },
+      "gemini-2.5-pro": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.00169,
+        "output_price_per_1k": 0.0135
+      },
+      "gemini-2.5-pro-nothinking": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.00169,
+        "output_price_per_1k": 0.0135
+      },
+      "gemini-2.5-pro-thinking-*": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.00169,
+        "output_price_per_1k": 0.0135
+      },
+      "gemini-3-flash-preview": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.00135,
+        "output_price_per_1k": 0.0081
+      },
+      "gemini-3-flash-preview-nothinking": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.00135,
+        "output_price_per_1k": 0.0081
+      },
+      "gemini-3-flash-preview-thinking-*": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.00135,
+        "output_price_per_1k": 0.0081
+      },
+      "gemini-3-pro-image-preview": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "gemini-3-pro-preview": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.0054,
+        "output_price_per_1k": 0.0324
+      },
+      "gemini-3-pro-preview-thinking-*": {
+        "billing_type": "token",
+        "input_price_per_1k": 0.0054,
+        "output_price_per_1k": 0.0324
+      },
+      "gemini-3.1-flash-image-preview": {
+        "billing_type": "per_use",
+        "price_per_use": 0.135
+      },
+      "nano-banana": {
+        "billing_type": "per_use",
+        "price_per_use": 0.108
+      },
+      "nano-banana-hd": {
+        "billing_type": "per_use",
+        "price_per_use": 0.162
+      },
+      "nano-banana-2": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "nano-banana-2-2k": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "nano-banana-2-4k": {
+        "billing_type": "per_use",
+        "price_per_use": 0.37125
+      },
+      "nano-banana/edit": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "veo3.1": {
+        "billing_type": "per_use",
+        "price_per_use": 0.405
+      },
+      "veo3.1-4k": {
+        "billing_type": "per_use",
+        "price_per_use": 2.025
+      },
+      "veo3.1-fast": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "veo3.1-fast-4k": {
+        "billing_type": "per_use",
+        "price_per_use": 2.025
+      },
+      "veo3.1-components": {
+        "billing_type": "per_use",
+        "price_per_use": 0.405
+      },
+      "veo3.1-components-4k": {
+        "billing_type": "per_use",
+        "price_per_use": 2.025
+      },
+      "veo3.1-pro": {
+        "billing_type": "per_use",
+        "price_per_use": 1.35
+      },
+      "veo3.1-pro-4k": {
+        "billing_type": "per_use",
+        "price_per_use": 6.075
+      }
     },
-    "kling-v2-master": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
+
+
+
+    "kling": {
+      "kling-video-v2-1-master": {
+        "billing_type": "per_second",
+        "price_per_second": 2.7
+      },
+      "kling-video-v2-master": {
+        "billing_type": "per_second",
+        "price_per_second": 2.7
+      },
+      "kling-video-v1-6": {
+        "billing_type": "per_second_with_conditions",
+        "billing_conditions": [
+          {"mode": "std", "price_per_second": 0.54},
+          {"mode": "pro", "price_per_second": 0.945}
+        ]
+      },
+      "kling-video-v2-1": {
+        "billing_type": "per_second_with_conditions",
+        "billing_conditions": [
+          {"mode": "std", "price_per_second": 0.54},
+          {"mode": "pro", "price_per_second": 0.945}
+        ]
+      },
+      "kling-video-v1-5": {
+        "billing_type": "per_second_with_conditions",
+        "billing_conditions": [
+          {"mode": "std", "price_per_second": 0.54},
+          {"mode": "pro", "price_per_second": 0.945}
+        ]
+      },
+      "kling-video-v1": {
+        "billing_type": "per_second_with_conditions",
+        "billing_conditions": [
+          {"mode": "std", "price_per_second": 0.27},
+          {"mode": "pro", "price_per_second": 0.945}
+        ]
+      }
     },
-    "kling-v1-6": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "kling-v1-5": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "kling-v1": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
+
 
     "midjourney": {
-      "billing_type": "per_use",
-      "price_per_use": 0.035
-    },
-    "midjourney-fast": {
-      "billing_type": "per_use",
-      "price_per_use": 0.035
-    },
-    "midjourney-relax": {
-      "billing_type": "per_use",
-      "price_per_use": 0
-    },
-    "midjourney-pro": {
-      "billing_type": "per_use",
-      "price_per_use": 0.15
-    },
-
-    "suno-v3.0": {
-      "billing_type": "per_use",
-      "price_per_use": 0.05
-    },
-    "suno-v3.5": {
-      "billing_type": "per_use",
-      "price_per_use": 0.08
-    },
-    "suno-v4": {
-      "billing_type": "per_use",
-      "price_per_use": 0.10
-    },
-    "suno-v4.5": {
-      "billing_type": "per_use",
-      "price_per_use": 0.10
-    },
-    "suno-v4.5+": {
-      "billing_type": "per_use",
-      "price_per_use": 0.15
-    },
-    "suno-v5": {
-      "billing_type": "per_use",
-      "price_per_use": 0.20
+      "midjourney": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "midjourney-fast": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "midjourney-relax": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "midjourney-pro": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      }
     },
 
-    "doubao-seedream-3-0-t2i-250415": {
-      "billing_type": "per_use",
-      "price_per_use": 0.05
-    },
-    "doubao-seedream-4-0-250828": {
-      "billing_type": "per_use",
-      "price_per_use": 0.08
-    },
-    "doubao-seedream": {
-      "billing_type": "per_use",
-      "price_per_use": 0.05
-    },
-    "doubao-seededit": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
+
+    "suno": {
+      "suno-v3.0": {
+        "billing_type": "per_use",
+        "price_per_use": 0.675
+      },
+      "suno-v3.5": {
+        "billing_type": "per_use",
+        "price_per_use": 0.675
+      },
+      "suno-v4": {
+        "billing_type": "per_use",
+        "price_per_use": 0.675
+      },
+      "suno-v4.5": {
+        "billing_type": "per_use",
+        "price_per_use": 0.675
+      },
+      "suno-v4.5+": {
+        "billing_type": "per_use",
+        "price_per_use": 0.675
+      },
+      "suno-v5": {
+        "billing_type": "per_use",
+        "price_per_use": 0.675
+      },
+      "suno-v5.5": {
+        "billing_type": "per_use",
+        "price_per_use": 0.675
+      }
     },
 
-    "jimeng-video": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "jimeng-image": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
+
+    "bytedance": {
+      "doubao-seedream-3-0-t2i-250415": {
+        "billing_type": "per_use",
+        "price_per_use": 0.135
+      },
+      "doubao-seedream-4-0-250828": {
+        "billing_type": "per_use",
+        "price_per_use": 0.189
+      },
+      "doubao-seedream-4-5-251128": {
+        "billing_type": "per_use",
+        "price_per_use": 0.2025
+      },
+      "doubao-seededit-3-0-i2i-250628": {
+        "billing_type": "per_use",
+        "price_per_use": 0.2025
+      },
+      "doubao-seedance-2-0-260128": {
+        "billing_type": "per_second",
+        "price_per_second": 1.35
+      },
+      "doubao-seedance-2-0-fast-260128": {
+        "billing_type": "per_second",
+        "price_per_second": 1.35
+      }
     },
 
-    "lip_sync": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
+
+    "xai": {
+      "grok-video-3": {
+        "billing_type": "per_second",
+        "price_per_second": 0.2025
+      }
     },
 
-    "grok-video-3": {
-      "billing_type": "per_second",
-      "price_per_second": 0.01
+
+    "vidu": {
+      "viduq2-pro": {
+        "billing_type": "per_second",
+        "price_per_second": 0.03797
+      },
+      "viduq2-turbo": {
+        "billing_type": "per_second",
+        "price_per_second": 0.03797
+      },
+      "viduq2": {
+        "billing_type": "per_second",
+        "price_per_second": 0.03797
+      },
+      "viduq1": {
+        "billing_type": "per_second",
+        "price_per_second": 0.03797
+      },
+      "viduq1-classic": {
+        "billing_type": "per_second",
+        "price_per_second": 0.03797
+      },
+      "vidu2.0": {
+        "billing_type": "per_second",
+        "price_per_second": 0.03797
+      },
+      "vidu1.5": {
+        "billing_type": "per_second",
+        "price_per_second": 0.03797
+      }
     },
 
-    "viduq2-pro": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
-    },
-    "viduq2-turbo": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "viduq2": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
-    },
-    "viduq1": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "viduq1-classic": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "vidu2.0": {
-      "billing_type": "per_second",
-      "price_per_second": 0.003
-    },
-    "vidu1.5": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "vidu-video": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
+
+    "minimax": {
+      "MiniMax-Hailuo-02": {
+        "billing_type": "per_second_with_conditions",
+        "billing_conditions": [
+          {"resolution": "512P", "price_per_second": 0.14},
+          {"resolution": "768P", "price_per_second": 0.54},
+          {"resolution": "1080P", "price_per_second": 0.9}
+        ]
+      },
+      "MiniMax-Hailuo-2.3": {
+        "billing_type": "per_second_with_conditions",
+        "billing_conditions": [
+          {"resolution": "768P", "price_per_second": 0.54},
+          {"resolution": "1080P", "price_per_second": 0.9}
+        ]
+      },
+      "MiniMax-Hailuo-2.3-Fast": {
+        "billing_type": "per_second_with_conditions",
+        "billing_conditions": [
+          {"resolution": "768P", "price_per_second": 0.31},
+          {"resolution": "1080P", "price_per_second": 0.52}
+        ]
+      },
+      "T2V-01": {
+        "billing_type": "per_use",
+        "price_per_use": 2.16
+      },
+      "T2V-01-Director": {
+        "billing_type": "per_use",
+        "price_per_use": 2.16
+      },
+      "I2V-01": {
+        "billing_type": "per_use",
+        "price_per_use": 2.7
+      },
+      "I2V-01-live": {
+        "billing_type": "per_use",
+        "price_per_use": 2.7
+      },
+      "I2V-01-Director": {
+        "billing_type": "per_use",
+        "price_per_use": 2.7
+      },
+      "S2V-01": {
+        "billing_type": "per_use",
+        "price_per_use": 2.16
+      }
     },
 
-    "MiniMax-Hailuo-02": {
-      "billing_type": "per_second_with_conditions",
-      "billing_conditions": [
-        {"resolution": "512P", "price_per_second": 0.14},
-        {"resolution": "768P", "price_per_second": 0.54},
-        {"resolution": "1080P", "price_per_second": 0.9}
-      ]
-    },
-    "MiniMax-Hailuo-2.3": {
-      "billing_type": "per_second_with_conditions",
-      "billing_conditions": [
-        {"resolution": "768P", "price_per_second": 0.54},
-        {"resolution": "1080P", "price_per_second": 0.9}
-      ]
-    },
-    "MiniMax-Hailuo-2.3-Fast": {
-      "billing_type": "per_second_with_conditions",
-      "billing_conditions": [
-        {"resolution": "768P", "price_per_second": 0.31},
-        {"resolution": "1080P", "price_per_second": 0.52}
-      ]
-    },
-    "MiniMax-T2V-01": {
-      "billing_type": "per_second",
-      "price_per_second": 0.001
-    },
-    "MiniMax-T2V-01-Director": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
-    },
-    "MiniMax-I2V-01": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
-    },
-    "MiniMax-I2V-01-live": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
-    },
-    "MiniMax-I2V-01-Director": {
-      "billing_type": "per_second",
-      "price_per_second": 0.003
-    },
-    "MiniMax-S2V-01": {
-      "billing_type": "per_second",
-      "price_per_second": 0.002
-    },
-    "MiniMax-minimax-video": {
-      "billing_type": "per_second",
-      "price_per_second": 0.0015
+
+    "blackforestlabs": {
+      "flux-kontext-dev": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "flux-kontext-pro": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      },
+      "flux-kontext-max": {
+        "billing_type": "per_use",
+        "price_per_use": 0.27
+      }
     },
 
-    "flux-kontext-dev": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
-    },
-    "flux-kontext-pro": {
-      "billing_type": "per_use",
-      "price_per_use": 0.04
-    },
-    "flux-kontext-max": {
-      "billing_type": "per_use",
-      "price_per_use": 0.08
-    },
-    "flux-kontext": {
-      "billing_type": "per_use",
-      "price_per_use": 0.04
-    },
-    "flux-2-max": {
-      "billing_type": "per_use",
-      "price_per_use": 0.10
-    },
-    "flux-2-pro": {
-      "billing_type": "per_use",
-      "price_per_use": 0.06
-    },
-    "flux-2-flex": {
-      "billing_type": "per_use",
-      "price_per_use": 0.04
+
+    "alibaba": {
+      "qwen-image": {
+        "billing_type": "per_use",
+        "price_per_use": 0.3375
+      },
+      "qwen-image-edit": {
+        "billing_type": "per_use",
+        "price_per_use": 0.405
+      },
+      "z-image-turbo": {
+        "billing_type": "per_use",
+        "price_per_use": 0.135
+      }
     },
 
-    "qwen-image": {
-      "billing_type": "per_use",
-      "price_per_use": 0.03
-    },
-    "z-image-turbo": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
+
+    "wan": {
+      "wan2.6-video": {
+        "billing_type": "per_second",
+        "price_per_second": 0.0005
+      }
     },
 
-    "gemini-2.0-flash-exp-image": {
-      "billing_type": "token",
-      "input_price_per_1k": 0.000125,
-      "output_price_per_1k": 0.0005
-    },
-    "gemini": {
-      "billing_type": "token",
-      "input_price_per_1k": 0.000125,
-      "output_price_per_1k": 0.0005
-    },
-    "gemini-pro": {
-      "billing_type": "token",
-      "input_price_per_1k": 0.00125,
-      "output_price_per_1k": 0.005
-    },
-
-    "veo3": {
-      "billing_type": "per_second",
-      "price_per_second": 0.05
-    },
-    "veo3-fast": {
-      "billing_type": "per_second",
-      "price_per_second": 0.02
-    },
-    "veo3-pro": {
-      "billing_type": "per_second",
-      "price_per_second": 0.08
-    },
-    "veo3.1": {
-      "billing_type": "per_second",
-      "price_per_second": 0.04
-    },
-    "veo3.1-pro": {
-      "billing_type": "per_second",
-      "price_per_second": 0.06
-    },
-    "veo3.1-components": {
-      "billing_type": "per_second",
-      "price_per_second": 0.07
-    },
-    "veo3.1-components-4k": {
-      "billing_type": "per_second",
-      "price_per_second": 0.12
-    },
-    "veo3.1-pro-4k": {
-      "billing_type": "per_second",
-      "price_per_second": 0.10
-    },
-    "veo3.1-4k": {
-      "billing_type": "per_second",
-      "price_per_second": 0.08
-    },
-
-    "nano-banana-2": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
-    },
-    "nano-banana-2-2k": {
-      "billing_type": "per_use",
-      "price_per_use": 0.03
-    },
-    "nano-banana-2-4k": {
-      "billing_type": "per_use",
-      "price_per_use": 0.05
-    },
-    "nano-banana": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
-    },
-    "nano-banana-hd": {
-      "billing_type": "per_use",
-      "price_per_use": 0.04
-    },
-    "nano-banana": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
-    },
-    "gemini-3-pro-image-preview": {
-      "billing_type": "per_use",
-      "price_per_use": 0.05
-    },
-    "gemini-2.5-flash-image": {
-      "billing_type": "per_use",
-      "price_per_use": 0.03
-    },
-    "gemini-2.5-flash-image-preview": {
-      "billing_type": "per_use",
-      "price_per_use": 0.02
-    },
-
-    "wan2.6-video": {
-      "billing_type": "per_second",
-      "price_per_second": 0.0005
-    },
 
     "ollama": {
-      "billing_type": "per_model",
-      "price_per_model": 0
-    },
-    "openai/gpt-3.5-turbo": {
-      "billing_type": "token",
-      "input_price_per_1k": 0.0005,
-      "output_price_per_1k": 0.0015
-    },
-    "openai/gpt-4": {
-      "billing_type": "token",
-      "input_price_per_1k": 0.01,
-      "output_price_per_1k": 0.03
-    },
-    "openai/gpt-4o": {
-      "billing_type": "token",
-      "input_price_per_1k": 0.005,
-      "output_price_per_1k": 0.015
-    },
-    "gpt-4o-image": {
-      "billing_type": "per_use",
-      "price_per_use": 0.05
-    },
-    "gpt-image-1": {
-      "billing_type": "per_use",
-      "price_per_use": 0.05
-    },
-    "gpt-image-1.5": {
-      "billing_type": "per_use",
-      "price_per_use": 0.10
-    },
-    "gpt-image-2": {
-      "billing_type": "per_use",
-      "price_per_use": 0.15
-    },
-    "gpt-image-2-all": {
-      "billing_type": "per_use",
-      "price_per_use": 0.150
+      "ollama": {
+        "billing_type": "per_model",
+        "price_per_model": 0
+      }
     }
   },
 

@@ -1,7 +1,7 @@
-from tkinter import N
-from urllib import response
 from ..comfly_config import *
 from .__init__ import *
+from ..utils import *
+from ..utils import _parse_asset_bundle_only, _comfly_split_asset_ids, _comfly_asset_id_to_url, _doubao_seedance_video_input_to_bytes, _doubao_seedance_io_file_to_bytes, _comfy_waveform_to_wav_bytes
 
 
 class Comfly_Doubao_Seedream:
@@ -1890,7 +1890,7 @@ class Comfly_Doubao_Seedance_2_0:
                        watermark=False, seed=-1,
                        asset_bundle="", skip_error=False):
         
-        model = get_model_name(model)
+        model = get_api_model_name(model)
         blank_image = Image.new('RGB', (1, 1), color='black')
         blank_tensor = pil2tensor(blank_image)
         empty_video = ComflyVideoAdapter("")

@@ -387,3 +387,424 @@ class ComflyGrok3VideoApi:
             )
             log_error("异常", request_id, error_message, "RunNode/xAI-", "xAI")
             raise Exception(error_message)
+
+
+class ComflyGrok3VideoApi30S:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+                "model": (["Grok Video 3"], {"default": "Grok Video 3"}),
+                "ratio": (["2:3", "3:2", "16:9", "9:16", "1:1"], {"default": "1:1"}),
+                "duration": ([str(i) for i in range(6, 31)], {"default": "15"}),
+                "resolution": (["720P"], {"default": "720P"}),
+            },
+            "optional": {
+                # "api_key": ("STRING", {"default": ""}),
+                "image1": ("IMAGE",),
+                "image2": ("IMAGE",),
+                "image3": ("IMAGE",),
+                "image4": ("IMAGE",),
+                "image5": ("IMAGE",),
+                "image6": ("IMAGE",),
+                "image7": ("IMAGE",),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"})
+            }
+        }
+    
+    RETURN_TYPES = (IO.VIDEO, "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("video", "task_id", "response", "video_url")
+    FUNCTION = "generate_video"
+    CATEGORY = "RunNode/Grok"
+
+    def __init__(self):
+        config = get_config()
+        self.api_key = config.get("api_key", "")
+        self.base_url = config.get("base_url", "") or baseurl
+        self.timeout = 300
+
+    def get_headers(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+    
+    def upload_image(self, image_tensor, request_id=None, rn_pbar=None):
+        """Upload image to the file endpoint and return the URL"""
+        try:
+            pil_image = tensor2pil(image_tensor)[0]
+
+            buffered = BytesIO()
+            pil_image.save(buffered, format="PNG")
+            file_content = buffered.getvalue()
+
+            files = {'file': ('image.png', file_content, 'image/png')}
+
+            response = requests.post(
+                f"{self.base_url}/v1/files",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                files=files,
+                timeout=self.timeout
+            )
+            
+            response.raise_for_status()
+            result = response.json()
+            
+            if 'url' in result:
+                return result['url']
+            else:
+                log_backend(
+                    "xai_grok_upload_unexpected_response",
+                    level="ERROR",
+                    request_id=request_id,
+                    url=safe_public_url(self.base_url),
+                )
+                if rn_pbar is not None:
+                    rn_pbar.error("文件上传返回异常，请稍后重试")
+                return None
+                
+        except Exception:
+            log_backend_exception(
+                "xai_grok_upload_exception",
+                request_id=request_id,
+                url=safe_public_url(self.base_url),
+            )
+            if rn_pbar is not None:
+                rn_pbar.error("上传参考图像失败，请检查网络或图像格式")
+            return None
+    
+    def generate_video(self, prompt, model, ratio, duration, resolution, api_key="", image1=None, image2=None, image3=None, image4=None, image5=None, image6=None, image7=None, seed=0, skip_error=False):
+        request_id = generate_request_id("video_gen", "xai")
+        log_prepare("视频生成", request_id, "RunNode/Grok-", "xAI", model_name=model)
+        rn_pbar = ProgressBar(
+            request_id,
+            "xAI",
+            extra_info=f"模型:{model}",
+            streaming=True,
+            task_type="视频生成",
+            source="RunNode/Grok-",
+        )
+        _rn_start = time.perf_counter()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get("api_key", "")
+
+        if not self.base_url:
+            self.base_url = get_config().get("base_url", "") or baseurl
+            
+        if not self.api_key:
+            error_message = "API key not found in configuration file or environment variables."
+            error_response = {"code": "error", "message": error_message}
+            rn_pbar.error(error_message)
+            log_backend(
+                "xai_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_api_key",
+                model=model,
+                skip_error=bool(skip_error),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            log_error("配置缺失", request_id, error_message, "RunNode/Grok-", "xAI")
+            if not skip_error:
+                raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_response}")
+            return ("", "", json.dumps(error_response), "")
+
+        if not self.base_url:
+            error_message = "Base URL not configured"
+            error_response = {"code": "error", "message": error_message}
+            rn_pbar.error(error_message)
+            log_backend(
+                "xai_video_generate_failed",
+                level="ERROR",
+                request_id=request_id,
+                stage="missing_base_url",
+                model=model,
+                skip_error=bool(skip_error),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            log_error("配置缺失", request_id, error_message, "RunNode/Grok-", "xAI")
+            if not skip_error:
+                raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_response}")
+            return ("", "", json.dumps(error_response), "")
+            
+        try:
+            pbar = comfy.utils.ProgressBar(100)
+            pbar.update_absolute(10)
+            rn_pbar.update_absolute(10, "准备请求...")
+
+            payload = {
+                "prompt": prompt,
+                "model": model,
+                "ratio": ratio,
+                "duration": int(duration),
+                "resolution": resolution
+            }
+
+            if seed > 0:
+                payload["seed"] = seed
+
+            # Handle image inputs (up to 7 reference images)
+            all_images = [image1, image2, image3, image4, image5, image6, image7]
+            image_urls = []
+            
+            for i, img in enumerate(all_images):
+                if img is not None:
+                    pbar.update_absolute(15 + i * 2)
+                    uploaded_url = self.upload_image(img, request_id=request_id, rn_pbar=rn_pbar)
+                    if uploaded_url:
+                        image_urls.append(uploaded_url)
+                    else:
+                        error_message = f"Failed to upload image {i+1}. Please check your image and try again."
+                        rn_pbar.error(error_message)
+                        log_backend(
+                            "xai_video_generate_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="upload_image_failed",
+                            model=model,
+                            image_index=int(i + 1),
+                            skip_error=bool(skip_error),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
+                        log_error("上传失败", request_id, error_message, "RunNode/Grok-", "xAI")
+                        if not skip_error:
+                            raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_message}")
+                        return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+            
+            if image_urls:
+                payload["images"] = image_urls
+
+            pbar.update_absolute(30)
+            rn_pbar.update_absolute(30, "提交任务...")
+
+            log_backend(
+                "xai_video_generate_start",
+                request_id=request_id,
+                url=safe_public_url(self.base_url),
+                model=model,
+                prompt_len=len(prompt or ""),
+                ratio=ratio,
+                resolution=resolution,
+                has_image=bool(image_urls),
+                image_count=int(len(image_urls)),
+                seed=(int(seed) if int(seed) > 0 else None),
+            )
+            
+            # Submit video generation request
+            response = requests.post(
+                f"{self.base_url}/v2/videos/generations",
+                headers=self.get_headers(),
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code != 200:
+                error_message = format_runnode_error(response)
+                rn_pbar.error(error_message)
+                log_backend(
+                    "xai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="http_error",
+                    model=model,
+                    status_code=int(response.status_code),
+                    skip_error=bool(skip_error),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                log_error("请求失败", request_id, error_message, "RunNode/Grok-", "xAI")
+                if not skip_error:
+                    raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_message}")
+                return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+                
+            result = response.json()
+            
+            # Extract task_id from response
+            task_id = result.get("task_id")
+            if not task_id:
+                error_message = "No task ID returned from API"
+                rn_pbar.error(error_message)
+                log_backend(
+                    "xai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="missing_task_id",
+                    model=model,
+                    skip_error=bool(skip_error),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                log_error("任务ID缺失", request_id, error_message, "RunNode/Grok-", "xAI")
+                if not skip_error:
+                    raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_message}")
+                return ("", "", json.dumps({"code": "error", "message": error_message}), "")
+            
+            pbar.update_absolute(40)
+            rn_pbar.update_absolute(40, "排队中...")
+            
+            # Poll for video generation completion
+            video_url = None
+            attempts = 0
+            max_attempts = 200  # Wait up to 3 minutes (36 * 5 seconds)
+            start_time = time.time()
+            max_wait_time = 600  # 5 minutes
+        
+            while attempts < max_attempts:
+                current_time = time.time()
+                elapsed_time = current_time - start_time
+
+                if elapsed_time > max_wait_time:
+                    error_message = f"Video generation timeout after {elapsed_time:.1f} seconds (max: {max_wait_time}s)"
+                    rn_pbar.error(error_message)
+                    log_backend(
+                        "xai_video_generate_failed",
+                        level="ERROR",
+                        request_id=request_id,
+                        stage="task_timeout",
+                        model=model,
+                        task_id=task_id,
+                        attempts=int(attempts),
+                        skip_error=bool(skip_error),
+                        elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                    )
+                    log_error("任务超时", request_id, error_message, "RunNode/Grok-", "xAI")
+                    if not skip_error:
+                        raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_message}")
+                    return ("", task_id, json.dumps({"code": "error", "message": error_message}), "")
+                
+                time.sleep(5)  
+                attempts += 1
+                
+                try:
+                    # Query task status
+                    status_response = requests.get(
+                        f"{self.base_url}/v2/videos/generations/{task_id}",
+                        headers=self.get_headers(),
+                        timeout=30
+                    )
+                    
+                    if status_response.status_code != 200:
+                        continue
+                        
+                    status_result = status_response.json()
+                    
+                    # Check task status
+                    status = status_result.get("status", "UNKNOWN")
+                    log_backend(
+                        "xai_video_generate_check",
+                        request_id=request_id,
+                        task_id=task_id,
+                        model=model,
+                        status=str(status),
+                        attempts=int(attempts),
+                    )
+                    
+                    # Update progress bar based on status
+                    if status == "IN_PROGRESS":
+                        progress = status_result.get("progress", "0%")
+                        try:
+                            if progress.endswith('%'):
+                                progress_num = int(progress.rstrip('%'))
+                                pbar_value = min(90, 40 + progress_num * 50 / 100)
+                                pbar.update_absolute(pbar_value)
+                                rn_pbar.update_absolute(int(pbar_value), f"处理中 {progress}...")
+                        except (ValueError, AttributeError):
+                            progress_value = min(80, 40 + (attempts * 40 // max_attempts))
+                            pbar.update_absolute(progress_value)
+                            rn_pbar.update_absolute(int(progress_value), "处理中...")
+                    
+                    # Handle different statuses
+                    if status == "SUCCESS":
+                        # Extract video URL from successful response
+                        data = status_result.get("data", {})
+                        if "output" in data:
+                            video_url = data["output"]
+                            break
+                        else:
+                            continue
+                    
+                    elif status == "FAILURE":
+                        fail_reason = status_result.get("fail_reason", "Unknown error")
+                        error_message = f"Video generation failed: {format_runnode_error(fail_reason)}"
+                        rn_pbar.error(error_message)
+                        log_backend(
+                            "xai_video_generate_failed",
+                            level="ERROR",
+                            request_id=request_id,
+                            stage="task_failed",
+                            model=model,
+                            task_id=task_id,
+                            fail_reason=str(fail_reason),
+                            skip_error=bool(skip_error),
+                            elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                        )
+                        log_error("任务失败", request_id, error_message, "RunNode/Grok-", "xAI")
+                        if not skip_error:
+                            raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_message}")
+                        return ("", task_id, json.dumps({"code": "error", "message": error_message}), "")
+                    
+                    elif status in ["NOT_START", "IN_PROGRESS"]:
+                        continue
+                    else:
+                        continue
+                    
+                except requests.exceptions.Timeout:
+                    continue
+                except Exception as e:
+                    continue
+            
+            if not video_url:
+                error_message = f"Video generation timeout or failed to retrieve video URL after {attempts} attempts, elapsed time: {elapsed_time:.1f}s"
+                rn_pbar.error(error_message)
+                log_backend(
+                    "xai_video_generate_failed",
+                    level="ERROR",
+                    request_id=request_id,
+                    stage="task_timeout_final",
+                    model=model,
+                    task_id=task_id,
+                    attempts=int(attempts),
+                    skip_error=bool(skip_error),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                log_error("任务超时", request_id, error_message, "RunNode/Grok-", "xAI")
+                if not skip_error:
+                    raise RuntimeError(f"[ComflyGrok3VideoApi30S] {error_message}")
+                return ("", task_id, json.dumps({"code": "error", "message": error_message}), "")
+
+            if video_url:
+                pbar.update_absolute(95)
+                rn_pbar.update_absolute(95, "生成完成")
+                
+                # Return video adapter
+                video_adapter = ComflyVideoAdapter(video_url)
+                response_data = {"code": "success", "url": video_url, "task_id": task_id, "model": model}
+                rn_pbar.done(char_count=len(json.dumps(response_data)), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                log_backend(
+                    "xai_video_generate_done",
+                    request_id=request_id,
+                    url=safe_public_url(self.base_url),
+                    model=model,
+                    task_id=task_id,
+                    video_url=safe_public_url(video_url),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                log_complete("视频生成", request_id, "RunNode/Grok-", "xAI", video_url=safe_public_url(video_url))
+                return (video_adapter, task_id, json.dumps(response_data), video_url)
+            
+        except Exception as e:
+            error_message = f"Error generating video: {format_runnode_error(str(e))}"
+            rn_pbar.error(error_message)
+            log_backend_exception(
+                "xai_video_generate_exception",
+                request_id=request_id,
+                url=safe_public_url(self.base_url),
+                model=model,
+            )
+            log_error("异常", request_id, error_message, "RunNode/Grok-", "xAI")
+            if not skip_error:
+                raise
+            return ("", "", json.dumps({"code": "error", "message": error_message}), "")

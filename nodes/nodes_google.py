@@ -8,7 +8,7 @@ class ComflyGeminiAPI:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成的描述提示词。详细描述想要生成的图像内容。"}),
-                "model": (["Gemini 2.0 Flash (Image)"], {"default": "Gemini 2.0 Flash (Image)", "tooltip": "Google Gemini图像生成模型版本。"}),
+                "model": (["Gemini 3 Pro (Image Preview)"], {"default": "Gemini 3 Pro (Image Preview)", "tooltip": "Google Gemini图像生成。"}),
                 "resolution": (
                     [
                         "512x512",
@@ -490,9 +490,10 @@ class Comfly_Googel_Veo3:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容。"}),
-                "model": (["Veo 3", "Veo 3 Fast", "Veo 3 Pro", "veo3-fast-frames", "veo3-pro-frames",
-                            "Veo 3.1", "Veo 3.1 Pro", "Veo 3.1 Components", "Veo 3.1 Components 4K",
-                            "Veo 3.1 Pro 4K", "Veo 3.1 4K"], {"default": "Veo 3.1", "tooltip": "Google Veo视频生成模型版本。veo3.1为最新版本，fast为快速模式，pro为专业模式。"}),
+                "model": (["Veo 3.1", "Veo 3.1 4K", "Veo 3.1 Pro", "Veo 3.1 Pro 4K", 
+                            "Veo 3.1 Fast", "Veo 3.1 Fast 4K", "Veo 3.1 Components", 
+                            "Veo 3.1 Components 4K"], 
+                            {"default": "Veo 3.1", "tooltip": "Google Veo视频生成模型版本。veo3.1为最新版本，fast为快速模式，pro为专业模式。"}),
                 "enhance_prompt": ("BOOLEAN", {"default": False, "tooltip": "是否增强提示词。启用后系统会自动优化提示词以获得更好的生成效果。"}),
                 "aspect_ratio": (["16:9", "9:16"], {"default": "16:9", "tooltip": "视频宽高比。16:9为横屏，9:16为竖屏。"}),
             },

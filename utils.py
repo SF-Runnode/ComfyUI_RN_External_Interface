@@ -583,3 +583,92 @@ def _comfly_asset_id_to_url(s):
     if low.startswith("http://") or low.startswith("https://") or low.startswith("asset://"):
         return s
     return f"asset://{s}"
+
+def _comfy_waveform_to_wav_bytes(waveform, sample_rate):
+    wf = waveform.detach().cpu().float()
+    if wf.dim() == 3:
+        wf = wf.squeeze(0)
+    if wf.dim() == 1:
+        wf = wf.unsqueeze(0)
+    if wf.dim() != 2:
+        raise ValueError(f"Expected waveform [C, T], got shape {tuple(wf.shape)}")
+    channels, _ = wf.shape
+    wf = wf.clamp(-1.0, 1.0)
+    pcm = (wf.numpy() * 32767.0).astype(np.int16)
+    if channels == 1:
+        interleaved = pcm[0]
+    else:
+        interleaved = np.transpose(pcm, (1, 0)).reshape(-1)
+    buf = io.BytesIO()
+    import wave
+
+    with wave.open(buf, "wb") as wav:
+        wav.setnchannels(int(channels))
+        wav.setsampwidth(2)
+        wav.setframerate(int(sample_rate))
+        wav.writeframes(interleaved.tobytes())
+    return buf.getvalue()
+
+def _doubao_seedance_io_file_to_bytes(media_input, bytesio_ext=".mp4", label="media"):
+    if media_input is None:
+        return None, None
+
+    get_stream = getattr(media_input, "get_stream_source", None)
+    if callable(get_stream):
+        try:
+            source = media_input.get_stream_source()
+            if isinstance(source, str):
+                source = source.strip()
+                if source and os.path.isfile(source):
+                    with open(source, "rb") as f:
+                        return f.read(), os.path.basename(source)
+                return None, None
+            if isinstance(source, io.BytesIO):
+                source.seek(0)
+                data = source.read()
+                if data:
+                    return data, f"reference_{label}_{abs(hash(data)) % 10**10}{bytesio_ext}"
+                return None, None
+            if hasattr(source, "read"):
+                if hasattr(source, "seek"):
+                    source.seek(0)
+                data = source.read()
+                if data:
+                    return data, f"reference_{label}_{abs(hash(data)) % 10**10}{bytesio_ext}"
+                return None, None
+        except Exception:
+            return None, None
+
+    if isinstance(media_input, str):
+        p = media_input.strip()
+        if p and os.path.isfile(p):
+            with open(p, "rb") as f:
+                return f.read(), os.path.basename(p)
+        return None, None
+
+    if isinstance(media_input, dict):
+        p = (
+            media_input.get("path")
+            or media_input.get("file")
+            or media_input.get("file_path")
+            or media_input.get("filename")
+            or ""
+        )
+        p = str(p).strip() if p else ""
+        if p and os.path.isfile(p):
+            with open(p, "rb") as f:
+                return f.read(), os.path.basename(p)
+        return None, None
+
+    for attr in ("path", "file_path"):
+        p = getattr(media_input, attr, None)
+        if p and isinstance(p, str):
+            p = p.strip()
+            if p and os.path.isfile(p):
+                with open(p, "rb") as f:
+                    return f.read(), os.path.basename(p)
+
+    return None, None
+
+def _doubao_seedance_video_input_to_bytes(video_input):
+    return _doubao_seedance_io_file_to_bytes(video_input, ".mp4", "video")

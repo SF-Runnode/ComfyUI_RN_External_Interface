@@ -113,30 +113,57 @@ def load_billing_config():
 def load_models_config():
     """加载模型名称映射配置（统一的 display_name_mapping 和 api_name_mapping）"""
     try:
-        current_dir = os.path.dirname(os.path.realpath(__file__))
-        config_path = os.path.join(current_dir, 'config', 'models_config.json')
-
-        if not os.path.exists(config_path):
-            logging.warning(f"[Billing] Models config file not found: {config_path}")
-            return {"display_name_mapping": {}, "api_name_mapping": {}}
-
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        logging.info(f"[Billing] Loaded models config from: {config_path}")
-        return config
+        try:
+            from .comfly_config import load_models_config as load_models_config_impl
+        except Exception:
+            from comfly_config import load_models_config as load_models_config_impl
+        return load_models_config_impl()
     except Exception as e:
         logging.error(f"[Billing] Error loading models config: {str(e)}")
         return {"display_name_mapping": {}, "api_name_mapping": {}}
 
 def get_api_model_name(friendly_name):
     """根据友好显示名称获取实际 API 模型名称"""
-    mapping = load_models_config().get("api_name_mapping", {})
-    return mapping.get(friendly_name, friendly_name)
+    try:
+        try:
+            from .comfly_config import get_api_model_name as get_api_model_name_impl
+        except Exception:
+            from comfly_config import get_api_model_name as get_api_model_name_impl
+        return get_api_model_name_impl(friendly_name)
+    except Exception:
+        mapping = load_models_config().get("api_name_mapping", {})
+        return mapping.get(friendly_name, friendly_name)
 
 def get_display_name(internal_name):
     """根据内部模型名称获取友好显示名称"""
-    mapping = load_models_config().get("display_name_mapping", {})
-    return mapping.get(internal_name, internal_name)
+    try:
+        try:
+            from .comfly_config import get_display_name as get_display_name_impl
+        except Exception:
+            from comfly_config import get_display_name as get_display_name_impl
+        return get_display_name_impl(internal_name)
+    except Exception:
+        mapping = load_models_config().get("display_name_mapping", {})
+        return mapping.get(internal_name, internal_name)
+
+def _flatten_billing_models(models_section):
+    if not isinstance(models_section, dict):
+        return {}
+    flat = {}
+    for key, value in models_section.items():
+        if isinstance(value, dict) and value.get("billing_type"):
+            flat[key] = value
+            continue
+        if isinstance(value, dict) and isinstance(value.get("models"), dict):
+            for mk, mv in value["models"].items():
+                if isinstance(mv, dict) and mv.get("billing_type"):
+                    flat[mk] = mv
+            continue
+        if isinstance(value, dict):
+            for mk, mv in value.items():
+                if isinstance(mv, dict) and mv.get("billing_type"):
+                    flat[mk] = mv
+    return flat
 
 async def get_config(request):
     config = load_api_config()
@@ -153,6 +180,17 @@ async def get_billing_config(request):
 
     billing_config["display_settings"]["model_display_names"] = models_config.get("display_name_mapping", {})
     billing_config["display_settings"]["model_api_names"] = models_config.get("api_name_mapping", {})
+    display_name_mapping = models_config.get("display_name_mapping", {})
+    if isinstance(display_name_mapping, dict):
+        billing_config["display_settings"]["model_billing_names"] = {
+            display: internal
+            for internal, display in display_name_mapping.items()
+            if isinstance(display, str)
+        }
+    else:
+        billing_config["display_settings"]["model_billing_names"] = {}
+
+    billing_config["models"] = _flatten_billing_models(billing_config.get("models", {}))
 
     return web.json_response(billing_config)
 
@@ -173,4 +211,3 @@ def init_server(app):
     app.router.add_get("/lib/marked.min.js", get_marked_js)
     app.router.add_get("/lib/purify.min.js", get_purify_js)
     app.router.add_get("/mjstyle/{name}.json", get_mjstyle_json)
-

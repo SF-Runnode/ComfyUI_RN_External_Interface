@@ -1,7 +1,7 @@
 import os
 import json
 import glob
-from typing import Dict
+from typing import Dict, Any
 
 
 
@@ -193,6 +193,32 @@ def get_billing_config() -> Dict:
     return _billing_config_cache
 
 
+def _flatten_billing_models(models_section: Any) -> Dict:
+    if not isinstance(models_section, dict):
+        return {}
+
+    flat: Dict[str, Any] = {}
+    for key, value in models_section.items():
+        if isinstance(value, dict) and value.get("billing_type"):
+            flat[key] = value
+            continue
+        if isinstance(value, dict) and isinstance(value.get("models"), dict):
+            for mk, mv in value["models"].items():
+                if isinstance(mv, dict) and mv.get("billing_type"):
+                    flat[mk] = mv
+            continue
+        if isinstance(value, dict):
+            for mk, mv in value.items():
+                if isinstance(mv, dict) and mv.get("billing_type"):
+                    flat[mk] = mv
+    return flat
+
+
+def get_billing_models() -> Dict:
+    config = get_billing_config()
+    return _flatten_billing_models(config.get("models", {}))
+
+
 def reload_billing_config():
     """重新加载计费配置（用于热更新）"""
     global _billing_config_cache
@@ -203,6 +229,21 @@ def reload_billing_config():
 # ============== 模型名称映射配置 ==============
 
 _models_config_cache = None
+
+
+def _flatten_models_mapping_section(section: Any) -> Dict[str, str]:
+    if not isinstance(section, dict):
+        return {}
+    flat: Dict[str, str] = {}
+    for key, value in section.items():
+        if isinstance(value, str):
+            flat[key] = value
+            continue
+        if isinstance(value, dict):
+            for mk, mv in value.items():
+                if isinstance(mv, str):
+                    flat[mk] = mv
+    return flat
 
 
 def load_models_config() -> Dict:
@@ -227,9 +268,18 @@ def load_models_config() -> Dict:
             return _models_config_cache
 
         with open(config_path, 'r', encoding='utf-8') as f:
-            _models_config_cache = json.load(f)
-            print(f"[Models] Loaded config from: {config_path}")
-            return _models_config_cache
+            raw = json.load(f)
+        if not isinstance(raw, dict):
+            raw = {}
+
+        display = _flatten_models_mapping_section(raw.get("display_name_mapping", {}))
+        api = _flatten_models_mapping_section(raw.get("api_name_mapping", {}))
+        raw["display_name_mapping"] = display
+        raw["api_name_mapping"] = api
+
+        _models_config_cache = raw
+        print(f"[Models] Loaded config from: {config_path}")
+        return _models_config_cache
     except Exception as e:
         print(f"[Models] Error loading models config: {e}")
         _models_config_cache = {"display_name_mapping": {}, "api_name_mapping": {}}
