@@ -6,6 +6,14 @@ import traceback
 from ..comfly_config import *
 from .__init__ import *
 
+def _normalize_suno_version_key(version: str) -> str:
+    if not isinstance(version, str):
+        return ""
+    v = version.strip()
+    if v.startswith("suno-"):
+        return v[len("suno-"):]
+    return v
+
 
 class Comfly_suno_description:
     @classmethod
@@ -14,13 +22,9 @@ class Comfly_suno_description:
             "required": {
                 "title": ("STRING", {"default": ""}),
                 "description_prompt": ("STRING", {"multiline": True}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 4.5"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
                 "make_instrumental": ("BOOLEAN", {"default": False}),
-            },
-            "optional": {
-                "apikey": ("STRING", {"default": ""})
-                # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -41,6 +45,7 @@ class Comfly_suno_description:
     
     def generate_music(self, title, description_prompt, version="Suno 4.5", seed=0, make_instrumental=False, apikey=""):
         version = get_api_model_name(version)
+        version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("music_gen", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="description")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
@@ -73,10 +78,11 @@ class Comfly_suno_description:
             "v4": "chirp-v4",
             "v4.5": "chirp-auk",
             "v4.5+": "chirp-bluejay",
-            "v5": "chirp-crow"
+            "v5": "chirp-crow",
+            "v5.5": "chirp-fenix"
         }
         
-        mv = mv_mapping.get(version, "chirp-auk")
+        mv = mv_mapping.get(version_key, "chirp-auk")
             
         try:
             payload = {
@@ -155,7 +161,7 @@ class Comfly_suno_description:
                 clips_count=(len(result.get("clips", [])) if isinstance(result.get("clips", []), list) else None),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            raise Exception(error_message)
+                raise Exception(error_message)
                 
             clip_ids = [clip["id"] for clip in result["clips"]]
             if len(clip_ids) < 2:
@@ -169,7 +175,7 @@ class Comfly_suno_description:
                 task_id=str(task_id),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            raise Exception(error_message)
+                raise Exception(error_message)
                 
             pbar.update_absolute(30)
             max_attempts = 30
@@ -342,10 +348,6 @@ class Comfly_suno_lyrics:
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-            },
-            "optional": {
-                "apikey": ("STRING", {"default": ""})
-                # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -537,14 +539,10 @@ class Comfly_suno_custom:
         return {
             "required": {
                 "title": ("STRING", {"default": ""}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 4.5"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
                 "prompt": ("STRING", {"multiline": True}), 
                 "tags": ("STRING", {"default": ""}),  
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
-            },
-            "optional": {
-                "apikey": ("STRING", {"default": ""})
-                # "apikey": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
             }
         }
     
@@ -567,6 +565,7 @@ class Comfly_suno_custom:
     
     def generate_music(self, title, version="Suno 4.5", prompt="", tags="", seed=0, apikey=""):
         version = get_api_model_name(version)
+        version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("music_custom", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="custom")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音乐生成", source="RunNode/Suno-")
@@ -574,9 +573,6 @@ class Comfly_suno_custom:
         _rn_start = time.perf_counter()
         if apikey.strip():
             self.api_key = apikey
-            # config = get_config()
-            # config['api_key'] = apikey
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
@@ -599,10 +595,11 @@ class Comfly_suno_custom:
             "v4": "chirp-v4",
             "v4.5": "chirp-auk",
             "v4.5+": "chirp-bluejay",
-            "v5": "chirp-crow"
+            "v5": "chirp-crow",
+            "v5.5": "chirp-fenix"
         }
         
-        mv = mv_mapping.get(version, "chirp-auk")
+        mv = mv_mapping.get(version_key, "chirp-auk")
             
         try:
             payload = {
@@ -695,7 +692,7 @@ class Comfly_suno_custom:
                 task_id=str(task_id),
                 elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
             )
-            raise Exception(error_message)
+                raise Exception(error_message)
                 
             pbar.update_absolute(30)
             max_attempts = 30
@@ -858,7 +855,7 @@ class Comfly_suno_upload:
                 "audio": ("AUDIO",),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "upload_filename": ("STRING", {"default": "audio.mp3"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
@@ -888,9 +885,6 @@ class Comfly_suno_upload:
         _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
@@ -1203,10 +1197,10 @@ class Comfly_suno_upload_extend:
                 "tags": ("STRING", {"default": ""}),
                 "title": ("STRING", {"default": ""}),
                 "continue_at": ("INT", {"default": 28, "min": 0, "max": 120}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 5.0"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
             }
@@ -1229,6 +1223,7 @@ class Comfly_suno_upload_extend:
 
     def extend_audio(self, clip_id, prompt, tags="", title="", continue_at=28, version="Suno 5.0", api_key="", seed=0):
         version = get_api_model_name(version)
+        version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("upload_extend", "suno")
         log_prepare("音频续写", request_id, "RunNode/Suno-", "Suno", rule_name="upload_extend")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="音频续写", source="RunNode/Suno-")
@@ -1236,9 +1231,6 @@ class Comfly_suno_upload_extend:
         _rn_start = time.perf_counter()
         if api_key.strip():
             self.api_key = api_key
-            # config = get_config()
-            # config['api_key'] = api_key
-            # save_config(config)
         else:
             self.api_key = get_config().get('api_key', '')
             
@@ -1261,10 +1253,11 @@ class Comfly_suno_upload_extend:
             "v4": "chirp-v4",
             "v4.5": "chirp-auk",
             "v4.5+": "chirp-bluejay",
-            "v5": "chirp-crow"
+            "v5": "chirp-crow",
+            "v5.5": "chirp-fenix"
         }
         
-        mv = mv_mapping.get(version, "chirp-crow")
+        mv = mv_mapping.get(version_key, "chirp-crow")
             
         try:
             pbar = comfy.utils.ProgressBar(100)
@@ -1522,11 +1515,11 @@ class Comfly_suno_cover:
                 "prompt": ("STRING", {"multiline": True}),
                 "title": ("STRING", {"default": ""}),
                 "tags": ("STRING", {"default": ""}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0"], {"default": "Suno 5.0"}),
+                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
                 "make_instrumental": ("BOOLEAN", {"default": False}),
             },
             "optional": {
-                "api_key": ("STRING", {"default": ""}),
+                # "api_key": ("STRING", {"default": ""}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
                 "negative_tags": ("STRING", {"default": ""}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
@@ -1552,6 +1545,7 @@ class Comfly_suno_cover:
     def generate_cover(self, cover_clip_id, prompt, title="", tags="", version="Suno 5.0",
                     make_instrumental=False, api_key="", negative_tags="", seed=0):
         version = get_api_model_name(version)
+        version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("cover", "suno")
         log_prepare("翻唱生成", request_id, "RunNode/Suno-", "Suno", rule_name="cover")
         rn_pbar = ProgressBar(request_id, "Suno", streaming=True, task_type="翻唱生成", source="RunNode/Suno-")
@@ -1583,10 +1577,11 @@ class Comfly_suno_cover:
             "v4": "chirp-v4-tau",
             "v4.5": "chirp-auk",
             "v4.5+": "chirp-bluejay",
-            "v5": "chirp-crow"
+            "v5": "chirp-crow",
+            "v5.5": "chirp-fenix"
         }
         
-        mv = mv_mapping.get(version, "chirp-v4-tau")
+        mv = mv_mapping.get(version_key, "chirp-v4-tau")
             
         try:
             pbar = comfy.utils.ProgressBar(100)
