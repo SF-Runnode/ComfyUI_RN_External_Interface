@@ -13,7 +13,7 @@
       "gpt-image-1": "GPT Image 1",
       "gpt-image-1.5": "GPT Image 1.5",
       "gpt-image-2": "GPT Image 2",
-      "gpt-image-2-all": "GPT Image 2 All Image"
+      "gpt-image-2-all": "GPT Image 2 All"
     },
     "google": {
       "gemini-2.5-flash-image": "Gemini 2.5 Flash (Image)",
@@ -131,7 +131,7 @@
       "GPT Image 1.5": "gpt-image-1.5",
       "GPT-4o Image": "gpt-4o-image",
       "GPT Image 2": "gpt-image-2",
-      "GPT Image 2 All Image": "gpt-image-2-all"
+      "GPT Image 2 All": "gpt-image-2-all"
     },
     "google": {
       "Gemini 2.0 Flash (Image)": "gemini-2.0-flash-exp-image",
