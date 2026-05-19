@@ -10,7 +10,7 @@ class Comfly_Doubao_Seedream:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["Doubao Seedream 3.0"], {"default": "Doubao Seedream 3.0"}),
+                "model": (["doubao-seedream-3-0-t2i-250415"], {"default": "doubao-seedream-3-0-t2i-250415"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "size": (["1024x1024", "864x1152", "1152x864", "1280x720", "720x1280", "832x1248", 
                          "1248x832", "1512x648", "Custom"], {"default": "1024x1024"}),
@@ -58,7 +58,6 @@ class Comfly_Doubao_Seedream:
     def generate_image(self, prompt, model, response_format="url", size="1024x1024",
                        Custom_size="1536x1024", guidance_scale=2.5, apikey="",
                        seed=-1, watermark=True):
-        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "doubao")
         log_prepare("图像生成", request_id, "RunNode/Doubao-", "Doubao", model_name=model)
         rn_pbar = ProgressBar(request_id, "Doubao", streaming=True, task_type="图像生成", source="RunNode/Doubao-")
@@ -196,7 +195,7 @@ class Comfly_Doubao_Seedream_4:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["Doubao Seedream 4.0"], {"default": "Doubao Seedream 4.0"}),
+                "model": (["doubao-seedream-4-0-250828"], {"default": "doubao-seedream-4-0-250828"}),
                 "response_format": (["url", "b64_json"], {"default": "url"}),
                 "resolution": (["1K", "2K", "4K"], {"default": "1K"}),
             },
@@ -294,7 +293,6 @@ class Comfly_Doubao_Seedream_4:
                   image1=None, image2=None, image3=None, image4=None, image5=None,
                   sequential_image_generation="disabled", max_images=1, seed=-1,
                   watermark=True, stream=False):
-        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "doubao")
         log_prepare("图像生成", request_id, "RunNode/Doubao-", "Doubao", model_name=model)
         rn_pbar = ProgressBar(request_id, "Doubao", streaming=True, task_type="图像生成", source="RunNode/Doubao-")
@@ -1698,7 +1696,7 @@ class Comfly_Doubao_Seedance_2_0:
         return{
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "model": (["Doubao Seedance 2.0", "Doubao Seedance 2.0 Fast"], {"default": "Doubao Seedance 2.0"}),
+                "model": (["doubao-seedance-2-0-260128", "doubao-seedance-2-0-fast-260128"], {"default": "doubao-seedance-2-0-260128"}),
                 "duration": ("INT", {"default": 5, "min": 4, "max": 15, "step": 1, "tooltip": "视频时长，单位秒"}),
                 "ratio": (["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21", "adaptive"], {"default": "16:9", "tooltip": "视频比例"}),
                 "resolution": (["720p", "480p", "native1080p", "1080p", "2k", "4k"], {"default": "720p", "tooltip": "视频分辨率"}),
@@ -1890,7 +1888,6 @@ class Comfly_Doubao_Seedance_2_0:
                        watermark=False, seed=-1,
                        asset_bundle="", skip_error=False):
         
-        model = get_api_model_name(model)
         blank_image = Image.new('RGB', (1, 1), color='black')
         blank_tensor = pil2tensor(blank_image)
         empty_video = ComflyVideoAdapter("")

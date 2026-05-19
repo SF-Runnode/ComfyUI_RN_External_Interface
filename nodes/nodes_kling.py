@@ -48,7 +48,7 @@ class Comfly_kling_text2video:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容。"}),
-                "model_name": (["Kling 2.1 Master", "Kling 2.0 Master", "Kling 1.6", "Kling 1.5", "Kling 1.0"], {"default": "Kling 1.6", "tooltip": "Kling模型版本。v2系列为最新版本，v1系列为旧版本。"}),
+                "model_name": (["kling-v2-1-master", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"], {"default": "kling-v1-6"}),
                 "imagination": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "创意想象力参数。控制生成视频的创意程度，较高值更有创意但可能不那么真实。"}),
                 "aspect_ratio": (["1:1", "16:9", "9:16"], {"default": "1:1", "tooltip": "视频宽高比。1:1为方形，16:9为横屏，9:16为竖屏。"}),
                 "mode": (["std", "pro"], {"default": "std", "tooltip": "生成模式。std为标准模式，pro为专业模式（更高质量但更慢）。"}),
@@ -143,7 +143,6 @@ class Comfly_kling_text2video:
 
     def generate_video(self, prompt, model_name, imagination, aspect_ratio, mode, duration, num_videos,
                   negative_prompt="", camera="none", camera_value=0, seed=0, api_key=""):
-        model_name = get_api_model_name(model_name)
         request_id = generate_request_id("video_gen", "kling")
         log_prepare("视频生成", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
         rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="视频生成", source="RunNode/Kling-")
@@ -234,7 +233,7 @@ class Comfly_kling_image2video:
             "required": {
                 "image": ("IMAGE", {"tooltip": "输入图像。作为视频生成的基础图像。"}),
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。描述想要对图像进行的动画处理或变化。"}),
-                "model_name": (["kling-v2-1", "Kling 2.1 Master", "Kling 2.0 Master", "Kling 1.6", "Kling 1.5", "Kling 1.0"], {"default": "Kling 1.6", "tooltip": "Kling模型版本。"}),
+                "model_name": (["kling-v2-1-master", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"], {"default": "kling-v1-6"}),
                 "imagination": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "创意想象力参数。控制生成视频的创意程度。"}),
                 "aspect_ratio": (["1:1", "16:9", "9:16"], {"default": "1:1", "tooltip": "视频宽高比。"}),
                 "mode": (["std", "pro"], {"default": "std", "tooltip": "生成模式。std为标准模式，pro为专业模式。"}),
@@ -302,7 +301,6 @@ class Comfly_kling_image2video:
 
     def generate_video(self, image, prompt, model_name, imagination, aspect_ratio, mode, duration,
                   num_videos, negative_prompt="", camera="none", camera_value=0, seed=0, image_tail=None, api_key=""):
-        model_name = get_api_model_name(model_name)
         request_id = generate_request_id("video_gen_img", "kling")
         log_prepare("图生视频", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
         rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="图生视频", source="RunNode/Kling-")
@@ -450,7 +448,7 @@ class Comfly_kling_multi_image2video:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。描述想要生成的视频内容。"}),
-                "model_name": (["Kling 1.6"], {"default": "Kling 1.6", "tooltip": "Kling模型版本。"}),
+                "model_name": (["kling-v2-1-master", "kling-v2-master", "kling-v1-6", "kling-v1-5", "kling-v1"], {"default": "kling-v1-6"}),
                 "mode": (["std", "pro"], {"default": "std", "tooltip": "生成模式。std为标准模式，pro为专业模式。"}),
                 "duration": (["5", "10"], {"default": "5", "tooltip": "视频时长(秒)。"}),
                 "aspect_ratio": (["16:9", "9:16", "1:1"], {"default": "16:9", "tooltip": "视频宽高比。"}),
@@ -558,7 +556,6 @@ class Comfly_kling_multi_image2video:
     def generate_video(self, prompt, model_name, mode, duration, aspect_ratio, negative_prompt="",
                  image1=None, image2=None, image3=None, image4=None, api_key="",
                  max_retries=10, initial_timeout=300, seed=0):
-        model_name = get_api_model_name(model_name)
         request_id = generate_request_id("video_gen_multi", "kling")
         log_prepare("多图视频生成", request_id, "RunNode/Kling-", "Kling", model_name=model_name)
         rn_pbar = ProgressBar(request_id, "Kling", streaming=True, task_type="多图视频生成", source="RunNode/Kling-")

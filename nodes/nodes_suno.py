@@ -22,7 +22,7 @@ class Comfly_suno_description:
             "required": {
                 "title": ("STRING", {"default": ""}),
                 "description_prompt": ("STRING", {"multiline": True}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
+                "version": (["suno-v3.0", "suno-v3.5", "suno-v4", "suno-v4.5", "suno-v4.5+", "suno-v5", "suno-v5.5"], {"default": "suno-v5.5"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
                 "make_instrumental": ("BOOLEAN", {"default": False}),
             }
@@ -44,7 +44,6 @@ class Comfly_suno_description:
         }
     
     def generate_music(self, title, description_prompt, version="Suno 4.5", seed=0, make_instrumental=False, apikey=""):
-        version = get_api_model_name(version)
         version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("music_gen", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="description")
@@ -539,7 +538,7 @@ class Comfly_suno_custom:
         return {
             "required": {
                 "title": ("STRING", {"default": ""}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
+                "version": (["suno-v3.0", "suno-v3.5", "suno-v4", "suno-v4.5", "suno-v4.5+", "suno-v5", "suno-v5.5"], {"default": "suno-v5.5"}),
                 "prompt": ("STRING", {"multiline": True}), 
                 "tags": ("STRING", {"default": ""}),  
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647}),
@@ -564,7 +563,6 @@ class Comfly_suno_custom:
         }
     
     def generate_music(self, title, version="Suno 4.5", prompt="", tags="", seed=0, apikey=""):
-        version = get_api_model_name(version)
         version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("music_custom", "suno")
         log_prepare("音乐生成", request_id, "RunNode/Suno-", "Suno", rule_name="custom")
@@ -1197,7 +1195,7 @@ class Comfly_suno_upload_extend:
                 "tags": ("STRING", {"default": ""}),
                 "title": ("STRING", {"default": ""}),
                 "continue_at": ("INT", {"default": 28, "min": 0, "max": 120}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
+                "version": (["suno-v3.0", "suno-v3.5", "suno-v4", "suno-v4.5", "suno-v4.5+", "suno-v5", "suno-v5.5"], {"default": "suno-v5.5"}),
             },
             "optional": {
                 # "api_key": ("STRING", {"default": ""}),
@@ -1222,7 +1220,6 @@ class Comfly_suno_upload_extend:
         }
 
     def extend_audio(self, clip_id, prompt, tags="", title="", continue_at=28, version="Suno 5.0", api_key="", seed=0):
-        version = get_api_model_name(version)
         version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("upload_extend", "suno")
         log_prepare("音频续写", request_id, "RunNode/Suno-", "Suno", rule_name="upload_extend")
@@ -1515,7 +1512,7 @@ class Comfly_suno_cover:
                 "prompt": ("STRING", {"multiline": True}),
                 "title": ("STRING", {"default": ""}),
                 "tags": ("STRING", {"default": ""}),
-                "version": (["Suno 3.0", "Suno 3.5", "Suno 4.0", "Suno 4.5", "Suno 4.5+", "Suno 5.0", "Suno 5.5"], {"default": "Suno 5.5"}),
+                "version": (["suno-v3.0", "suno-v3.5", "suno-v4", "suno-v4.5", "suno-v4.5+", "suno-v5", "suno-v5.5"], {"default": "suno-v5.5"}),
                 "make_instrumental": ("BOOLEAN", {"default": False}),
             },
             "optional": {
@@ -1544,7 +1541,6 @@ class Comfly_suno_cover:
     
     def generate_cover(self, cover_clip_id, prompt, title="", tags="", version="Suno 5.0",
                     make_instrumental=False, api_key="", negative_tags="", seed=0):
-        version = get_api_model_name(version)
         version_key = _normalize_suno_version_key(version)
         request_id = generate_request_id("cover", "suno")
         log_prepare("翻唱生成", request_id, "RunNode/Suno-", "Suno", rule_name="cover")

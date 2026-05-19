@@ -16,7 +16,7 @@ from .nodes.nodes_xai import *
 
 WEB_DIRECTORY = "./web/js"
 
-__version__ = "1.20.0"
+__version__ = "1.21.2"
 
 NODE_CLASS_MAPPINGS = {
     "RunNode_api_set": Comfly_api_set,

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**ComfyUI_RN_External_Interface** is a ComfyUI custom nodes extension (v1.19.5) that provides integrations with various AI media generation APIs including Sora, Kling, Midjourney, Suno, Gemini, Veo, Flux, Qwen, Vidu, MiniMax, Ollama, and more. It is published under `SF-Runnode` in the ComfyUI registry.
+**ComfyUI_RN_External_Interface** is a ComfyUI custom nodes extension (v1.21.2) that provides integrations with various AI media generation APIs including Sora, Kling, Midjourney, Suno, Gemini, Veo, Flux, Qwen, Vidu, MiniMax, Ollama, and more. It is published under `SF-Runnode` in the ComfyUI registry. There is no test suite.
 
 The extension is placed under `ComfyUI/custom_nodes/` and loaded automatically when ComfyUI starts.
 
@@ -13,12 +13,12 @@ The extension is placed under `ComfyUI/custom_nodes/` and loaded automatically w
 ```
 ComfyUI_RN_External_Interface/
 ├── __init__.py              # Entry point: registers nodes, sets WEB_DIRECTORY, initializes AiHelper server
-├── Tools.py                 # API client (Comfly_api_set, Comfly_LLm_API), HTTP route handlers (init_server)
+├── Tools.py                 # API client classes (Comfly_api_set, Comfly_LLm_API)
 ├── comfly_config.py         # Configuration loader (API keys, base URLs, billing config, model name mapping)
 ├── billing_engine.py        # Billing calculation engine with pluggable strategy pattern
-├── billing_helpers.py       # Node billing integration helpers (model inference, price formatting)
-├── utils.py                 # Core utilities: logging, ProgressBar, error formatting, video/image adapters
-├── AiHelper.py              # Helper utilities (pil2tensor, tensor2pil, video/audio adapters)
+├── billing_helpers.py       # Node billing integration helpers (price display, ContextVar node ID tracking)
+├── utils.py                 # Core utilities: logging, ProgressBar, error formatting, pil2tensor/tensor2pil, video/audio adapters, asset bundle parsers
+├── AiHelper.py              # HTTP route handlers and init_server() for registering /api/ endpoints
 ├── config/
 │   ├── billing_config.json          # Model prices and billing rules
 │   ├── billing_config_README.md     # Billing config documentation
@@ -78,6 +78,8 @@ def calc_custom(model_config, data, is_estimate):
     return calculated_price
 ```
 
+**Credit conversion**: USD prices are multiplied by `211` to get credits (hardcoded in `billing_engine.py`, `billing_helpers.py`, and frontend JS).
+
 ### Logging & Progress
 
 `utils.py` provides structured logging:
@@ -95,6 +97,31 @@ def calc_custom(model_config, data, is_estimate):
 - `/api/model_mapping` — Model name mapping only
 - `/lib/marked.min.js`, `/lib/purify.min.js` — Library serving
 - `/mjstyle/{name}.json` — Midjourney style templates
+
+### Node Lifecycle Pattern
+
+Every generation node follows the same sequence (see any `nodes/nodes_*.py`):
+
+1. `get_api_model_name(model)` — convert friendly display name to API name
+2. `generate_request_id(task_type, provider)` — create unique `rn_*` ID
+3. `log_prepare()` — log task start
+4. `ProgressBar(request_id, ...)` — create progress tracker, call `set_generating()`
+5. Validate inputs, check API key (fall back to `get_config().get('api_key')`)
+6. Make HTTP request via `requests` library
+7. `log_complete()` / `log_error()` — log outcome
+8. Return ComfyUI tensors (use `pil2tensor()` for images, `ComflyVideoAdapter` for video)
+
+### Batch Execution Nodes
+
+Some providers (Sora2, Nano Banana) have "Group" + "Run_N" paired nodes:
+
+- **Group nodes** (e.g., `RunNode_sora2_group`) split work into batches of N items
+- **Run_N nodes** (e.g., `RunNode_sora2_run_4`) execute N parallel requests within a batch
+- The Group node serializes data as JSON strings that Run_N nodes deserialize — this pattern is necessary because ComfyUI doesn't natively support batch iteration
+
+### Disabling Nodes
+
+Nodes are disabled by commenting out their registration in `NODE_CLASS_MAPPINGS` and `NODE_DISPLAY_NAME_MAPPINGS` in `__init__.py`. Never delete the class definition from the node file — keep it for potential re-enable.
 
 ## Key Conventions
 

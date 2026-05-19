@@ -46,12 +46,12 @@
       "veo3.1-pro-4k": "Veo 3.1 Pro 4K"
     },
     "kling": {
-      "kling-video-v1": "Kling 1.0",
-      "kling-video-v1-5": "Kling 1.5",
-      "kling-video-v1-6": "Kling 1.6",
-      "kling-video-v2-1": "Kling 2.1",
-      "kling-video-v2-1-master": "Kling 2.1 Master",
-      "kling-video-v2-master": "Kling 2.0 Master"
+      "kling-v1": "Kling 1.0",
+      "kling-v1-5": "Kling 1.5",
+      "kling-v1-6": "Kling 1.6",
+      "kling-v2-1": "Kling 2.1",
+      "kling-v2-1-master": "Kling 2.1 Master",
+      "kling-v2-master": "Kling 2.0 Master"
     },
     "midjourney": {
       "midjourney": "Midjourney",
@@ -165,12 +165,12 @@
       "nano-banana/edit": "nano-banana/edit"
     },
     "kling": {
-      "Kling 1.0": "kling-video-v1",
-      "Kling 1.5": "kling-video-v1-5",
-      "Kling 1.6": "kling-video-v1-6",
-      "Kling 2.0 Master": "kling-video-v2-master",
-      "kling 2.1": "kling-video-v2-1",
-      "Kling 2.1 Master": "kling-video-v2-1-master"
+      "Kling 1.0": "kling-v1",
+      "Kling 1.5": "kling-v1-5",
+      "Kling 1.6": "kling-v1-6",
+      "Kling 2.0 Master": "kling-v2-master",
+      "kling 2.1": "kling-v2-1",
+      "Kling 2.1 Master": "kling-v2-1-master"
     },
     "midjourney": {
       "Midjourney": "midjourney",

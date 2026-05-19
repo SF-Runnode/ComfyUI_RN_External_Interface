@@ -57,7 +57,7 @@ class Comfly_gpt_image_1_edit:
                 "mask9": ("MASK",),
                 "mask10": ("MASK",),
                 "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API 密钥，留空则使用全局配置"}),
-                "model": (["GPT Image 1", "GPT Image 1.5"], {"default": "GPT Image 1", "tooltip": "使用的模型版本"}),
+                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1", "tooltip": "使用的模型版本"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成的图像数量"}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto", "tooltip": "输出图像尺寸，'auto'表示保持原尺寸"}),
@@ -169,7 +169,6 @@ class Comfly_gpt_image_1_edit:
               mask1=None, mask2=None, mask3=None, mask4=None, mask5=None,
               mask6=None, mask7=None, mask8=None, mask9=None, mask10=None):
         # 将显示名称转换为API名称
-        model = get_api_model_name(model)
         request_id = generate_request_id("img_edit", "openai")
         log_prepare("图像编辑", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像编辑", source="RunNode/OpenAI-")
@@ -540,7 +539,7 @@ class Comfly_gpt_image_1:
             "optional": {
                 "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API密钥。留空则使用Comflyapi.json中的全局配置。"}),
                 # "api_key": ("STRING", {"default": "", "multiline": False, "forceInput": True}),
-                "model": (["GPT Image 1", "GPT Image 1.5"], {"default": "GPT Image 1", "tooltip": "使用的图像生成模型版本。GPT Image 1.5为较新版本。"}),
+                "model": (["gpt-image-1", "gpt-image-1.5"], {"default": "gpt-image-1", "tooltip": "使用的图像生成模型版本。GPT Image 1.5为较新版本。"}),
                 "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成的图像数量，范围1-10。"}),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量等级。auto表示由模型自动选择。"}),
                 "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto", "tooltip": "输出图像尺寸。auto表示保持原图尺寸或由模型决定。"}),
@@ -569,8 +568,6 @@ class Comfly_gpt_image_1:
     def generate_image(self, prompt, model="gpt-image-1", n=1, quality="auto",
                 size="auto", background="auto", output_format="png",
                 moderation="auto", seed=0, api_key=""):
-        # 将显示名称转换为API名称
-        model = get_api_model_name(model)
         request_id = generate_request_id("img_gen", "openai")
         log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图像生成", source="RunNode/OpenAI-")
@@ -781,7 +778,7 @@ class ComflyChatGPTApi:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "发送给模型的提示词。可以包含文本描述和Markdown格式。"}),
-                "model": (["GPT-4o Image"], {"default": "GPT-4o Image", "tooltip": "使用的GPT模型。该模型支持图像处理和生成。"}),
+                "model": (["gpt-4o-image"], {"default": "gpt-4o-image", "tooltip": "使用的GPT模型。该模型支持图像处理和生成。"}),
             },
             "optional": {
                 "api_key": ("STRING", {"default": "", "tooltip": "OpenAI API密钥。留空则使用Comflyapi.json中的全局配置。"}),
@@ -982,8 +979,6 @@ class ComflyChatGPTApi:
     def process(self, prompt, model, clear_chats=True, files=None, image_url="", images=None, temperature=0.7,
            max_tokens=4096, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, seed=-1,
            image_download_timeout=100, api_key=""):
-        # 将显示名称转换为API名称
-        model = get_api_model_name(model)
         request_id = generate_request_id("chat", "openai")
         log_prepare("图文对话", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="图文对话", source="RunNode/OpenAI-")
@@ -1212,7 +1207,7 @@ class Comfly_sora2_openai:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容。"}),
-                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
+                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
             },
             "optional": {
                 "apikey": ("STRING", {"default": "", "tooltip": "API密钥。留空则使用Comflyapi.json中的全局配置。"}),
@@ -1251,8 +1246,6 @@ class Comfly_sora2_openai:
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
     def process(self, prompt, model, apikey="", seconds="15", size="1280x720", image=None, seed=0, private=True):
-        # 将显示名称转换为API名称
-        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "openai")
         log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
@@ -1542,7 +1535,7 @@ class Comfly_sora2:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。详细描述想要生成的视频内容、动作、场景等。"}),
-                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率、HD模式和25秒时长。"}),
+                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率、HD模式和25秒时长。"}),
                 "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "16:9", "tooltip": "视频宽高比。16:9为横屏，9:16为竖屏，3:4和4:3仅Sora 2 Pro+HD支持。"}),
                 "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
                 "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持，启用后可以支持更高分辨率和3:4/4:3比例。"}),
@@ -2118,8 +2111,6 @@ class Comfly_sora2:
     def process(self, prompt, model, aspect_ratio="16:9", duration="10", hd=False, apikey="",
                 image1=None, image2=None, image3=None, image4=None, image5=None, image6=None, image7=None, image8=None, image9=None,
                 seed=0, private=True):
-        # 将显示名称转换为API名称
-        model = get_api_model_name(model)
         request_id = generate_request_id("video_gen", "openai")
         log_prepare("视频生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
         rn_pbar = ProgressBar(request_id, "OpenAI", extra_info=f"模型:{model}", streaming=True, task_type="视频生成", source="RunNode/OpenAI-")
@@ -2232,7 +2223,7 @@ class Comfly_sora2_chat:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。通过聊天接口生成视频，支持更自然的语言描述。"}),
-                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持HD模式和25秒时长。"}),
+                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持HD模式和25秒时长。"}),
                 "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。Sora 2最大15秒，Sora 2 Pro最大25秒。25秒和HD不能同时启用。"}),
                 "orientation": (["portrait", "landscape"], {"default": "portrait", "tooltip": "视频方向。portrait为竖屏，landscape为横屏。"})
             },
@@ -2274,8 +2265,6 @@ class Comfly_sora2_chat:
     
     def generate_video(self, prompt, model="sora-2", duration="10", orientation="portrait",
                       image=None, hd=False, apikey="", seed=0):
-        # 将显示名称转换为API名称
-        model = get_api_model_name(model)
         request_id = generate_request_id("video_chat", "openai")
         config = get_config()
         baseurl = config.get('sora2_base_url') or config.get('base_url', '')
@@ -4019,7 +4008,7 @@ class Comfly_sora2_batch_32:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "multiline": False, "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
+                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "multiline": False, "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
             },
             "optional": {
                 # 1-32 组图片+Prompt输入项
@@ -4563,7 +4552,7 @@ class Comfly_sora2_batch_32:
     def generate_video(self, **kwargs):
         """核心批量生成逻辑"""
         # 将显示名称转换为API名称
-        kwargs["model"] = get_api_model_name(kwargs.get("model", "Sora 2"))
+        kwargs["model"] = kwargs.get("model", "sora-2")
         request_id = generate_request_id("video_batch", "openai")
         model_for_log = kwargs.get("model") or "sora-2"
         log_prepare("视频批量生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model_for_log)
@@ -4763,7 +4752,7 @@ class Comfly_sora2_group:
                 "prompt": ("STRING", {"multiline": True, "tooltip": "视频生成的描述提示词。这个提示词将与其他参数组合生成一组视频。"}),
             },
             "optional": {
-                "model": (["Sora 2", "Sora 2 Pro"], {"default": "Sora 2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
+                "model": (["sora-2", "sora-2-pro"], {"default": "sora-2", "tooltip": "Sora-2模型版本。Sora 2 Pro支持更高分辨率和25秒时长。"}),
                 "aspect_ratio": (["16:9", "9:16", "3:4", "4:3"], {"default": "16:9", "tooltip": "视频宽高比。3:4/4:3仅Sora 2 Pro+HD支持。"}),
                 "duration": (["4", "8", "10", "12", "15", "25"], {"default": "10", "tooltip": "视频时长(秒)。sora-2最大15秒，sora-2-pro最大25秒。"}),
                 "hd": ("BOOLEAN", {"default": False, "tooltip": "高清模式。仅sora-2-pro支持。"}),
@@ -4800,7 +4789,7 @@ class Comfly_sora2_group:
         return f"data:image/png;base64,{b64}"
     def build_group(self, **kwargs):
         # 将显示名称转换为API名称
-        kwargs["model"] = get_api_model_name(kwargs.get("model", "Sora 2"))
+        kwargs["model"] = kwargs.get("model", "sora-2")
         prompt = kwargs.get("prompt", "")
         model = kwargs.get("model", "sora-2")
         aspect_ratio = kwargs.get("aspect_ratio", "16:9")
@@ -5977,7 +5966,7 @@ class Comfly_gpt_image_2:
             },
             "optional": {
                 # "api_key": ("STRING", {"default": ""}),
-                "model": (["GPT Image 2", "GPT Image 2 ALL"], {"default": "GPT Image 2"}),
+                "model": (["gpt-image-2", "gpt-image-2-all"], {"default": "gpt-image-2"}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
@@ -6109,12 +6098,11 @@ class Comfly_gpt_image_2:
         except Exception as e:
             raise Exception(f"Error in API request: {str(e)}")
 
-    def process(self, prompt, model="GPT Image 2", quality="auto", size="auto",
+    def process(self, prompt, model="gpt-image-2", quality="auto", size="auto",
                 background="auto", output_format="png", moderation="auto",
                 seed=0, clear_chats=True, image_download_timeout=600, api_key="",
                 image1=None, image2=None, image3=None, image4=None, skip_error=False):
 
-        model = get_api_model_name(model)
         _rn_start = time.perf_counter()
         request_id = generate_request_id("img_gen", "openai")
         log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
@@ -6322,7 +6310,7 @@ class Comfly_gpt_image_2_S2A:
             },
             "optional": {
                 # "api_key": ("STRING", {"default": ""}),
-                "model": (["GPT Image 2", "GPT Image 2 ALL"], {"default": "GPT Image 2"}),
+                "model": (["gpt-image-2", "gpt-image-2-all"], {"default": "gpt-image-2"}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
@@ -6363,12 +6351,11 @@ class Comfly_gpt_image_2_S2A:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-    def generate_image(self, prompt, mode="text2img", model="GPT Image 2",
+    def generate_image(self, prompt, mode="text2img", model="gpt-image-2",
                        quality="auto", size="auto", background="auto",
                        output_format="png", moderation="auto", n=1,
                        task_id="", response_format="url", seed=0, api_key="",
                        image1=None, image2=None, image3=None, image4=None, skip_error=False):
-        model = get_api_model_name(model)
         _rn_start = time.perf_counter()
         request_id = generate_request_id("img_gen", "openai")
         log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
