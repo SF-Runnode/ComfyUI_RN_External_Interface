@@ -19,6 +19,7 @@ import { app } from "../../../scripts/app.js";
     let modelApiNames = {};
     let modelBillingNames = {};
     let displayToBillingKey = {};
+    let badgeStyleInstalled = false;
 
     function flattenStringMap(input) {
         if (!input || typeof input !== 'object') return {};
@@ -488,6 +489,136 @@ import { app } from "../../../scripts/app.js";
         return false;
     }
 
+    // 价格 badge 的可见文本高度，本身不随节点纵向拉伸变化。
+    const BADGE_TEXT_HEIGHT = 18;
+    // badge 到节点底边的最终留白。当前调到 4 时视觉效果最贴近需求。
+    const BADGE_BOTTOM_INSET = 4;
+    // badge 到节点左边框、右边框的最终留白。
+    const BADGE_LEFT_INSET = 14;
+    const BADGE_RIGHT_INSET = 14;
+    // 预留的“上一栏到 badge”额外间距。当前最终方案里由向上位移控制，因此这里保持 0。
+    const BADGE_TOP_GAP = 0;
+    // 额外的纵向补偿量：
+    // 1. 用来微调 badge 与上一栏的距离；
+    // 2. 当前为 0，表示不再额外补偿，直接使用底部留白作为上移基准。
+    const BADGE_GAP_COMPENSATION_Y = 0;
+    // badge 实际向上位移的总量。当前等于底部留白，因此上下视觉关系能同时满足。
+    const BADGE_RAISE_Y = BADGE_BOTTOM_INSET + BADGE_GAP_COMPENSATION_Y;
+    // addDOMWidget 的 margin 会同时作用在四周：
+    // - 底部：决定 badge 外层离底边的安全距离
+    // - 左右：会先吃掉一部分可见宽度，后面再用 INNER_LEFT / INNER_RIGHT 补回到目标留白
+    const BADGE_WIDGET_MARGIN = BADGE_BOTTOM_INSET;
+    // 由于外层 DOMWidget 已经有 margin，这里只补“目标左右留白 - 外层 margin”的差值。
+    const BADGE_INNER_LEFT = Math.max(0, BADGE_LEFT_INSET - BADGE_WIDGET_MARGIN);
+    const BADGE_INNER_RIGHT = Math.max(0, BADGE_RIGHT_INSET - BADGE_WIDGET_MARGIN);
+    // DOMWidget 的可见区域会被 margin 从四周各缩掉一圈，因此总高度必须包含：
+    // 外层上下 margin + badge 文本高度 + 额外顶部空隙。
+    const BADGE_WIDGET_HEIGHT = BADGE_TEXT_HEIGHT + BADGE_TOP_GAP + BADGE_WIDGET_MARGIN * 2;
+
+    function ensureBadgeStylesInstalled() {
+        if (badgeStyleInstalled || typeof document === 'undefined') return;
+        const style = document.createElement('style');
+        style.id = 'comfly-price-badge-style';
+        style.textContent = `
+.dom-widget:has(.comfly-price-badge-container) {
+    pointer-events: none !important;
+    opacity: 1 !important;
+}
+.dom-widget:has(.comfly-price-badge-container) .comfly-price-badge-container {
+    pointer-events: none !important;
+}
+`;
+        document.head.appendChild(style);
+        badgeStyleInstalled = true;
+    }
+
+    function removeExistingBadge(node) {
+        const existingWidget = node.widgets?.find(w => w.name === '__comfly_price_badge');
+        if (existingWidget) {
+            node.removeWidget(existingWidget);
+        }
+
+        if (node.element) {
+            const existingContainer = node.element.querySelector('.comfly-price-badge-container');
+            if (existingContainer) existingContainer.remove();
+        }
+    }
+
+    function requestBadgeRedraw(node) {
+        node?.setDirtyCanvas?.(true, true);
+        app.graph?.setDirtyCanvas?.(true, true);
+    }
+
+    function syncBadgeWidgetPosition(node, widget) {
+        if (!node || !widget || !Array.isArray(node.size)) return;
+        const nodeHeight = Number(node.size[1]) || 0;
+        const y = Math.max(0, nodeHeight - BADGE_WIDGET_HEIGHT);
+        widget.y = y;
+        widget.computedHeight = BADGE_WIDGET_HEIGHT;
+        widget.height = BADGE_WIDGET_HEIGHT;
+        widget.last_y = y;
+    }
+
+    function ensureBadgeWidget(node, text, title, small) {
+        ensureBadgeStylesInstalled();
+
+        let widget = node.widgets?.find(w => w.name === '__comfly_price_badge');
+        let badgeContainer = widget?.element;
+        let badge = badgeContainer?.querySelector?.('.comfly-price-badge');
+
+        if (!widget || !badgeContainer || !badge) {
+            removeExistingBadge(node);
+
+            badgeContainer = document.createElement('div');
+            badgeContainer.className = 'comfly-price-badge-container';
+            badgeContainer.style.cssText = [
+                'box-sizing:border-box',
+                'width:100%',
+                'height:100%',
+                'position:relative',
+                'pointer-events:none'
+            ].join(';') + ';';
+
+            badge = document.createElement('div');
+            badge.className = 'comfly-price-badge';
+            badgeContainer.appendChild(badge);
+
+            widget = node.addDOMWidget("__comfly_price_badge", "pb", badgeContainer, {
+                hideOnZoom: false,
+                margin: BADGE_WIDGET_MARGIN,
+                getMinHeight: () => BADGE_WIDGET_HEIGHT,
+                getMaxHeight: () => BADGE_WIDGET_HEIGHT,
+                getHeight: () => BADGE_WIDGET_HEIGHT,
+                afterResize() {
+                    syncBadgeWidgetPosition(node, widget);
+                },
+                onDraw() {
+                    syncBadgeWidgetPosition(node, widget);
+                }
+            });
+            widget.getValue = () => "";
+            widget.callback = () => {};
+        }
+
+        const baseStyle = 'padding:2px 8px;border-radius:10px;' +
+            'font-size:11px;font-weight:600;' +
+            'font-family:system-ui,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.3);' +
+            `position:absolute;left:${BADGE_INNER_LEFT}px;right:${BADGE_INNER_RIGHT}px;bottom:0;` +
+            `display:block;box-sizing:border-box;height:${BADGE_TEXT_HEIGHT}px;line-height:14px;` +
+            `transform:translateY(-${BADGE_RAISE_Y}px);` +
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+
+        badge.textContent = text;
+        badge.title = title;
+        badge.style.cssText = baseStyle +
+            (small
+                ? 'background:linear-gradient(135deg,#667eea,#764ba2);color:white;'
+                : 'background:linear-gradient(135deg,#11998e,#38ef7d);color:white;');
+
+        syncBadgeWidgetPosition(node, widget);
+        return widget;
+    }
+
     /**
      * 为节点添加价格 badge
      */
@@ -512,14 +643,7 @@ import { app } from "../../../scripts/app.js";
 
         const result = estimatePrice(nodeName, node.widgets);
         if (!result || !result.price) {
-            const existingWidget = node.widgets?.find(w => w.name === '__comfly_price_badge');
-            if (existingWidget) {
-                node.removeWidget(existingWidget);
-            }
-            if (node.element) {
-                const existing = node.element.querySelector('.comfly-price-badge');
-                if (existing) existing.remove();
-            }
+            removeExistingBadge(node);
             return;
         }
 
@@ -543,14 +667,7 @@ import { app } from "../../../scripts/app.js";
             displayText = `${modelDisplayName} ${result.billingTypeIcon} ${formatted.text}${result.billingTypeLabel}`;
         }
 
-        // 创建 badge 容器
-        const badgeContainer = document.createElement('div');
-        badgeContainer.style.cssText = 'position:absolute;top:2px;right:2px;z-index:1000;pointer-events:none;';
-
-        const badge = document.createElement('div');
-        badge.className = 'comfly-price-badge';
-        badge.textContent = displayText;
-        badge.title = `${modelDisplayName} - 计费方式: ${result.billingType}`;
+        let badgeTitle = `${modelDisplayName} - 计费方式: ${result.billingType}`;
         if (result.details?.matched_condition) {
             const cond = result.details.matched_condition;
             const reserved = new Set(['price_per_second', 'price_per_use', 'price_per_model', 'input_price_per_1k', 'output_price_per_1k', 'multiplier', 'label', 'name', 'description']);
@@ -558,44 +675,12 @@ import { app } from "../../../scripts/app.js";
                 .filter(([k]) => !reserved.has(k))
                 .map(([k, v]) => `${k}=${v}`);
             if (parts.length) {
-                badge.title += `\n匹配条件: ${parts.join(', ')}`;
+                badgeTitle += `\n匹配条件: ${parts.join(', ')}`;
             }
         }
 
-        const baseStyle = 'padding:2px 8px;border-radius:10px;' +
-            'font-size:11px;font-weight:600;' +
-            'font-family:system-ui,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.3);';
-
-        badge.style.cssText = baseStyle +
-            'background:linear-gradient(135deg,#11998e,#38ef7d);color:white;';
-
-        if (formatted.small) {
-            badge.style.cssText = baseStyle +
-                'background:linear-gradient(135deg,#667eea,#764ba2);color:white;';
-        }
-
-        badgeContainer.appendChild(badge);
-
-        // 移除已存在的 badge widget
-        const existingWidget = node.widgets?.find(w => w.name === '__comfly_price_badge');
-        if (existingWidget) {
-            node.removeWidget(existingWidget);
-        }
-
-        // 使用 addDOMWidget 添加 badge
-        try {
-            const widget = node.addDOMWidget("__comfly_price_badge", "pb", badgeContainer);
-            widget.getValue = () => "";
-            widget.callback = () => {};
-        } catch (e) {
-            // 如果 addDOMWidget 失败，直接添加到节点元素
-            if (node.element) {
-                node.element.style.position = 'relative';
-                const existing = node.element.querySelector('.comfly-price-badge');
-                if (existing) existing.remove();
-                node.element.appendChild(badgeContainer);
-            }
-        }
+        ensureBadgeWidget(node, displayText, badgeTitle, formatted.small);
+        requestBadgeRedraw(node);
     }
 
     // ============== ComfyUI Extension ==============
