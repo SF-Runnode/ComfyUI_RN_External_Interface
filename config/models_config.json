@@ -54,10 +54,9 @@
       "kling-v2-master": "Kling 2.0 Master"
     },
     "midjourney": {
-      "midjourney": "Midjourney",
-      "midjourney-fast": "Midjourney Fast",
-      "midjourney-relax": "Midjourney Relax",
-      "midjourney-pro": "Midjourney Pro"
+      "midjourney": "turbo mode",
+      "midjourney-fast": "fast mode",
+      "midjourney-relax": "relax mode"
     },
     "suno": {
       "suno-v3.0": "Suno 3.0",
@@ -173,10 +172,9 @@
       "Kling 2.1 Master": "kling-v2-1-master"
     },
     "midjourney": {
-      "Midjourney": "midjourney",
-      "Midjourney Fast": "midjourney-fast",
-      "Midjourney Pro": "midjourney-pro",
-      "Midjourney Relax": "midjourney-relax"
+      "turbo mode": "midjourney",
+      "fast mode": "midjourney-fast",
+      "relax mode": "midjourney-relax"
     },
     "suno": {
       "Suno 3.0": "suno-v3.0",

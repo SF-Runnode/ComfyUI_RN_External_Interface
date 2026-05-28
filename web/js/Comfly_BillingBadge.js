@@ -326,9 +326,7 @@ import { app } from "../../../scripts/app.js";
             modelKey = model || 'kling-v1-6';
         }
         else if (type.includes('mj') || type.includes('midjourney')) {
-            const price = billingConfig.models['midjourney']?.price_per_use || 0.035;
-            const info = BILLING_TYPE_INFO['per_use'];
-            return { price, billingType: 'per_use', billingTypeIcon: info.icon, billingTypeLabel: info.shortLabel, modelKey: 'midjourney' };
+            modelKey = getWidgetValue('speed') || 'midjourney-fast';
         }
         else if (type.includes('suno')) {
             modelKey = model ? model : 'Suno 4.5';
