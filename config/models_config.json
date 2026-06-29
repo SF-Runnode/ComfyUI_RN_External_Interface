@@ -13,7 +13,9 @@
       "gpt-image-1": "GPT Image 1",
       "gpt-image-1.5": "GPT Image 1.5",
       "gpt-image-2": "GPT Image 2",
-      "gpt-image-2-all": "GPT Image 2 All"
+      "gpt-image-2-all": "GPT Image 2 All",
+      "gpt-image-2-2K": "GPT Image 2 2K",
+      "gpt-image-2-4K": "GPT Image 2 4K"
     },
     "google": {
       "gemini-2.5-flash-image": "Gemini 2.5 Flash (Image)",
@@ -130,7 +132,9 @@
       "GPT Image 1.5": "gpt-image-1.5",
       "GPT-4o Image": "gpt-4o-image",
       "GPT Image 2": "gpt-image-2",
-      "GPT Image 2 All": "gpt-image-2-all"
+      "GPT Image 2 All": "gpt-image-2-all",
+      "GPT Image 2 2K": "gpt-image-2-2K",
+      "GPT Image 2 4K": "gpt-image-2-4K"
     },
     "google": {
       "Gemini 2.0 Flash (Image)": "gemini-2.0-flash-exp-image",
@@ -138,6 +142,7 @@
       "Gemini 2.5 Flash (Image Preview)": "gemini-2.5-flash-image-preview",
       "Gemini 3 Pro (Image Preview)": "gemini-3-pro-image-preview",
       "Gemini 3.1 Flash (Image Preview)": "gemini-3.1-flash-image-preview",
+      "Gemini 3.1 Flash (Image)": "gemini-3.1-flash-image",
       "Nano Banana": "nano-banana",
       "Nano Banana 2": "nano-banana-2",
       "Nano Banana 2 2K": "nano-banana-2-2k",

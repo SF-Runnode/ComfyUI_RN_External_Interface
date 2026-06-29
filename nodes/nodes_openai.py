@@ -5966,13 +5966,14 @@ class Comfly_gpt_image_2:
             },
             "optional": {
                 # "api_key": ("STRING", {"default": ""}),
-                "model": (["gpt-image-2", "gpt-image-2-all"], {"default": "gpt-image-2"}),
+                "model": (["gpt-image-2", "gpt-image-2-all", "gpt-image-2-2K", "gpt-image-2-4K"], {"default": "gpt-image-2"}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
                 "image4": ("IMAGE",),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
-                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
+                "size": (["auto", "1024x1024", "1536x1024", "1024x1536", "2048x2048", "2048x1152", 
+                        "1152x2048", "3840x2160", "2160x3840"], {"default": "auto"}),
                 "background": (["auto", "transparent", "opaque"], {"default": "auto"}),
                 "output_format": (["png", "jpeg", "webp"], {"default": "png"}),
                 "moderation": (["auto", "low"], {"default": "auto"}),
@@ -6310,13 +6311,14 @@ class Comfly_gpt_image_2_S2A:
             },
             "optional": {
                 # "api_key": ("STRING", {"default": ""}),
-                "model": (["gpt-image-2", "gpt-image-2-all"], {"default": "gpt-image-2"}),
+                "model": (["gpt-image-2", "gpt-image-2-all", "gpt-image-2-2K", "gpt-image-2-4K"], {"default": "gpt-image-2"}),
                 "image1": ("IMAGE",),
                 "image2": ("IMAGE",),
                 "image3": ("IMAGE",),
                 "image4": ("IMAGE",),
                 "quality": (["auto", "high", "medium", "low"], {"default": "auto"}),
-                "size": (["auto", "1024x1024", "1536x1024", "1024x1536"], {"default": "auto"}),
+                "size": (["auto", "1024x1024", "1536x1024", "1024x1536", "2048x2048", "2048x1152", 
+                        "1152x2048", "3840x2160", "2160x3840"], {"default": "auto"}),
                 "background": (["auto", "transparent", "opaque"], {"default": "auto"}),
                 "output_format": (["png", "jpeg", "webp"], {"default": "png"}),
                 "moderation": (["auto", "low"], {"default": "auto"}),
@@ -6974,3 +6976,2061 @@ class Comfly_gpt_image_2_S2A:
             if not skip_error:
                 raise RuntimeError(f"[Comfly_gpt_image_2_S2A] {error_message}") from e
             return (blank_tensor, "", task_id, json.dumps({"status": "query_failed", "task_id": task_id, "message": error_message}))
+
+
+class Comfly_gpt_image_2_official:
+
+    _GPT_IMAGE2_SIZE_CHOICES = [
+        "auto",
+        "1024x1024",
+        "1536x1024",
+        "1024x1536",
+        "2048x2048",
+        "2048x1152",
+        "3840x2160",
+        "2160x3840",
+    ]
+
+    @staticmethod
+    def _parse_size_wh(size_str):
+        m = re.match(r"^(\d+)x(\d+)$", size_str.strip())
+        if not m:
+            return None, None
+        return int(m.group(1)), int(m.group(2))
+
+    @classmethod
+    def _validate_gpt_image2_size(cls, size_str):
+        """
+        gpt-image-2: long edge <= 3840; both sides multiple of 16; aspect <= 3:1;
+        total pixels in [655360, 8294400]. (Larger than ~2560x1440 is documented as experimental.)
+        """
+        if size_str == "auto":
+            return True, None
+        w, h = cls._parse_size_wh(size_str)
+        if w is None:
+            return False, "size 格式须为 宽x高，例如 1024x1024"
+        if max(w, h) > 3840:
+            return False, "长边须 <= 3840px"
+        if w % 16 != 0 or h % 16 != 0:
+            return False, "宽、高均须为 16 的倍数"
+        lo, hi = min(w, h), max(w, h)
+        if hi / lo > 3.0 + 1e-9:
+            return False, "长边:短边 不得超过 3:1"
+        px = w * h
+        if px < 655360 or px > 8294400:
+            return False, "总像素须在 655,360～8,294,400 之间"
+        return True, None
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True}),
+            },
+            "optional": {
+                "image1": ("IMAGE", {"tooltip": "第1张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image2": ("IMAGE", {"tooltip": "第2张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image3": ("IMAGE", {"tooltip": "第3张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image4": ("IMAGE", {"tooltip": "第4张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image5": ("IMAGE", {"tooltip": "第5张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image6": ("IMAGE", {"tooltip": "第6张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image7": ("IMAGE", {"tooltip": "第7张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image8": ("IMAGE", {"tooltip": "第8张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image9": ("IMAGE", {"tooltip": "第9张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image10": ("IMAGE", {"tooltip": "第10张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image11": ("IMAGE", {"tooltip": "第11张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image12": ("IMAGE", {"tooltip": "第12张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image13": ("IMAGE", {"tooltip": "第13张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image14": ("IMAGE", {"tooltip": "第14张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image15": ("IMAGE", {"tooltip": "第15张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image16": ("IMAGE", {"tooltip": "第16张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "mask": ("MASK", {"tooltip": "编辑遮罩。仅支持单张输入图像，白色区域更倾向保留，黑色区域更倾向重绘。"}),
+                # "api_key": ("STRING", {"default": ""}),
+                "model": (["gpt-image-2","gpt-image-2-all", "gpt-image-2-2K", "gpt-image-2-4K"], {"default": "gpt-image-2", "tooltip": "使用的图像生成模型。不同选项对应不同能力或输出规格。"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成图像数量。范围为 1 到 10。"}),
+                "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量等级。auto 表示由模型自动选择。"}),
+                "size": (cls._GPT_IMAGE2_SIZE_CHOICES, {"default": "auto", "tooltip": "输出尺寸。auto 表示由模型自动决定，其余选项需满足 gpt-image-2 的尺寸限制。"}),
+                "background": (["auto", "opaque"], {"default": "auto", "tooltip": "背景模式。auto 为模型自动决定，opaque 为不透明背景。"}),
+                "output_format": (["png", "jpeg", "webp"], {"default": "png", "tooltip": "输出图片格式。png 适合高保真输出。"}),
+                "output_compression": ("INT", {"default": 100, "min": 0, "max": 100, "tooltip": "输出压缩率。仅对有损格式更明显，数值越高压缩越少。"}),
+                "moderation": (["auto", "low"], {"default": "auto", "tooltip": "内容审核级别。auto 为标准审核，low 为较宽松审核。"}),
+                "async_mode": ("BOOLEAN", {"default": True, "tooltip": "是否使用异步任务模式。开启后会先提交任务，再轮询获取结果。"}),
+                "webhook": ("STRING", {"default": "", "tooltip": "异步回调地址。仅在异步模式下生效，留空则不使用回调。"}),
+                "max_poll_attempts": ("INT", {"default": 300, "min": 10, "max": 1000, "tooltip": "异步任务最大轮询次数。超过后视为超时失败。"}),
+                "poll_interval": ("INT", {"default": 5, "min": 2, "max": 60, "tooltip": "异步轮询间隔，单位秒。数值越大，请求越少但等待越久。"}),
+                "max_retries": ("INT", {"default": 5, "min": 1, "max": 10, "tooltip": "请求失败后的最大重试次数。用于提交请求和下载结果图。"}),
+                "initial_timeout": ("INT", {"default": 900, "min": 60, "max": 1200, "tooltip": "初始请求超时时间，单位秒。重试时会按策略递增。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "tooltip": "随机种子。0 表示随机，用于提升结果可复现性。"}),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"})
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "STRING", "STRING")
+    RETURN_NAMES = ("image", "image_url", "response")
+    FUNCTION = "generate"
+    CATEGORY = "RunNode/Openai"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 300
+        self.session = requests.Session()
+        retry_strategy = requests.packages.urllib3.util.retry.Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"]
+        )
+        adapter = requests.adapters.HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
+    def _auth_headers_bearer(self):
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _headers_json(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def make_request_with_retry(self, url, data=None, files=None, max_retries=5, initial_timeout=300):
+        for attempt in range(1, max_retries + 1):
+            current_timeout = min(initial_timeout * (1.5 ** (attempt - 1)), 1200)
+            try:
+                if files is not None:
+                    response = self.session.post(
+                        url,
+                        headers=self._auth_headers_bearer(),
+                        data=data,
+                        files=files,
+                        timeout=current_timeout
+                    )
+                else:
+                    response = self.session.post(
+                        url,
+                        headers=self._headers_json(),
+                        json=data,
+                        timeout=current_timeout
+                    )
+                response.raise_for_status()
+                return response
+            except requests.exceptions.Timeout:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except requests.exceptions.ConnectionError:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code in (400, 401, 403):
+                    raise
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except Exception:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+
+    def get_headers_multipart(self):
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _blank_input_file(self):
+        buf = io.BytesIO()
+        Image.new("RGB", (1024, 1024), color="white").save(buf, format="PNG")
+        buf.seek(0)
+        return ("blank.png", buf, "image/png")
+
+    def _build_official_edits_multipart(
+        self, prompt, image, mask, n, quality, size, background,
+        output_format, output_compression, moderation, model="gpt-image-2"
+    ):
+        """
+        组装与 OpenAI /v1/images/edits 一致的 form：无图时传空白 1024×1024 作为 image。
+        返回 (data, request_files) 供 requests 的 data= 与 files= 使用。
+        """
+        if mask is not None and image is None:
+            raise Exception("使用 mask 时必须提供 input image")
+
+        files = {}
+        if image is None:
+            files["image"] = self._blank_input_file()
+            batch_size = 1
+        else:
+            # 支持 list[Tensor] (不同尺寸) 和单个 batch Tensor (同尺寸)
+            if isinstance(image, list):
+                image_list = image
+            else:
+                image_list = [image[i : i + 1] for i in range(image.shape[0])]
+            batch_size = len(image_list)
+            for i, single_image in enumerate(image_list):
+                scaled_image = downscale_input(single_image).squeeze()
+                image_np = (scaled_image.numpy() * 255).astype(np.uint8)
+                img = Image.fromarray(image_np)
+                img_byte_arr = io.BytesIO()
+                img.save(img_byte_arr, format="PNG")
+                img_byte_arr.seek(0)
+                if batch_size == 1:
+                    files["image"] = ("image.png", img_byte_arr, "image/png")
+                else:
+                    if "image[]" not in files:
+                        files["image[]"] = []
+                    files["image[]"].append(
+                        ("image_{}.png".format(i), img_byte_arr, "image/png")
+                    )
+
+        if mask is not None:
+            if batch_size != 1:
+                raise Exception("Mask requires a single input image")
+            if mask.shape[1:] != image_list[0].shape[1:-1]:
+                raise Exception("Mask and Image must be the same size")
+            _batch, height, width = mask.shape
+            rgba_mask = torch.zeros(height, width, 4, device="cpu")
+            rgba_mask[:, :, 3] = 1 - mask.squeeze().cpu()
+            scaled_mask = downscale_input(rgba_mask.unsqueeze(0)).squeeze()
+            mask_np = (scaled_mask.numpy() * 255).astype(np.uint8)
+            mask_img = Image.fromarray(mask_np)
+            mask_byte_arr = io.BytesIO()
+            mask_img.save(mask_byte_arr, format="PNG")
+            mask_byte_arr.seek(0)
+            files["mask"] = ("mask.png", mask_byte_arr, "image/png")
+
+        data = {
+            "prompt": prompt,
+            "model": model,
+            "n": str(n),
+            "quality": quality,
+            "moderation": moderation,
+        }
+        if size != "auto":
+            data["size"] = size
+        if background != "auto":
+            data["background"] = background
+        if output_compression != 100:
+            data["output_compression"] = str(output_compression)
+        if output_format != "png":
+            data["output_format"] = output_format
+
+        if "image[]" in files:
+            request_files = []
+            for file_tuple in files["image[]"]:
+                request_files.append(("image", file_tuple))
+            if "mask" in files:
+                request_files.append(("mask", files["mask"]))
+        else:
+            request_files = []
+            if "image" in files:
+                request_files.append(("image", files["image"]))
+            if "mask" in files:
+                request_files.append(("mask", files["mask"]))
+
+        return data, request_files
+
+    def _decode_b64_url_one(self, b64_json, image_url, max_retries, initial_timeout):
+        """One image entry to tensor or None."""
+        if b64_json:
+            b64_data = b64_json
+            if b64_data.startswith("data:image"):
+                b64_data = b64_data.split(",", 1)[-1]
+            elif b64_data.startswith("data:image/png;base64,"):
+                b64_data = b64_data[len("data:image/png;base64,") :]
+            image_data = base64.b64decode(b64_data)
+            pil_img = Image.open(BytesIO(image_data))
+            return pil2tensor(pil_img)
+        if image_url:
+            for download_attempt in range(1, max_retries + 1):
+                try:
+                    img_response = requests.get(
+                        image_url,
+                        timeout=min(initial_timeout * (1.5 ** (download_attempt - 1)), 900),
+                    )
+                    img_response.raise_for_status()
+                    pil_img = Image.open(BytesIO(img_response.content))
+                    return pil2tensor(pil_img)
+                except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                    if download_attempt == max_retries:
+                        return None
+                    time.sleep(min(2 ** (download_attempt - 1), 60))
+        return None
+
+    def _async_official(
+        self,
+        prompt,
+        image,
+        mask,
+        pbar,
+        max_poll_attempts,
+        poll_interval,
+        webhook,
+        n,
+        quality,
+        size,
+        background,
+        output_format,
+        output_compression,
+        moderation,
+        model,
+        max_retries,
+        initial_timeout,
+    ):
+        data, request_files = self._build_official_edits_multipart(
+            prompt, image, mask, n, quality, size, background,
+            output_format, output_compression, moderation, model,
+        )
+        url = f"{baseurl}/v1/images/edits?async=true"
+        if webhook.strip():
+            url += f"&webhook={webhook.strip()}"
+
+        pbar.update_absolute(10)
+        response = requests.post(
+            url,
+            headers=self.get_headers_multipart(),
+            data=data,
+            files=request_files,
+            timeout=self.timeout,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"API Error: {response.status_code} - {response.text}")
+
+        submit_result = response.json()
+        task_id = submit_result.get("task_id") or submit_result.get("data")
+        if not task_id:
+            raise RuntimeError(f"No task_id in response: {submit_result}")
+
+        print(f"Task submitted. Task ID: {task_id}")
+        pbar.update_absolute(20)
+
+        query_url = f"{baseurl}/v1/images/tasks/{task_id}"
+        final_result = None
+        image_url_first = ""
+
+        for attempts in range(1, max_poll_attempts + 1):
+            time.sleep(poll_interval)
+            try:
+                status_response = requests.get(
+                    query_url, headers=self.get_headers_multipart(), timeout=self.timeout
+                )
+                if status_response.status_code != 200:
+                    print(f"Status check failed: {status_response.status_code}")
+                    continue
+                status_data = status_response.json()
+                inner = status_data.get("data", {}) if isinstance(status_data, dict) else {}
+                status = inner.get("status", "")
+                progress_str = inner.get("progress", "0%")
+                try:
+                    if isinstance(progress_str, str) and progress_str.endswith("%"):
+                        progress_value = int(progress_str[:-1])
+                        pbar_value = min(95, 20 + int(progress_value * 0.75))
+                        pbar.update_absolute(pbar_value)
+                except (ValueError, AttributeError):
+                    pass
+
+                if status == "SUCCESS":
+                    result_data = inner.get("data", {})
+                    data_array = (
+                        result_data.get("data", []) if isinstance(result_data, dict) else []
+                    )
+                    tensors = []
+                    for item in data_array or []:
+                        u = item.get("url", "") or ""
+                        bj = item.get("b64_json", "") or ""
+                        if u and not image_url_first:
+                            image_url_first = u
+                        t = self._decode_b64_url_one(
+                            bj, u, max_retries, initial_timeout
+                        )
+                        if t is not None:
+                            tensors.append(t)
+                    if not tensors:
+                        raise RuntimeError("Async task SUCCESS but no decodable image in data")
+                    final_result = status_data
+                    combined = torch.cat(tensors, dim=0)
+                    pbar.update_absolute(100)
+                    return (combined, image_url_first, task_id, final_result)
+                if status == "FAILURE":
+                    fail_reason = inner.get("fail_reason", "Unknown error")
+                    raise RuntimeError(f"Task failed: {fail_reason}")
+            except RuntimeError:
+                raise
+            except Exception as e:
+                print(f"Error polling task status: {str(e)}")
+        raise RuntimeError(f"Failed to get image after {max_poll_attempts} poll attempts")
+
+    def _items_to_tensors(self, result, max_retries=5, initial_timeout=300):
+        """Parse Images API data[] b64_json or url into a list of tensors."""
+        out = []
+        for item in result.get("data", []) or []:
+            if "b64_json" in item and item["b64_json"]:
+                b64_data = item["b64_json"]
+                if b64_data.startswith("data:image"):
+                    b64_data = b64_data.split(",", 1)[-1]
+                elif b64_data.startswith("data:image/png;base64,"):
+                    b64_data = b64_data[len("data:image/png;base64,"):]
+                image_data = base64.b64decode(b64_data)
+                pil_img = Image.open(BytesIO(image_data))
+                out.append(pil2tensor(pil_img))
+            elif "url" in item and item["url"]:
+                for download_attempt in range(1, max_retries + 1):
+                    try:
+                        img_response = requests.get(
+                            item["url"],
+                            timeout=min(initial_timeout * (1.5 ** (download_attempt - 1)), 900)
+                        )
+                        img_response.raise_for_status()
+                        pil_img = Image.open(BytesIO(img_response.content))
+                        out.append(pil2tensor(pil_img))
+                        break
+                    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                        if download_attempt == max_retries:
+                            break
+                        time.sleep(min(2 ** (download_attempt - 1), 60))
+        return out
+
+    def _edits(
+        self, prompt, image, mask, n, quality, size, background,
+        output_format, output_compression, moderation, model, max_retries, initial_timeout, pbar
+    ):
+
+        data, request_files = self._build_official_edits_multipart(
+            prompt, image, mask, n, quality, size, background,
+            output_format, output_compression, moderation, model,
+        )
+        pbar.update_absolute(20)
+        response = self.make_request_with_retry(
+            f"{baseurl}/v1/images/edits",
+            data=data,
+            files=request_files,
+            max_retries=max_retries,
+            initial_timeout=initial_timeout,
+        )
+        pbar.update_absolute(60)
+        return response.json()
+
+    def generate(
+        self, prompt, image1=None, image2=None, image3=None, image4=None,
+        image5=None, image6=None, image7=None, image8=None,
+        image9=None, image10=None, image11=None, image12=None,
+        image13=None, image14=None, image15=None, image16=None,
+        mask=None, api_key="", model="gpt-image-2",
+        n=1, quality="auto", size="auto", background="auto",
+        output_format="png", output_compression=100, moderation="auto",
+        async_mode=True, webhook="", max_poll_attempts=300, poll_interval=5,
+        max_retries=5, initial_timeout=900, seed=0
+    , skip_error=False):
+        request_id = generate_request_id("image_gen", "openai")
+        log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(
+            request_id,
+            "OpenAI",
+            extra_info=f"模型:{model}",
+            streaming=True,
+            task_type="图像生成",
+            source="RunNode/OpenAI-",
+        )
+        _rn_start = time.perf_counter()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        blank = Image.new('RGB', (1024, 1024), color='white')
+        blank_t = pil2tensor(blank)
+
+        if not self.api_key:
+            msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(msg)
+            log_error("API Key缺失", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_official] {msg}")
+            return (blank_t, "", msg)
+
+        # 收集所有输入图像，展平为单帧列表（支持不同尺寸）
+        all_images = [image1, image2, image3, image4, image5, image6, image7, image8,
+                      image9, image10, image11, image12, image13, image14, image15, image16]
+        flat_images = []
+        for img in all_images:
+            if img is not None:
+                for i in range(img.shape[0]):
+                    flat_images.append(img[i : i + 1])
+        image = flat_images if flat_images else None
+
+        pbar = comfy.utils.ProgressBar(100)
+        pbar.update_absolute(5)
+        rn_pbar.set_generating()
+        log_backend(
+            "openai_gpt_image2_official_start",
+            request_id=request_id,
+            model=model,
+            async_mode=bool(async_mode),
+            size=size,
+            elapsed_ms=0,
+        )
+
+        def _info_common(mode_line):
+            s = f"**Comfly gpt-image-2 (official)** {mode_line}\n"
+            s += f"Model: {model}\n"
+            s += f"Prompt: {prompt}\n"
+            s += f"Quality: {quality}\n"
+            if size != "auto":
+                s += f"Size: {size}\n"
+                w, h = self._parse_size_wh(size)
+                if w is not None and h is not None and w * h > 2560 * 1440:
+                    s += "（总像素大于约 2560×1440，文档中视为实验性输出）\n"
+            if background != "auto":
+                s += f"Background: {background}\n"
+            s += f"Output: {output_format}\n"
+            return s
+
+        try:
+            if size != "auto":
+                ok, err_msg = self._validate_gpt_image2_size(size)
+                if not ok:
+                    rn_pbar.error(err_msg)
+                    log_error("参数错误", request_id, err_msg, "RunNode/OpenAI-", "OpenAI")
+                    if not skip_error:
+                        raise RuntimeError(f"[Comfly_gpt_image_2_official] {err_msg}")
+                    return (blank_t, "", err_msg)
+
+            if async_mode:
+                combined, image_url, task_id, final_result = self._async_official(
+                    prompt,
+                    image,
+                    mask,
+                    pbar,
+                    max_poll_attempts,
+                    poll_interval,
+                    webhook,
+                    n,
+                    quality,
+                    size,
+                    background,
+                    output_format,
+                    output_compression,
+                    moderation,
+                    model,
+                    max_retries,
+                    initial_timeout,
+                )
+                mode = "async: POST /v1/images/edits?async=true, GET /v1/images/tasks/{task_id}"
+                info = _info_common(mode)
+                info += f"Task ID: {task_id}\n"
+                if image_url:
+                    info += f"Image URL: {image_url}\n"
+                if final_result:
+                    inner = final_result.get("data", {})
+                    inner_data = inner.get("data", {}) if isinstance(inner, dict) else {}
+                    if (
+                        isinstance(inner_data, dict)
+                        and "usage" in inner_data
+                    ):
+                        usage = inner_data["usage"]
+                        info += f"Total Tokens: {usage.get('total_tokens', 'N/A')}\n"
+                rn_pbar.done(char_count=len(info), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                log_complete("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", image_url=safe_public_url(image_url) if image_url else None)
+                log_backend(
+                    "openai_gpt_image2_official_done",
+                    request_id=request_id,
+                    model=model,
+                    task_id=task_id,
+                    image_url=safe_public_url(image_url) if image_url else None,
+                    images_count=int(combined.shape[0]),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return (combined, image_url or "", info)
+
+            result = self._edits(
+                prompt, image, mask, n, quality, size, background,
+                output_format, output_compression, moderation, model,
+                max_retries, initial_timeout, pbar
+            )
+            mode = "sync: /v1/images/edits (multipart" + (
+                ", blank ref" if image is None else ""
+            ) + (", mask" if mask is not None else "") + ")"
+
+            if "data" not in result or not result["data"]:
+                msg = f"No image data in response: {result}"
+                rn_pbar.error(msg)
+                log_error("结果缺失", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_official] {msg}")
+                return (blank_t, "", msg)
+
+            tensors = self._items_to_tensors(result, max_retries, initial_timeout)
+            pbar.update_absolute(95)
+
+            if not tensors:
+                msg = "No images decoded from response"
+                rn_pbar.error(msg)
+                log_error("结果解析失败", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_official] {msg}")
+                return (blank_t, "", msg)
+
+            combined = torch.cat(tensors, dim=0)
+            pbar.update_absolute(100)
+
+            info = _info_common(mode)
+            if "usage" in result:
+                u = result["usage"]
+                if isinstance(u, dict):
+                    if "total_tokens" in u:
+                        info += f"Total tokens: {u['total_tokens']}\n"
+                    if "input_tokens" in u:
+                        info += f"Input tokens: {u['input_tokens']}\n"
+                    if "output_tokens" in u:
+                        info += f"Output tokens: {u['output_tokens']}\n"
+
+            rn_pbar.done(char_count=len(info), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+            log_complete("图像生成", request_id, "RunNode/OpenAI-", "OpenAI")
+            log_backend(
+                "openai_gpt_image2_official_done",
+                request_id=request_id,
+                model=model,
+                images_count=int(combined.shape[0]),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            return (combined, "", info)
+
+        except Exception as e:
+            error_message = f"Comfly_gpt_image_2_official error: {format_runnode_error(e)}"
+            rn_pbar.error(error_message)
+            log_error("异常", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+            log_backend_exception(
+                "openai_gpt_image2_official_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_official] {error_message}") from e
+            return (blank_t, "", error_message)
+
+
+class Comfly_gpt_image_2_official_ratio:
+
+    _ASPECT_RATIO_CHOICES = [
+        "auto",
+        "1:1",
+        "3:2",
+        "2:3",
+        "4:3",
+        "3:4",
+        "5:4",
+        "4:5",
+        "16:9",
+        "9:16",
+        "2:1",
+        "1:2",
+        "21:9",
+        "9:21",
+    ]
+
+    _RESOLUTION_CHOICES = ["1k", "2k", "4k"]
+
+    _SIZE_MAP = {
+        # 1:1
+        ("1:1", "1k"): "1024x1024",
+        ("1:1", "2k"): "2048x2048",
+        ("1:1", "4k"): "2880x2880",
+
+        # 16:9
+        ("16:9", "1k"): "1280x720",
+        ("16:9", "2k"): "2560x1440",
+        ("16:9", "4k"): "3840x2160",
+
+        # 9:16
+        ("9:16", "1k"): "720x1280",
+        ("9:16", "2k"): "1440x2560",
+        ("9:16", "4k"): "2160x3840",
+
+        # 4:3
+        ("4:3", "1k"): "1152x864",
+        ("4:3", "2k"): "2304x1728",
+        ("4:3", "4k"): "3264x2448",
+
+        # 3:4
+        ("3:4", "1k"): "864x1152",
+        ("3:4", "2k"): "1728x2304",
+        ("3:4", "4k"): "2448x3264",
+
+        # 3:2
+        ("3:2", "1k"): "1248x832",
+        ("3:2", "2k"): "2496x1664",
+        ("3:2", "4k"): "3504x2336",
+
+        # 2:3
+        ("2:3", "1k"): "832x1248",
+        ("2:3", "2k"): "1664x2496",
+        ("2:3", "4k"): "2336x3504",
+
+        # 5:4
+        ("5:4", "1k"): "1120x896",
+        ("5:4", "2k"): "2240x1792",
+        ("5:4", "4k"): "3200x2560",
+
+        # 4:5
+        ("4:5", "1k"): "896x1120",
+        ("4:5", "2k"): "1792x2240",
+        ("4:5", "4k"): "2560x3200",
+
+        # 21:9
+        ("21:9", "1k"): "1456x624",
+        ("21:9", "2k"): "3024x1296",
+        ("21:9", "4k"): "3696x1584",
+
+        # 9:21
+        ("9:21", "1k"): "624x1456",
+        ("9:21", "2k"): "1296x3024",
+        ("9:21", "4k"): "1584x3696",
+
+        # 2:1
+        ("2:1", "1k"): "2048x1024",
+        ("2:1", "2k"): "2688x1344",
+        ("2:1", "4k"): "3840x1920",
+
+        # 1:2
+        ("1:2", "1k"): "1024x2048",
+        ("1:2", "2k"): "1344x2688",
+        ("1:2", "4k"): "1920x3840",
+    }
+
+    @staticmethod
+    def _parse_size_wh(size_str):
+        m = re.match(r"^(\d+)x(\d+)$", size_str.strip())
+        if not m:
+            return None, None
+        return int(m.group(1)), int(m.group(2))
+
+    @classmethod
+    def _validate_gpt_image2_size(cls, size_str):
+        """
+        gpt-image-2: long edge <= 3840; aspect <= 3:1;
+        total pixels in [655360, 8294400].
+        """
+        if size_str == "auto":
+            return True, None
+        w, h = cls._parse_size_wh(size_str)
+        if w is None:
+            return False, "size 格式须为 宽x高，例如 1024x1024"
+        if max(w, h) > 3840:
+            return False, "长边须 <= 3840px"
+        lo, hi = min(w, h), max(w, h)
+        if hi / lo > 3.0 + 1e-9:
+            return False, "长边:短边 不得超过 3:1"
+        px = w * h
+        if px < 655360 or px > 8294400:
+            return False, "总像素须在 655,360～8,294,400 之间"
+        return True, None
+
+    @classmethod
+    def _get_size_from_params(cls, aspect_ratio, resolution):
+        """根据 aspect_ratio 和 resolution 获取实际的 size"""
+        if aspect_ratio == "auto":
+            return "auto", None
+        size = cls._SIZE_MAP.get((aspect_ratio, resolution))
+        if size is None:
+            return None, f"不支持的组合: {aspect_ratio} × {resolution}。"
+        return size, None
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像编辑提示词。描述希望基于输入图像生成或修改成什么效果。"}),
+                "aspect_ratio": (cls._ASPECT_RATIO_CHOICES, {"default": "auto", "tooltip": "输出宽高比。auto 表示由模型自动决定，其余选项会映射到固定像素尺寸。"}),
+                "resolution": (cls._RESOLUTION_CHOICES, {"default": "1k", "tooltip": "输出分辨率档位。会与宽高比组合映射为实际尺寸。"}),
+            },
+            "optional": {
+                "image1": ("IMAGE", {"tooltip": "第1张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image2": ("IMAGE", {"tooltip": "第2张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image3": ("IMAGE", {"tooltip": "第3张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image4": ("IMAGE", {"tooltip": "第4张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image5": ("IMAGE", {"tooltip": "第5张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image6": ("IMAGE", {"tooltip": "第6张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image7": ("IMAGE", {"tooltip": "第7张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image8": ("IMAGE", {"tooltip": "第8张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image9": ("IMAGE", {"tooltip": "第9张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image10": ("IMAGE", {"tooltip": "第10张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image11": ("IMAGE", {"tooltip": "第11张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image12": ("IMAGE", {"tooltip": "第12张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image13": ("IMAGE", {"tooltip": "第13张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image14": ("IMAGE", {"tooltip": "第14张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image15": ("IMAGE", {"tooltip": "第15张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image16": ("IMAGE", {"tooltip": "第16张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "mask": ("MASK", {"tooltip": "编辑遮罩。仅支持单张输入图像，白色区域更倾向保留，黑色区域更倾向重绘。"}),
+                # "api_key": ("STRING", {"default": ""}),
+                "model": (["gpt-image-2", "gpt-image-2-all", "gpt-image-2-2K", "gpt-image-2-4K"], {"default": "gpt-image-2", "tooltip": "使用的图像生成模型。不同选项对应不同能力或输出规格。"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成图像数量。范围为 1 到 10。"}),
+                "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量等级。auto 表示由模型自动选择。"}),
+                "background": (["auto", "opaque"], {"default": "auto", "tooltip": "背景模式。auto 为模型自动决定，opaque 为不透明背景。"}),
+                "output_format": (["png", "jpeg", "webp"], {"default": "png", "tooltip": "输出图片格式。png 适合高保真输出。"}),
+                "output_compression": ("INT", {"default": 100, "min": 0, "max": 100, "tooltip": "输出压缩率。仅对有损格式更明显，数值越高压缩越少。"}),
+                "moderation": (["auto", "low"], {"default": "auto", "tooltip": "内容审核级别。auto 为标准审核，low 为较宽松审核。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "结果返回格式。url 返回图片链接，b64_json 返回 Base64 编码图像。"}),
+                "async_mode": ("BOOLEAN", {"default": True, "tooltip": "是否使用异步任务模式。开启后会先提交任务，再轮询获取结果。"}),
+                "webhook": ("STRING", {"default": "", "tooltip": "异步回调地址。仅在异步模式下生效，留空则不使用回调。"}),
+                "max_poll_attempts": ("INT", {"default": 300, "min": 10, "max": 1000, "tooltip": "异步任务最大轮询次数。超过后视为超时失败。"}),
+                "poll_interval": ("INT", {"default": 5, "min": 2, "max": 60, "tooltip": "异步轮询间隔，单位秒。数值越大，请求越少但等待越久。"}),
+                "max_retries": ("INT", {"default": 5, "min": 1, "max": 10, "tooltip": "请求失败后的最大重试次数。用于提交请求和下载结果图。"}),
+                "initial_timeout": ("INT", {"default": 900, "min": 60, "max": 1200, "tooltip": "初始请求超时时间，单位秒。重试时会按策略递增。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "tooltip": "随机种子。0 表示随机，用于提升结果可复现性。"}),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"})
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "STRING", "STRING")
+    RETURN_NAMES = ("image", "image_url", "response")
+    FUNCTION = "generate"
+    CATEGORY = "RunNode/Openai"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 300
+        self.session = requests.Session()
+        retry_strategy = requests.packages.urllib3.util.retry.Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"]
+        )
+        adapter = requests.adapters.HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
+    def _auth_headers_bearer(self):
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _headers_json(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def make_request_with_retry(self, url, data=None, files=None, max_retries=5, initial_timeout=300):
+        for attempt in range(1, max_retries + 1):
+            current_timeout = min(initial_timeout * (1.5 ** (attempt - 1)), 1200)
+            try:
+                if files is not None:
+                    response = self.session.post(
+                        url,
+                        headers=self._auth_headers_bearer(),
+                        data=data,
+                        files=files,
+                        timeout=current_timeout
+                    )
+                else:
+                    response = self.session.post(
+                        url,
+                        headers=self._headers_json(),
+                        json=data,
+                        timeout=current_timeout
+                    )
+                response.raise_for_status()
+                return response
+            except requests.exceptions.Timeout:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except requests.exceptions.ConnectionError:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code in (400, 401, 403):
+                    raise
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except Exception:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+
+    def get_headers_multipart(self):
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _blank_input_file(self):
+        buf = io.BytesIO()
+        Image.new("RGB", (1024, 1024), color="white").save(buf, format="PNG")
+        buf.seek(0)
+        return ("blank.png", buf, "image/png")
+
+    def _build_official_edits_multipart(
+        self, prompt, image1, image2, image3, image4, image5,
+        image6, image7, image8, image9, image10,
+        image11, image12, image13, image14, image15, image16,
+        mask, n, quality, size, background,
+        output_format, output_compression, moderation, response_format="url", model="gpt-image-2"
+    ):
+
+        input_images = []
+        for img in [image1, image2, image3, image4, image5,
+                     image6, image7, image8, image9, image10,
+                     image11, image12, image13, image14, image15, image16]:
+            if img is not None:
+                input_images.append(img)
+        
+        if mask is not None and len(input_images) == 0:
+            raise Exception("使用 mask 时必须提供至少一个 input image")
+
+        files = {}
+
+        if len(input_images) == 0:
+            files["image"] = self._blank_input_file()
+            total_images = 1
+        else:
+            image_list = []
+            for img_tensor in input_images:
+                batch_size = img_tensor.shape[0]
+                for i in range(batch_size):
+                    single_image = img_tensor[i : i + 1]
+                    scaled_image = downscale_input(single_image).squeeze()
+                    image_np = (scaled_image.numpy() * 255).astype(np.uint8)
+                    img = Image.fromarray(image_np)
+                    img_byte_arr = io.BytesIO()
+                    img.save(img_byte_arr, format="PNG")
+                    img_byte_arr.seek(0)
+                    image_list.append(("image_{}.png".format(len(image_list)), img_byte_arr, "image/png"))
+            
+            total_images = len(image_list)
+            
+            if total_images == 1:
+                files["image"] = image_list[0]
+            else:
+                files["image[]"] = image_list
+
+        if mask is not None:
+            if total_images != 1:
+                raise Exception("Mask requires exactly one input image")
+            first_img = input_images[0]
+            if mask.shape[1:] != first_img.shape[1:-1]:
+                raise Exception("Mask and Image must be the same size")
+            _batch, height, width = mask.shape
+            rgba_mask = torch.zeros(height, width, 4, device="cpu")
+            rgba_mask[:, :, 3] = 1 - mask.squeeze().cpu()
+            scaled_mask = downscale_input(rgba_mask.unsqueeze(0)).squeeze()
+            mask_np = (scaled_mask.numpy() * 255).astype(np.uint8)
+            mask_img = Image.fromarray(mask_np)
+            mask_byte_arr = io.BytesIO()
+            mask_img.save(mask_byte_arr, format="PNG")
+            mask_byte_arr.seek(0)
+            files["mask"] = ("mask.png", mask_byte_arr, "image/png")
+
+        data = {
+            "prompt": prompt,
+            "model": model,
+            "n": str(n),
+            "quality": quality,
+            "moderation": moderation,
+            "size": size,  
+        }
+        if background != "auto":
+            data["background"] = background
+        if output_compression != 100:
+            data["output_compression"] = str(output_compression)
+        if output_format != "png":
+            data["output_format"] = output_format
+        if response_format != "url":
+            data["response_format"] = response_format
+
+        if "image[]" in files:
+            request_files = []
+            for file_tuple in files["image[]"]:
+                request_files.append(("image", file_tuple))
+            if "mask" in files:
+                request_files.append(("mask", files["mask"]))
+        else:
+            request_files = []
+            if "image" in files:
+                request_files.append(("image", files["image"]))
+            if "mask" in files:
+                request_files.append(("mask", files["mask"]))
+
+        return data, request_files
+
+    def _decode_b64_url_one(self, b64_json, image_url, max_retries, initial_timeout):
+        """One image entry to tensor or None."""
+        if b64_json:
+            b64_data = b64_json
+            if b64_data.startswith("data:image"):
+                b64_data = b64_data.split(",", 1)[-1]
+            elif b64_data.startswith("data:image/png;base64,"):
+                b64_data = b64_data[len("data:image/png;base64,") :]
+            image_data = base64.b64decode(b64_data)
+            pil_img = Image.open(BytesIO(image_data))
+            return pil2tensor(pil_img)
+        if image_url:
+            for download_attempt in range(1, max_retries + 1):
+                try:
+                    img_response = requests.get(
+                        image_url,
+                        timeout=min(initial_timeout * (1.5 ** (download_attempt - 1)), 900),
+                    )
+                    img_response.raise_for_status()
+                    pil_img = Image.open(BytesIO(img_response.content))
+                    return pil2tensor(pil_img)
+                except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                    if download_attempt == max_retries:
+                        return None
+                    time.sleep(min(2 ** (download_attempt - 1), 60))
+        return None
+
+    def _async_official(
+        self,
+        prompt,
+        image1,
+        image2,
+        image3,
+        image4,
+        image5,
+        image6,
+        image7,
+        image8,
+        image9,
+        image10,
+        image11,
+        image12,
+        image13,
+        image14,
+        image15,
+        image16,
+        mask,
+        pbar,
+        max_poll_attempts,
+        poll_interval,
+        webhook,
+        n,
+        quality,
+        size,
+        background,
+        output_format,
+        output_compression,
+        moderation,
+        response_format,
+        model,
+        max_retries,
+        initial_timeout,
+    ):
+        data, request_files = self._build_official_edits_multipart(
+            prompt, image1, image2, image3, image4, image5,
+            image6, image7, image8, image9, image10,
+            image11, image12, image13, image14, image15, image16,
+            mask, n, quality, size, background,
+            output_format, output_compression, moderation, response_format, model,
+        )
+        url = f"{baseurl}/v1/images/edits?async=true"
+        if webhook.strip():
+            url += f"&webhook={webhook.strip()}"
+
+        pbar.update_absolute(10)
+        response = requests.post(
+            url,
+            headers=self.get_headers_multipart(),
+            data=data,
+            files=request_files,
+            timeout=self.timeout,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"API Error: {response.status_code} - {response.text}")
+
+        submit_result = response.json()
+        task_id = submit_result.get("task_id") or submit_result.get("data")
+        if not task_id:
+            raise RuntimeError(f"No task_id in response: {submit_result}")
+
+        print(f"Task submitted. Task ID: {task_id}")
+        pbar.update_absolute(20)
+
+        query_url = f"{baseurl}/v1/images/tasks/{task_id}"
+        final_result = None
+        image_url_first = ""
+
+        for attempts in range(1, max_poll_attempts + 1):
+            time.sleep(poll_interval)
+            try:
+                status_response = requests.get(
+                    query_url, headers=self.get_headers_multipart(), timeout=self.timeout
+                )
+                if status_response.status_code != 200:
+                    print(f"Status check failed: {status_response.status_code}")
+                    continue
+                status_data = status_response.json()
+                inner = status_data.get("data", {}) if isinstance(status_data, dict) else {}
+                status = inner.get("status", "")
+                progress_str = inner.get("progress", "0%")
+                try:
+                    if isinstance(progress_str, str) and progress_str.endswith("%"):
+                        progress_value = int(progress_str[:-1])
+                        pbar_value = min(95, 20 + int(progress_value * 0.75))
+                        pbar.update_absolute(pbar_value)
+                except (ValueError, AttributeError):
+                    pass
+
+                if status == "SUCCESS":
+                    result_data = inner.get("data", {})
+                    data_array = (
+                        result_data.get("data", []) if isinstance(result_data, dict) else []
+                    )
+                    tensors = []
+                    for item in data_array or []:
+                        u = item.get("url", "") or ""
+                        bj = item.get("b64_json", "") or ""
+                        if u and not image_url_first:
+                            image_url_first = u
+                        t = self._decode_b64_url_one(
+                            bj, u, max_retries, initial_timeout
+                        )
+                        if t is not None:
+                            tensors.append(t)
+                    if not tensors:
+                        raise RuntimeError("Async task SUCCESS but no decodable image in data")
+                    final_result = status_data
+                    combined = torch.cat(tensors, dim=0)
+                    pbar.update_absolute(100)
+                    return (combined, image_url_first, task_id, final_result)
+                if status == "FAILURE":
+                    fail_reason = inner.get("fail_reason", "Unknown error")
+                    raise RuntimeError(f"Task failed: {fail_reason}")
+            except RuntimeError:
+                raise
+            except Exception as e:
+                print(f"Error polling task status: {str(e)}")
+        raise RuntimeError(f"Failed to get image after {max_poll_attempts} poll attempts")
+
+    def _items_to_tensors(self, result, max_retries=5, initial_timeout=300):
+        """Parse Images API data[] b64_json or url into a list of tensors."""
+        out = []
+        for item in result.get("data", []) or []:
+            if "b64_json" in item and item["b64_json"]:
+                b64_data = item["b64_json"]
+                if b64_data.startswith("data:image"):
+                    b64_data = b64_data.split(",", 1)[-1]
+                elif b64_data.startswith("data:image/png;base64,"):
+                    b64_data = b64_data[len("data:image/png;base64,"):]
+                image_data = base64.b64decode(b64_data)
+                pil_img = Image.open(BytesIO(image_data))
+                out.append(pil2tensor(pil_img))
+            elif "url" in item and item["url"]:
+                for download_attempt in range(1, max_retries + 1):
+                    try:
+                        img_response = requests.get(
+                            item["url"],
+                            timeout=min(initial_timeout * (1.5 ** (download_attempt - 1)), 900)
+                        )
+                        img_response.raise_for_status()
+                        pil_img = Image.open(BytesIO(img_response.content))
+                        out.append(pil2tensor(pil_img))
+                        break
+                    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                        if download_attempt == max_retries:
+                            break
+                        time.sleep(min(2 ** (download_attempt - 1), 60))
+        return out
+
+    def _edits(
+        self, prompt, image1, image2, image3, image4, image5,
+        image6, image7, image8, image9, image10,
+        image11, image12, image13, image14, image15, image16,
+        mask, n, quality, size, background,
+        output_format, output_compression, moderation, response_format, model, max_retries, initial_timeout, pbar
+    ):
+        data, request_files = self._build_official_edits_multipart(
+            prompt, image1, image2, image3, image4, image5,
+            image6, image7, image8, image9, image10,
+            image11, image12, image13, image14, image15, image16,
+            mask, n, quality, size, background,
+            output_format, output_compression, moderation, response_format, model,
+        )
+        pbar.update_absolute(20)
+        response = self.make_request_with_retry(
+            f"{baseurl}/v1/images/edits",
+            data=data,
+            files=request_files,
+            max_retries=max_retries,
+            initial_timeout=initial_timeout,
+        )
+        pbar.update_absolute(60)
+        return response.json()
+
+    def generate(
+        self, prompt, aspect_ratio="1:1", resolution="1k",
+        image1=None, image2=None, image3=None, image4=None, image5=None,
+        image6=None, image7=None, image8=None, image9=None, image10=None,
+        image11=None, image12=None, image13=None, image14=None, image15=None, image16=None,
+        mask=None, api_key="", model="gpt-image-2",
+        n=1, quality="auto", background="auto",
+        output_format="png", output_compression=100, moderation="auto",
+        response_format="url",
+        async_mode=True, webhook="", max_poll_attempts=300, poll_interval=5,
+        max_retries=5, initial_timeout=900, seed=0, skip_error=False
+    ):
+        request_id = generate_request_id("image_gen", "openai")
+        log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(
+            request_id,
+            "OpenAI",
+            extra_info=f"模型:{model}",
+            streaming=True,
+            task_type="图像生成",
+            source="RunNode/OpenAI-",
+        )
+        _rn_start = time.perf_counter()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        blank = Image.new('RGB', (1024, 1024), color='white')
+        blank_t = pil2tensor(blank)
+
+        if not self.api_key:
+            msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(msg)
+            log_error("API Key缺失", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio] {msg}")
+            return (blank_t, "", msg)
+
+        size, error_msg = self._get_size_from_params(aspect_ratio, resolution)
+        if error_msg:
+            rn_pbar.error(error_msg)
+            log_error("参数错误", request_id, error_msg, "RunNode/OpenAI-", "OpenAI")
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio] {error_msg}")
+            return (blank_t, "", error_msg)
+
+        input_images = [img for img in [image1, image2, image3, image4, image5,
+                         image6, image7, image8, image9, image10,
+                         image11, image12, image13, image14, image15, image16] if img is not None]
+        num_input_images = len(input_images)
+
+        pbar = comfy.utils.ProgressBar(100)
+        pbar.update_absolute(5)
+        rn_pbar.set_generating()
+        log_backend(
+            "openai_gpt_image2_official_ratio_start",
+            request_id=request_id,
+            model=model,
+            async_mode=bool(async_mode),
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            size=size,
+            elapsed_ms=0,
+        )
+
+        def _info_common(mode_line):
+            s = f"**Comfly gpt-image-2 (official)** {mode_line}\n"
+            s += f"Model: {model}\n"
+            s += f"Prompt: {prompt}\n"
+            s += f"Aspect Ratio: {aspect_ratio}\n"
+            s += f"Resolution: {resolution}\n"
+            s += f"Actual Size: {size}\n"
+            s += f"Quality: {quality}\n"
+            s += f"Input Images: {num_input_images}\n"
+            w, h = self._parse_size_wh(size)
+            if w is not None and h is not None and w * h > 2560 * 1440:
+                s += "（总像素大于约 2560×1440，文档中视为实验性输出）\n"
+            if background != "auto":
+                s += f"Background: {background}\n"
+            s += f"Output: {output_format}\n"
+            return s
+
+        try:
+            ok, err_msg = self._validate_gpt_image2_size(size)
+            if not ok:
+                rn_pbar.error(err_msg)
+                log_error("参数错误", request_id, err_msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio] {err_msg}")
+                return (blank_t, "", err_msg)
+
+            if async_mode:
+                combined, image_url, task_id, final_result = self._async_official(
+                    prompt,
+                    image1,
+                    image2,
+                    image3,
+                    image4,
+                    image5,
+                    image6,
+                    image7,
+                    image8,
+                    image9,
+                    image10,
+                    image11,
+                    image12,
+                    image13,
+                    image14,
+                    image15,
+                    image16,
+                    mask,
+                    pbar,
+                    max_poll_attempts,
+                    poll_interval,
+                    webhook,
+                    n,
+                    quality,
+                    size,
+                    background,
+                    output_format,
+                    output_compression,
+                    moderation,
+                    response_format,
+                    model,
+                    max_retries,
+                    initial_timeout,
+                )
+                mode = "async: POST /v1/images/edits?async=true, GET /v1/images/tasks/{task_id}"
+                info = _info_common(mode)
+                info += f"Task ID: {task_id}\n"
+                if image_url:
+                    info += f"Image URL: {image_url}\n"
+                if final_result:
+                    inner = final_result.get("data", {})
+                    inner_data = inner.get("data", {}) if isinstance(inner, dict) else {}
+                    if (
+                        isinstance(inner_data, dict)
+                        and "usage" in inner_data
+                    ):
+                        usage = inner_data["usage"]
+                        info += f"Total Tokens: {usage.get('total_tokens', 'N/A')}\n"
+                rn_pbar.done(char_count=len(info), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                log_complete("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", image_url=safe_public_url(image_url) if image_url else None)
+                log_backend(
+                    "openai_gpt_image2_official_ratio_done",
+                    request_id=request_id,
+                    model=model,
+                    task_id=task_id,
+                    image_url=safe_public_url(image_url) if image_url else None,
+                    images_count=int(combined.shape[0]),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return (combined, image_url or "", info)
+
+            result = self._edits(
+                prompt, image1, image2, image3, image4, image5,
+                image6, image7, image8, image9, image10,
+                image11, image12, image13, image14, image15, image16,
+                mask, n, quality, size, background,
+                output_format, output_compression, moderation, response_format, model,
+                max_retries, initial_timeout, pbar
+            )
+            mode = "sync: /v1/images/edits (multipart" + (
+                ", blank ref" if num_input_images == 0 else f", {num_input_images} images"
+            ) + (", mask" if mask is not None else "") + ")"
+
+            if "data" not in result or not result["data"]:
+                msg = f"No image data in response: {result}"
+                rn_pbar.error(msg)
+                log_error("结果缺失", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio] {msg}")
+                return (blank_t, "", msg)
+
+            tensors = self._items_to_tensors(result, max_retries, initial_timeout)
+            pbar.update_absolute(95)
+
+            if not tensors:
+                msg = "No images decoded from response"
+                rn_pbar.error(msg)
+                log_error("结果解析失败", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio] {msg}")
+                return (blank_t, "", msg)
+
+            combined = torch.cat(tensors, dim=0)
+            pbar.update_absolute(100)
+
+            info = _info_common(mode)
+            if "usage" in result:
+                u = result["usage"]
+                if isinstance(u, dict):
+                    if "total_tokens" in u:
+                        info += f"Total tokens: {u['total_tokens']}\n"
+                    if "input_tokens" in u:
+                        info += f"Input tokens: {u['input_tokens']}\n"
+                    if "output_tokens" in u:
+                        info += f"Output tokens: {u['output_tokens']}\n"
+
+            rn_pbar.done(char_count=len(info), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+            log_complete("图像生成", request_id, "RunNode/OpenAI-", "OpenAI")
+            log_backend(
+                "openai_gpt_image2_official_ratio_done",
+                request_id=request_id,
+                model=model,
+                images_count=int(combined.shape[0]),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            return (combined, "", info)
+
+        except Exception as e:
+            error_message = f"Comfly_gpt_image_2_official_ratio error: {format_runnode_error(e)}"
+            rn_pbar.error(error_message)
+            log_error("异常", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+            log_backend_exception(
+                "openai_gpt_image2_official_ratio_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio] {error_message}") from e
+            return (blank_t, "", error_message)
+
+
+class Comfly_gpt_image_2_official_ratio_stable:
+    """GPT-Image-2 official ratio stable: simplified ratio choices matching RhartImageG2ImageToImage style."""
+
+    _ASPECT_RATIO_CHOICES = [
+        "empty",
+        "1:1",
+        "3:2",
+        "2:3",
+        "4:3",
+        "3:4",
+        "5:4",
+        "4:5",
+        "16:9",
+        "9:16",
+        "21:9",
+        "custom",
+    ]
+
+    _RESOLUTION_CHOICES = ["1k", "2k", "4k"]
+
+    # Internal mapping: (aspectRatio, resolution) -> pixel size for API
+    _SIZE_MAP = {
+        ("1:1", "1k"): "1024x1024",
+        ("1:1", "2k"): "2048x2048",
+        ("1:1", "4k"): "2880x2880",
+        ("16:9", "1k"): "1280x720",
+        ("16:9", "2k"): "2560x1440",
+        ("16:9", "4k"): "3840x2160",
+        ("9:16", "1k"): "720x1280",
+        ("9:16", "2k"): "1440x2560",
+        ("9:16", "4k"): "2160x3840",
+        ("4:3", "1k"): "1152x864",
+        ("4:3", "2k"): "2304x1728",
+        ("4:3", "4k"): "3264x2448",
+        ("3:4", "1k"): "864x1152",
+        ("3:4", "2k"): "1728x2304",
+        ("3:4", "4k"): "2448x3264",
+        ("3:2", "1k"): "1248x832",
+        ("3:2", "2k"): "2496x1664",
+        ("3:2", "4k"): "3504x2336",
+        ("2:3", "1k"): "832x1248",
+        ("2:3", "2k"): "1664x2496",
+        ("2:3", "4k"): "2336x3504",
+        ("5:4", "1k"): "1120x896",
+        ("5:4", "2k"): "2240x1792",
+        ("5:4", "4k"): "3200x2560",
+        ("4:5", "1k"): "896x1120",
+        ("4:5", "2k"): "1792x2240",
+        ("4:5", "4k"): "2560x3200",
+        ("21:9", "1k"): "1456x624",
+        ("21:9", "2k"): "3024x1296",
+        ("21:9", "4k"): "3696x1584",
+    }
+
+    @classmethod
+    def _get_size(cls, aspect_ratio, resolution, custom_width=2560, custom_height=1280):
+        """Map aspect_ratio + resolution to actual pixel size for API."""
+        if aspect_ratio == "empty":
+            return "auto"
+        if aspect_ratio == "custom":
+            return f"{int(custom_width)}x{int(custom_height)}"
+        size = cls._SIZE_MAP.get((aspect_ratio, resolution))
+        if size is None:
+            return "auto"
+        return size
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt": ("STRING", {"multiline": True, "tooltip": "图像编辑提示词。描述希望基于输入图像生成或修改成什么效果。"}),
+                "aspect_ratio": (cls._ASPECT_RATIO_CHOICES, {"default": "empty", "tooltip": "输出宽高比。empty 表示交给模型自动决定，custom 表示使用自定义宽高。"}),
+                "resolution": (cls._RESOLUTION_CHOICES, {"default": "1k", "tooltip": "输出分辨率档位。与宽高比组合后映射为实际尺寸。"}),
+            },
+            "optional": {
+                "image1": ("IMAGE", {"tooltip": "第1张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image2": ("IMAGE", {"tooltip": "第2张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image3": ("IMAGE", {"tooltip": "第3张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image4": ("IMAGE", {"tooltip": "第4张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image5": ("IMAGE", {"tooltip": "第5张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image6": ("IMAGE", {"tooltip": "第6张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image7": ("IMAGE", {"tooltip": "第7张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image8": ("IMAGE", {"tooltip": "第8张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image9": ("IMAGE", {"tooltip": "第9张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image10": ("IMAGE", {"tooltip": "第10张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image11": ("IMAGE", {"tooltip": "第11张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image12": ("IMAGE", {"tooltip": "第12张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image13": ("IMAGE", {"tooltip": "第13张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image14": ("IMAGE", {"tooltip": "第14张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image15": ("IMAGE", {"tooltip": "第15张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "image16": ("IMAGE", {"tooltip": "第16张参考图像。可连接多张图片参与编辑或融合，未连接则忽略。"}),
+                "mask": ("MASK", {"tooltip": "编辑遮罩。仅支持单张输入图像，白色区域更倾向保留，黑色区域更倾向重绘。"}),
+                # "api_key": ("STRING", {"default": ""}),
+                "model": (["gpt-image-2", "gpt-image-2-all", "gpt-image-2-2K", "gpt-image-2-4K"], {"default": "gpt-image-2", "tooltip": "使用的图像生成模型。不同选项对应不同能力或输出规格。"}),
+                "n": ("INT", {"default": 1, "min": 1, "max": 10, "tooltip": "生成图像数量。范围为 1 到 10。"}),
+                "quality": (["auto", "high", "medium", "low"], {"default": "auto", "tooltip": "图像质量等级。auto 表示由模型自动选择。"}),
+                "background": (["auto", "opaque"], {"default": "auto", "tooltip": "背景模式。auto 为模型自动决定，opaque 为不透明背景。"}),
+                "output_format": (["png", "jpeg", "webp"], {"default": "png", "tooltip": "输出图片格式。png 适合高保真输出。"}),
+                "output_compression": ("INT", {"default": 100, "min": 0, "max": 100, "tooltip": "输出压缩率。仅对有损格式更明显，数值越高压缩越少。"}),
+                "moderation": (["auto", "low"], {"default": "auto", "tooltip": "内容审核级别。auto 为标准审核，low 为较宽松审核。"}),
+                "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "结果返回格式。url 返回图片链接，b64_json 返回 Base64 编码图像。"}),
+                "async_mode": ("BOOLEAN", {"default": True, "tooltip": "是否使用异步任务模式。开启后会先提交任务，再轮询获取结果。"}),
+                "webhook": ("STRING", {"default": "", "tooltip": "异步回调地址。仅在异步模式下生效，留空则不使用回调。"}),
+                "max_poll_attempts": ("INT", {"default": 300, "min": 10, "max": 1000, "tooltip": "异步任务最大轮询次数。超过后视为超时失败。"}),
+                "poll_interval": ("INT", {"default": 5, "min": 2, "max": 60, "tooltip": "异步轮询间隔，单位秒。数值越大，请求越少但等待越久。"}),
+                "max_retries": ("INT", {"default": 5, "min": 1, "max": 10, "tooltip": "请求失败后的最大重试次数。用于提交请求和下载结果图。"}),
+                "initial_timeout": ("INT", {"default": 900, "min": 60, "max": 1200, "tooltip": "初始请求超时时间，单位秒。重试时会按策略递增。"}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "tooltip": "随机种子。0 表示随机，用于提升结果可复现性。"}),
+                "skip_error": ("BOOLEAN", {"default": False, "tooltip": "开启后，节点失败时不报错、按旧行为返回默认空结果；关闭时（默认）失败直接抛出错误。"}),
+                "custom_width": ("INT", {"default": 2560, "min": 64, "max": 8192, "step": 64, "tooltip": "仅在 aspect_ratio 选择 custom 时生效，用于指定自定义宽度。"}),
+                "custom_height": ("INT", {"default": 1280, "min": 64, "max": 8192, "step": 64, "tooltip": "仅在 aspect_ratio 选择 custom 时生效，用于指定自定义高度。"})
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "STRING", "STRING")
+    RETURN_NAMES = ("image", "image_url", "response")
+    FUNCTION = "generate"
+    CATEGORY = "RunNode/Openai"
+
+    def __init__(self):
+        self.api_key = get_config().get('api_key', '')
+        self.timeout = 300
+        self.session = requests.Session()
+        retry_strategy = requests.packages.urllib3.util.retry.Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"]
+        )
+        adapter = requests.adapters.HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
+    def _auth_headers_bearer(self):
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _headers_json(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def make_request_with_retry(self, url, data=None, files=None, max_retries=5, initial_timeout=300):
+        for attempt in range(1, max_retries + 1):
+            current_timeout = min(initial_timeout * (1.5 ** (attempt - 1)), 1200)
+            try:
+                if files is not None:
+                    response = self.session.post(
+                        url,
+                        headers=self._auth_headers_bearer(),
+                        data=data,
+                        files=files,
+                        timeout=current_timeout
+                    )
+                else:
+                    response = self.session.post(
+                        url,
+                        headers=self._headers_json(),
+                        json=data,
+                        timeout=current_timeout
+                    )
+                response.raise_for_status()
+                return response
+            except requests.exceptions.Timeout:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except requests.exceptions.ConnectionError:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code in (400, 401, 403):
+                    raise
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+            except Exception:
+                if attempt == max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 60))
+
+    def get_headers_multipart(self):
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _blank_input_file(self):
+        buf = io.BytesIO()
+        Image.new("RGB", (1024, 1024), color="white").save(buf, format="PNG")
+        buf.seek(0)
+        return ("blank.png", buf, "image/png")
+
+    def _build_official_edits_multipart(
+        self, prompt, image1, image2, image3, image4, image5,
+        image6, image7, image8, image9, image10,
+        image11, image12, image13, image14, image15, image16,
+        mask, n, quality, aspect_ratio, resolution, background,
+        output_format, output_compression, moderation, response_format="url", model="gpt-image-2",
+        custom_width=2560, custom_height=1280
+    ):
+
+        input_images = []
+        for img in [image1, image2, image3, image4, image5,
+                     image6, image7, image8, image9, image10,
+                     image11, image12, image13, image14, image15, image16]:
+            if img is not None:
+                input_images.append(img)
+        
+        if mask is not None and len(input_images) == 0:
+            raise Exception("使用 mask 时必须提供至少一个 input image")
+
+        files = {}
+
+        if len(input_images) == 0:
+            files["image"] = self._blank_input_file()
+            total_images = 1
+        else:
+            image_list = []
+            for img_tensor in input_images:
+                batch_size = img_tensor.shape[0]
+                for i in range(batch_size):
+                    single_image = img_tensor[i : i + 1]
+                    scaled_image = downscale_input(single_image).squeeze()
+                    image_np = (scaled_image.numpy() * 255).astype(np.uint8)
+                    img = Image.fromarray(image_np)
+                    img_byte_arr = io.BytesIO()
+                    img.save(img_byte_arr, format="PNG")
+                    img_byte_arr.seek(0)
+                    image_list.append(("image_{}.png".format(len(image_list)), img_byte_arr, "image/png"))
+            
+            total_images = len(image_list)
+            
+            if total_images == 1:
+                files["image"] = image_list[0]
+            else:
+                files["image[]"] = image_list
+
+        if mask is not None:
+            if total_images != 1:
+                raise Exception("Mask requires exactly one input image")
+            first_img = input_images[0]
+            if mask.shape[1:] != first_img.shape[1:-1]:
+                raise Exception("Mask and Image must be the same size")
+            _batch, height, width = mask.shape
+            rgba_mask = torch.zeros(height, width, 4, device="cpu")
+            rgba_mask[:, :, 3] = 1 - mask.squeeze().cpu()
+            scaled_mask = downscale_input(rgba_mask.unsqueeze(0)).squeeze()
+            mask_np = (scaled_mask.numpy() * 255).astype(np.uint8)
+            mask_img = Image.fromarray(mask_np)
+            mask_byte_arr = io.BytesIO()
+            mask_img.save(mask_byte_arr, format="PNG")
+            mask_byte_arr.seek(0)
+            files["mask"] = ("mask.png", mask_byte_arr, "image/png")
+
+        # Map aspectRatio + resolution to actual pixel size
+        size = self._get_size(aspect_ratio, resolution, custom_width, custom_height)
+
+        data = {
+            "prompt": prompt,
+            "model": model,
+            "n": str(n),
+            "quality": quality,
+            "moderation": moderation,
+            "size": size,
+        }
+        if background != "auto":
+            data["background"] = background
+        if output_compression != 100:
+            data["output_compression"] = str(output_compression)
+        if output_format != "png":
+            data["output_format"] = output_format
+        if response_format != "url":
+            data["response_format"] = response_format
+
+        if "image[]" in files:
+            request_files = []
+            for file_tuple in files["image[]"]:
+                request_files.append(("image", file_tuple))
+            if "mask" in files:
+                request_files.append(("mask", files["mask"]))
+        else:
+            request_files = []
+            if "image" in files:
+                request_files.append(("image", files["image"]))
+            if "mask" in files:
+                request_files.append(("mask", files["mask"]))
+
+        return data, request_files
+
+    def _decode_b64_url_one(self, b64_json, image_url, max_retries, initial_timeout):
+        """One image entry to tensor or None."""
+        if b64_json:
+            b64_data = b64_json
+            if b64_data.startswith("data:image"):
+                b64_data = b64_data.split(",", 1)[-1]
+            elif b64_data.startswith("data:image/png;base64,"):
+                b64_data = b64_data[len("data:image/png;base64,") :]
+            image_data = base64.b64decode(b64_data)
+            pil_img = Image.open(BytesIO(image_data))
+            return pil2tensor(pil_img)
+        if image_url:
+            for download_attempt in range(1, max_retries + 1):
+                try:
+                    img_response = requests.get(
+                        image_url,
+                        timeout=min(initial_timeout * (1.5 ** (download_attempt - 1)), 900),
+                    )
+                    img_response.raise_for_status()
+                    pil_img = Image.open(BytesIO(img_response.content))
+                    return pil2tensor(pil_img)
+                except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                    if download_attempt == max_retries:
+                        return None
+                    time.sleep(min(2 ** (download_attempt - 1), 60))
+        return None
+
+    def _async_official(
+        self,
+        prompt,
+        image1, image2, image3, image4, image5,
+        image6, image7, image8, image9, image10,
+        image11, image12, image13, image14, image15, image16,
+        mask, pbar, max_poll_attempts, poll_interval, webhook,
+        n, quality, aspect_ratio, resolution, background,
+        output_format, output_compression, moderation, response_format, model,
+        max_retries, initial_timeout,
+        custom_width=2560, custom_height=1280,
+    ):
+        data, request_files = self._build_official_edits_multipart(
+            prompt, image1, image2, image3, image4, image5,
+            image6, image7, image8, image9, image10,
+            image11, image12, image13, image14, image15, image16,
+            mask, n, quality, aspect_ratio, resolution, background,
+            output_format, output_compression, moderation, response_format, model,
+            custom_width=custom_width, custom_height=custom_height,
+        )
+        url = f"{baseurl}/v1/images/edits?async=true"
+        if webhook.strip():
+            url += f"&webhook={webhook.strip()}"
+
+        pbar.update_absolute(10)
+        response = requests.post(
+            url,
+            headers=self.get_headers_multipart(),
+            data=data,
+            files=request_files,
+            timeout=self.timeout,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"API Error: {response.status_code} - {response.text}")
+
+        submit_result = response.json()
+        task_id = submit_result.get("task_id") or submit_result.get("data")
+        if not task_id:
+            raise RuntimeError(f"No task_id in response: {submit_result}")
+
+        print(f"Task submitted. Task ID: {task_id}")
+        pbar.update_absolute(20)
+
+        query_url = f"{baseurl}/v1/images/tasks/{task_id}"
+        final_result = None
+        image_url_first = ""
+
+        for attempts in range(1, max_poll_attempts + 1):
+            time.sleep(poll_interval)
+            try:
+                status_response = requests.get(
+                    query_url, headers=self.get_headers_multipart(), timeout=self.timeout
+                )
+                if status_response.status_code != 200:
+                    print(f"Status check failed: {status_response.status_code}")
+                    continue
+                status_data = status_response.json()
+                inner = status_data.get("data", {}) if isinstance(status_data, dict) else {}
+                status = inner.get("status", "")
+                progress_str = inner.get("progress", "0%")
+                try:
+                    if isinstance(progress_str, str) and progress_str.endswith("%"):
+                        progress_value = int(progress_str[:-1])
+                        pbar_value = min(95, 20 + int(progress_value * 0.75))
+                        pbar.update_absolute(pbar_value)
+                except (ValueError, AttributeError):
+                    pass
+
+                if status == "SUCCESS":
+                    result_data = inner.get("data", {})
+                    data_array = (
+                        result_data.get("data", []) if isinstance(result_data, dict) else []
+                    )
+                    tensors = []
+                    for item in data_array or []:
+                        u = item.get("url", "") or ""
+                        bj = item.get("b64_json", "") or ""
+                        if u and not image_url_first:
+                            image_url_first = u
+                        t = self._decode_b64_url_one(
+                            bj, u, max_retries, initial_timeout
+                        )
+                        if t is not None:
+                            tensors.append(t)
+                    if not tensors:
+                        raise RuntimeError("Async task SUCCESS but no decodable image in data")
+                    final_result = status_data
+                    combined = torch.cat(tensors, dim=0)
+                    pbar.update_absolute(100)
+                    return (combined, image_url_first, task_id, final_result)
+                if status == "FAILURE":
+                    fail_reason = inner.get("fail_reason", "Unknown error")
+                    raise RuntimeError(f"Task failed: {fail_reason}")
+            except RuntimeError:
+                raise
+            except Exception as e:
+                print(f"Error polling task status: {str(e)}")
+        raise RuntimeError(f"Failed to get image after {max_poll_attempts} poll attempts")
+
+    def _items_to_tensors(self, result, max_retries=5, initial_timeout=300):
+        """Parse Images API data[] b64_json or url into a list of tensors."""
+        out = []
+        for item in result.get("data", []) or []:
+            if "b64_json" in item and item["b64_json"]:
+                b64_data = item["b64_json"]
+                if b64_data.startswith("data:image"):
+                    b64_data = b64_data.split(",", 1)[-1]
+                elif b64_data.startswith("data:image/png;base64,"):
+                    b64_data = b64_data[len("data:image/png;base64,"):]
+                image_data = base64.b64decode(b64_data)
+                pil_img = Image.open(BytesIO(image_data))
+                out.append(pil2tensor(pil_img))
+            elif "url" in item and item["url"]:
+                for download_attempt in range(1, max_retries + 1):
+                    try:
+                        img_response = requests.get(
+                            item["url"],
+                            timeout=min(initial_timeout * (1.5 ** (download_attempt - 1)), 900)
+                        )
+                        img_response.raise_for_status()
+                        pil_img = Image.open(BytesIO(img_response.content))
+                        out.append(pil2tensor(pil_img))
+                        break
+                    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                        if download_attempt == max_retries:
+                            break
+                        time.sleep(min(2 ** (download_attempt - 1), 60))
+        return out
+
+    def _edits(
+        self, prompt, image1, image2, image3, image4, image5,
+        image6, image7, image8, image9, image10,
+        image11, image12, image13, image14, image15, image16,
+        mask, n, quality, aspect_ratio, resolution, background,
+        output_format, output_compression, moderation, response_format, model, max_retries, initial_timeout, pbar,
+        custom_width=2560, custom_height=1280
+    ):
+        data, request_files = self._build_official_edits_multipart(
+            prompt, image1, image2, image3, image4, image5,
+            image6, image7, image8, image9, image10,
+            image11, image12, image13, image14, image15, image16,
+            mask, n, quality, aspect_ratio, resolution, background,
+            output_format, output_compression, moderation, response_format, model,
+            custom_width=custom_width, custom_height=custom_height,
+        )
+        pbar.update_absolute(20)
+        response = self.make_request_with_retry(
+            f"{baseurl}/v1/images/edits",
+            data=data,
+            files=request_files,
+            max_retries=max_retries,
+            initial_timeout=initial_timeout,
+        )
+        pbar.update_absolute(60)
+        return response.json()
+
+    def generate(
+        self, prompt, aspect_ratio="empty", resolution="1k",
+        image1=None, image2=None, image3=None, image4=None, image5=None,
+        image6=None, image7=None, image8=None, image9=None, image10=None,
+        image11=None, image12=None, image13=None, image14=None, image15=None, image16=None,
+        mask=None, api_key="", model="gpt-image-2",
+        n=1, quality="auto", background="auto",
+        output_format="png", output_compression=100, moderation="auto",
+        response_format="url",
+        async_mode=True, webhook="", max_poll_attempts=300, poll_interval=5,
+        max_retries=5, initial_timeout=900, seed=0, skip_error=False,
+        custom_width=2560, custom_height=1280
+    ):
+        request_id = generate_request_id("image_gen", "openai")
+        log_prepare("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", model_name=model)
+        rn_pbar = ProgressBar(
+            request_id,
+            "OpenAI",
+            extra_info=f"模型:{model}",
+            streaming=True,
+            task_type="图像生成",
+            source="RunNode/OpenAI-",
+        )
+        _rn_start = time.perf_counter()
+
+        if api_key.strip():
+            self.api_key = api_key
+        else:
+            self.api_key = get_config().get('api_key', '')
+
+        blank = Image.new('RGB', (1024, 1024), color='white')
+        blank_t = pil2tensor(blank)
+
+        if not self.api_key:
+            msg = "API key not found in Comflyapi.json"
+            rn_pbar.error(msg)
+            log_error("API Key缺失", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio_stable] {msg}")
+            return (blank_t, "", msg)
+
+        input_images = [img for img in [image1, image2, image3, image4, image5,
+                         image6, image7, image8, image9, image10,
+                         image11, image12, image13, image14, image15, image16] if img is not None]
+        num_input_images = len(input_images)
+
+        pbar = comfy.utils.ProgressBar(100)
+        pbar.update_absolute(5)
+        rn_pbar.set_generating()
+        log_backend(
+            "openai_gpt_image2_official_ratio_stable_start",
+            request_id=request_id,
+            model=model,
+            async_mode=bool(async_mode),
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            elapsed_ms=0,
+        )
+
+        def _info_common(mode_line):
+            s = f"**Comfly gpt-image-2 (official stable)** {mode_line}\n"
+            s += f"Model: {model}\n"
+            s += f"Prompt: {prompt}\n"
+            s += f"Aspect Ratio: {aspect_ratio}\n"
+            s += f"Resolution: {resolution}\n"
+            s += f"Quality: {quality}\n"
+            s += f"Input Images: {num_input_images}\n"
+            if background != "auto":
+                s += f"Background: {background}\n"
+            s += f"Output: {output_format}\n"
+            return s
+
+        try:
+            if async_mode:
+                combined, image_url, task_id, final_result = self._async_official(
+                    prompt,
+                    image1, image2, image3, image4, image5,
+                    image6, image7, image8, image9, image10,
+                    image11, image12, image13, image14, image15, image16,
+                    mask, pbar, max_poll_attempts, poll_interval, webhook,
+                    n, quality, aspect_ratio, resolution, background,
+                    output_format, output_compression, moderation, response_format, model,
+                    max_retries, initial_timeout,
+                    custom_width, custom_height,
+                )
+                mode = "async: POST /v1/images/edits?async=true, GET /v1/images/tasks/{task_id}"
+                info = _info_common(mode)
+                info += f"Task ID: {task_id}\n"
+                if image_url:
+                    info += f"Image URL: {image_url}\n"
+                if final_result:
+                    inner = final_result.get("data", {})
+                    inner_data = inner.get("data", {}) if isinstance(inner, dict) else {}
+                    if (
+                        isinstance(inner_data, dict)
+                        and "usage" in inner_data
+                    ):
+                        usage = inner_data["usage"]
+                        info += f"Total Tokens: {usage.get('total_tokens', 'N/A')}\n"
+                rn_pbar.done(char_count=len(info), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+                log_complete("图像生成", request_id, "RunNode/OpenAI-", "OpenAI", image_url=safe_public_url(image_url) if image_url else None)
+                log_backend(
+                    "openai_gpt_image2_official_ratio_stable_done",
+                    request_id=request_id,
+                    model=model,
+                    task_id=task_id,
+                    image_url=safe_public_url(image_url) if image_url else None,
+                    images_count=int(combined.shape[0]),
+                    elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+                )
+                return (combined, image_url or "", info)
+
+            result = self._edits(
+                prompt, image1, image2, image3, image4, image5,
+                image6, image7, image8, image9, image10,
+                image11, image12, image13, image14, image15, image16,
+                mask, n, quality, aspect_ratio, resolution, background,
+                output_format, output_compression, moderation, response_format, model,
+                max_retries, initial_timeout, pbar,
+                custom_width, custom_height
+            )
+            mode = "sync: /v1/images/edits (multipart" + (
+                ", blank ref" if num_input_images == 0 else f", {num_input_images} images"
+            ) + (", mask" if mask is not None else "") + ")"
+
+            if "data" not in result or not result["data"]:
+                msg = f"No image data in response: {result}"
+                rn_pbar.error(msg)
+                log_error("结果缺失", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio_stable] {msg}")
+                return (blank_t, "", msg)
+
+            tensors = self._items_to_tensors(result, max_retries, initial_timeout)
+            pbar.update_absolute(95)
+
+            if not tensors:
+                msg = "No images decoded from response"
+                rn_pbar.error(msg)
+                log_error("结果解析失败", request_id, msg, "RunNode/OpenAI-", "OpenAI")
+                if not skip_error:
+                    raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio_stable] {msg}")
+                return (blank_t, "", msg)
+
+            combined = torch.cat(tensors, dim=0)
+            pbar.update_absolute(100)
+
+            info = _info_common(mode)
+            if "usage" in result:
+                u = result["usage"]
+                if isinstance(u, dict):
+                    if "total_tokens" in u:
+                        info += f"Total tokens: {u['total_tokens']}\n"
+                    if "input_tokens" in u:
+                        info += f"Input tokens: {u['input_tokens']}\n"
+                    if "output_tokens" in u:
+                        info += f"Output tokens: {u['output_tokens']}\n"
+
+            rn_pbar.done(char_count=len(info), elapsed_ms=int((time.perf_counter() - _rn_start) * 1000))
+            log_complete("图像生成", request_id, "RunNode/OpenAI-", "OpenAI")
+            log_backend(
+                "openai_gpt_image2_official_ratio_stable_done",
+                request_id=request_id,
+                model=model,
+                images_count=int(combined.shape[0]),
+                elapsed_ms=int((time.perf_counter() - _rn_start) * 1000),
+            )
+            return (combined, "", info)
+
+        except Exception as e:
+            error_message = f"Comfly_gpt_image_2_official_ratio_stable error: {format_runnode_error(e)}"
+            rn_pbar.error(error_message)
+            log_error("异常", request_id, error_message, "RunNode/OpenAI-", "OpenAI")
+            log_backend_exception(
+                "openai_gpt_image2_official_ratio_stable_exception",
+                request_id=request_id,
+                model=model,
+                error=str(e),
+            )
+            if not skip_error:
+                raise RuntimeError(f"[Comfly_gpt_image_2_official_ratio_stable] {error_message}") from e
+            return (blank_t, "", error_message)

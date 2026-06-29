@@ -56,11 +56,19 @@
       },
       "gpt-image-2": {
         "billing_type": "per_use",
-        "price_per_use": 0.054
+        "price_per_use": 0.081
       },
       "gpt-image-2-all": {
         "billing_type": "per_use",
         "price_per_use": 0.054
+      },
+      "gpt-image-2-2K": {
+        "billing_type": "per_use",
+        "price_per_use": 0.108
+      },
+      "gpt-image-2-4K": {
+        "billing_type": "per_use",
+        "price_per_use": 0.108
       }
     },
 
@@ -128,7 +136,7 @@
         "input_price_per_1k": 0.0054,
         "output_price_per_1k": 0.0324
       },
-      "gemini-3.1-flash-image-preview": {
+      "gemini-3.1-flash-image": {
         "billing_type": "per_use",
         "price_per_use": 0.135
       },

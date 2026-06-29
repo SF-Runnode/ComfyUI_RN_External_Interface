@@ -765,7 +765,7 @@ class Comfly_nano_banana:
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "tooltip": "图像生成的描述提示词。详细描述想要生成的图像内容。"}),
-                "model": (["nano-banana-2", "gemini-3-pro-image-preview", "gemini-2.5-flash-image", "nano-banana", "nano-banana-hd", "gemini-2.5-flash-image-preview"], {"default": "nano-banana", "tooltip": "Google图像生成模型版本。nano-banana为轻量快速版本，hd为高清版本。"}),
+                "model": (["nano-banana-2", "gemini-3-pro-image", "gemini-2.5-flash-image", "nano-banana", "nano-banana-hd", "gemini-2.5-flash-image-preview"], {"default": "nano-banana", "tooltip": "Google图像生成模型版本。nano-banana为轻量快速版本，hd为高清版本。"}),
             },
             "optional": {
                 "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
@@ -1300,7 +1300,7 @@ class Comfly_nano_banana_edit:
                 "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。详细描述想要生成或修改的图像内容。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
                 "model": (["nano-banana", "nano-banana-hd"], {"default": "nano-banana", "tooltip": "nano-banana模型版本。hd为高清版本。"}),
-                "aspect_ratio": (["16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "1:1", "tooltip": "图像宽高比。"}),
+                "aspect_ratio": (["16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "1:1", "tooltip": "图像宽高比。"}),
             },
             "optional": {
                 "image1": ("IMAGE", {"tooltip": "参考图像1。"}),
@@ -1487,7 +1487,7 @@ class Comfly_nano_banana2_edit:
                 "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。详细描述想要生成或修改的图像内容。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。1K约1024px，2K约2048px，4K约4096px。"}),
             },
             "optional": {
@@ -1714,7 +1714,7 @@ class Comfly_nano_banana2_edit_S2A:
                 "prompt": ("STRING", {"multiline": True, "tooltip": "图像生成或编辑的描述提示词。详细描述想要生成或修改的图像内容。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。1K约1024px，2K约2048px，4K约4096px。"}),
             },
             "optional": {
@@ -2319,7 +2319,7 @@ class Comfly_banana2_edit_group:
             "optional": {
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。url返回图像URL，b64_json返回base64编码。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"}),
@@ -2392,7 +2392,7 @@ class Comfly_banana2_edit_S2A_group:
             "optional": {
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。text2img为文生图，img2img为图生图。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "nano-banana-2模型版本。2k和4k表示输出分辨率。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "图像宽高比。auto表示由模型自动选择。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出图像分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。url返回图像URL，b64_json返回base64编码。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。0表示随机。"}),
@@ -2661,7 +2661,7 @@ class Comfly_banana2_edit_run_4:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -2695,7 +2695,7 @@ class Comfly_banana2_edit_run_8:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -2729,7 +2729,7 @@ class Comfly_banana2_edit_run_16:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -2765,7 +2765,7 @@ class Comfly_banana2_edit_run_32:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -3016,7 +3016,7 @@ class Comfly_banana2_edit_S2A_run_4:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -3052,7 +3052,7 @@ class Comfly_banana2_edit_S2A_run_8:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -3088,7 +3088,7 @@ class Comfly_banana2_edit_S2A_run_16:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "img2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -3132,7 +3132,7 @@ class Comfly_banana2_edit_S2A_run_32:
                 "global_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "全局提示词。会被追加到每个提示词之后。"}),
                 "mode": (["text2img", "img2img"], {"default": "text2img", "tooltip": "生成模式。"}),
                 "model": (["nano-banana-2", "nano-banana-2-2k", "nano-banana-2-4k"], {"default": "nano-banana-2", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9"], {"default": "auto", "tooltip": "宽高比。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21"], {"default": "auto", "tooltip": "宽高比。"}),
                 "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
                 "response_format": (["url", "b64_json"], {"default": "url", "tooltip": "响应格式。"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 2147483647, "tooltip": "随机种子。"}),
@@ -3173,9 +3173,9 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
             "required": {
                 "prompt": ("STRING", {"multiline": True, "tooltip": "生成提示词。"}),
                 "mode": (["text2img", "img2img"], {"default": "text2img", "tooltip": "生成模式。"}),
-                "model": (["gemini-3.1-flash-image-preview"], {"default": "gemini-3.1-flash-image-preview", "tooltip": "模型版本。"}),
-                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "1:4", "4:1", "1:8", "8:1"], {"default": "auto"}),
-                "image_size": (["1K", "2K", "4K"], {"default": "2K"}),
+                "model": (["gemini-3.1-flash-image"], {"default": "gemini-3.1-flash-image", "tooltip": "模型版本。"}),
+                "aspect_ratio": (["auto", "16:9", "4:3", "4:5", "3:2", "1:1", "2:3", "3:4", "5:4", "9:16", "21:9", "9:21", "1:4", "4:1", "1:8", "8:1"], {"default": "auto"}),
+                "image_size": (["1K", "2K", "4K"], {"default": "2K", "tooltip": "输出分辨率。"}),
             },
             "optional": {
                 "image1": ("IMAGE", {"tooltip": "第1个图像的输入图像。"}),
@@ -3224,7 +3224,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
         pil_image.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-    def generate_image(self, prompt, mode="text2img", model="gemini-3.1-flash-image-preview", aspect_ratio="auto",
+    def generate_image(self, prompt, mode="text2img", model="gemini-3.1-flash-image", aspect_ratio="auto",
                       image_size="2K", image1=None, image2=None, image3=None, image4=None,
                       image5=None, image6=None, image7=None, image8=None, image9=None,
                       image10=None, image11=None, image12=None, image13=None, image14=None,
@@ -3276,7 +3276,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                     
                 }
                 
-                if model == "gemini-3.1-flash-image-preview":
+                if model == "gemini-3.1-flash-image":
                     payload["image_size"] = image_size
 
                 if response_format:
@@ -3295,7 +3295,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                     mode=mode,
                     model=model,
                     aspect_ratio=aspect_ratio,
-                    image_size=image_size if model == "gemini-3.1-flash-image-preview" else None,
+                    image_size=image_size if model == "gemini-3.1-flash-image" else None,
                 )
                 response = requests.post(
                     api_url,
@@ -3328,7 +3328,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                     "aspect_ratio": aspect_ratio
                 }
 
-                if model == "gemini-3.1-flash-image-preview":
+                if model == "gemini-3.1-flash-image":
                     data["image_size"] = image_size
 
                 if response_format:
@@ -3347,7 +3347,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                     mode=mode,
                     model=model,
                     aspect_ratio=aspect_ratio,
-                    image_size=image_size if model == "gemini-3.1-flash-image-preview" else None,
+                    image_size=image_size if model == "gemini-3.1-flash-image" else None,
                     images_in=image_count,
                 )
                 response = requests.post(
@@ -3393,7 +3393,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                     "mode": mode,
                     "prompt": prompt,
                     "aspect_ratio": aspect_ratio,
-                    "image_size": image_size if model == "gemini-3.1-flash-image-preview" else None,
+                    "image_size": image_size if model == "gemini-3.1-flash-image" else None,
                     "seed": seed if seed > 0 else None,
                     "message": "Async task created successfully. Please use this task_id to query the status."
                 }
@@ -3508,7 +3508,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                                             "mode": mode,
                                             "prompt": prompt,
                                             "aspect_ratio": aspect_ratio,
-                                            "image_size": image_size if model == "gemini-3.1-flash-image-preview" else None,
+                                            "image_size": image_size if model == "gemini-3.1-flash-image" else None,
                                             "seed": seed if seed > 0 else None,
                                             "images_count": len(generated_tensors),
                                             "image_url": first_image_url,
@@ -3604,7 +3604,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                 image_urls = []
                 response_info = f"Generated {len(result['data'])} images using {model}\n"
                 
-                if model == "gemini-3.1-flash-image-preview":
+                if model == "gemini-3.1-flash-image":
                     response_info += f"Image size: {image_size}\n"
                 
                 response_info += f"Aspect ratio: {aspect_ratio}\n"
@@ -3678,7 +3678,7 @@ class Comfly_gemini_3_1_flash_image_edit_S2A:
                         "mode": mode,
                         "prompt": prompt,
                         "aspect_ratio": aspect_ratio,
-                        "image_size": image_size if model == "gemini-3.1-flash-image-preview" else None,
+                        "image_size": image_size if model == "gemini-3.1-flash-image" else None,
                         "seed": result.get("seed", seed) if seed > 0 else None,
                         "images_count": len(generated_tensors),
                         "image_url": first_image_url,

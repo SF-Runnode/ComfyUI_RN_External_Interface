@@ -54,6 +54,9 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_gpt_image_1": Comfly_gpt_image_1,
     "RunNode_gpt_image_2": Comfly_gpt_image_2,
     "RunNode_gpt_image_2_S2A": Comfly_gpt_image_2_S2A,
+    "RunNode_gpt_image_2_official": Comfly_gpt_image_2_official,
+    "RunNode_gpt_image_2_official_ratio": Comfly_gpt_image_2_official_ratio,
+    "RunNode_gpt_image_2_official_ratio_stable": Comfly_gpt_image_2_official_ratio_stable,
     "RunNode_Flux_Kontext": Comfly_Flux_Kontext,
     "RunNode_Flux_Kontext_Edit": Comfly_Flux_Kontext_Edit,
     "RunNode_Flux_Kontext_bfl": Comfly_Flux_Kontext_bfl,
@@ -62,6 +65,7 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_Flux_2_Flex": Comfly_Flux_2_Flex,
     "RunNode_Gemini_TextOnly": ComflyGeminiTextOnly,
     "RunNode_Googel_Veo3": Comfly_Googel_Veo3,
+    "RunNode_Comfly_veo_omini": Comfly_veo_omini,
     "RunNode_mj_video": Comfly_mj_video,
     "RunNode_mj_video_extend": Comfly_mj_video_extend,
     "RunNode_qwen_image": Comfly_qwen_image,
@@ -105,7 +109,9 @@ NODE_CLASS_MAPPINGS = {
     "RunNode_Z_image_turbo": Comfly_Z_image_turbo,
     # "RunNode_wan2_6_API": Comfly_wan2_6_API,
     "RunNode_LLm_API": Comfly_LLm_API,
+    "RunNode_grok_image": Comfly_grok_image,
     "RunNode_Grok3VideoApi": ComflyGrok3VideoApi,
+    "RunNode_grok_video_1_5": Comfly_grok_video_1_5,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -144,6 +150,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_gpt_image_1": "RunNode GPT-Image 1",
     "RunNode_gpt_image_2": "RunNode GPT-Image 2",
     "RunNode_gpt_image_2_S2A": "RunNode GPT-Image 2 S2A",
+    "RunNode_gpt_image_2_official": "RunNode GPT-Image 2 Official",
+    "RunNode_gpt_image_2_official_ratio": "RunNode GPT-Image 2 Official Ratio",
+    "RunNode_gpt_image_2_official_ratio_stable": "RunNode GPT-Image 2 Official Ratio Stable",
     "RunNode_Flux_Kontext": "RunNode Flux Kontext",
     "RunNode_Flux_Kontext_Edit": "RunNode Flux Kontext Edit",
     "RunNode_Flux_Kontext_bfl": "RunNode Flux Kontext bfl",
@@ -152,6 +161,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_Flux_2_Flex": "RunNode Flux 2 Flex",
     "RunNode_Gemini_TextOnly": "RunNode Gemini TextOnly",
     "RunNode_Googel_Veo3": "RunNode Google Veo3",
+    "RunNode_Comfly_veo_omini": "RunNode Comfly_veo_omini",
     "RunNode_mj_video": "RunNode MJ Video",
     "RunNode_mj_video_extend": "RunNode MJ Video Extend",
     "RunNode_qwen_image": "RunNode qwen_image",
@@ -195,7 +205,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunNode_Z_image_turbo": "RunNode Z Image Turbo",
     # "RunNode_wan2_6_API": "RunNode wan2.6 video",
     "RunNode_LLm_API": "RunNode LLM API",
+    "RunNode_grok_image": "RunNode Grok_image",
     "RunNode_Grok3VideoApi": "RunNode Grok3 Video",
+    "RunNode_grok_video_1_5": "RunNode Grok_video_1_5",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

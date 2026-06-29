@@ -672,3 +672,126 @@ def _doubao_seedance_io_file_to_bytes(media_input, bytesio_ext=".mp4", label="me
 
 def _doubao_seedance_video_input_to_bytes(video_input):
     return _doubao_seedance_io_file_to_bytes(video_input, ".mp4", "video")
+
+
+def encode_video_b64(video):
+    """
+    Encode ComfyUI VIDEO object to base64 MP4 bytes with compression.
+    Apply ffmpeg compression to reduce base64 size.
+    """
+    video_path = _get_video_file_path(video)
+    temp_original = None
+    
+    # If no path, save to temp file first
+    if not video_path:
+        if hasattr(video, "save_to"):
+            temp_original = f"temp_video_original_{time.time()}.mp4"
+            try:
+                video.save_to(temp_original)
+                video_path = temp_original
+            except Exception as e:
+                print(f"[LLM API] Error saving video: {str(e)}")
+                raise ValueError(f"Unable to save video: {str(e)}")
+        else:
+            raise ValueError(f"Unable to read video data from object type: {type(video)}")
+    
+    # Get original video info
+    try:
+        probe_cmd = [
+            'ffprobe', '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=width,height,duration',
+            '-of', 'json',
+            video_path
+        ]
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        if probe_result.returncode == 0:
+            import json
+            probe_data = json.loads(probe_result.stdout)
+            if 'streams' in probe_data and len(probe_data['streams']) > 0:
+                stream = probe_data['streams'][0]
+                width = stream.get('width', 0)
+                height = stream.get('height', 0)
+                duration = float(stream.get('duration', 0))
+                print(f"[LLM API] Original video: {width}x{height}, {duration:.1f}s")
+    except Exception as e:
+        print(f"[LLM API] Could not probe video: {e}")
+    
+    # Get original file size
+    try:
+        original_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+        print(f"[LLM API] Original video file size: {original_size_mb:.2f}MB")
+    except:
+        original_size_mb = 0
+    
+    # Compress video using ffmpeg
+    compressed_path = f"temp_video_compressed_{time.time()}.mp4"
+    
+    try:
+        # Compression strategy:
+        # 1. Extract only first 5 seconds (sufficient for analysis)
+        # 2. Limit resolution to 720p max (1280x720)
+        # 3. Lower bitrate to 400k
+        # 4. Reduce frame rate to 10fps
+        # 5. Use fast encoding preset
+        compress_cmd = [
+            'ffmpeg', '-i', video_path,
+            '-t', '5',  # Only first 5 seconds
+            '-vf', 'scale=\'min(1280,iw)\':-2',  # Max width 1280, keep aspect ratio
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '30',  # Higher CRF = more compression
+            '-b:v', '400k',  # Limit video bitrate
+            '-maxrate', '400k',
+            '-bufsize', '800k',
+            '-r', '10',  # 10 fps (reduced for smaller size)
+            '-an',  # Remove audio to save size
+            '-y',  # Overwrite output
+            compressed_path
+        ]
+        
+        print(f"[LLM API] Compressing video (first 5s only) with ffmpeg...")
+        result = subprocess.run(compress_cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode != 0:
+            print(f"[LLM API] FFmpeg compression failed: {result.stderr}")
+            # Fallback: use original video
+            final_path = video_path
+        else:
+            compressed_size_mb = os.path.getsize(compressed_path) / (1024 * 1024)
+            print(f"[LLM API] Compressed video size: {compressed_size_mb:.2f}MB (reduced {((original_size_mb - compressed_size_mb) / original_size_mb * 100):.1f}%)")
+            final_path = compressed_path
+            
+    except FileNotFoundError:
+        print(f"[LLM API] Warning: ffmpeg not found, using original video without compression")
+        final_path = video_path
+    except subprocess.TimeoutExpired:
+        print(f"[LLM API] Warning: ffmpeg timeout, using original video")
+        final_path = video_path
+    except Exception as e:
+        print(f"[LLM API] Warning: compression failed ({str(e)}), using original video")
+        final_path = video_path
+    
+    # Read and encode to base64
+    try:
+        with open(final_path, "rb") as f:
+            video_bytes = f.read()
+            base64_data = base64.b64encode(video_bytes).decode("utf-8")
+            
+        base64_size_mb = len(base64_data) / (1024 * 1024)
+        print(f"[LLM API] Final video base64 size: {base64_size_mb:.2f}MB")
+        
+        if base64_size_mb > 10.0:
+            print(f"[LLM API] Warning: Base64 size is very large ({base64_size_mb:.2f}MB), may cause API issues")
+        
+        return base64_data
+        
+    finally:
+        # Cleanup temp files
+        try:
+            if temp_original and os.path.exists(temp_original):
+                os.remove(temp_original)
+            if os.path.exists(compressed_path):
+                os.remove(compressed_path)
+        except Exception:
+            pass
